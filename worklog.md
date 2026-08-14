@@ -216,6 +216,45 @@ Stage Summary:
 - 前端构建零错误，已推送GitHub
 
 ---
+Task ID: 10
+Agent: main
+Task: Phase 7 — AI陪练模块（场景列表 + SSE流式对话 + AI客户角色扮演 + 三维评分）
+
+Work Log:
+- 修复 ScenarioList schema 缺失的 category 字段
+- 新增陪练系统提示词模板 _ROLEPLAY_SYSTEM_PROMPT（AI客户角色扮演）
+- 增强 send_message: AI Gateway集成动态客户回复
+  - 无预写回复时自动切换LLM生成（基于场景人设+对话历史）
+  - 保留23个场景预写回复作为Demo模式快速响应
+- 新增前端 trainingService.ts:
+  - streamTrainingMessage(): SSE流式陪练对话（message_start→token→coaching→turn_complete）
+  - streamTrainingScore(): SSE流式评分（scoring_start→token→score_data→scoring_complete）
+  - 完整CRUD API（getScenarios/startSession/getSessions/getSession/getTrainingStats）
+- 新增 TrainingChatPage.tsx:
+  - 完整陪练对话界面（代理人→AI客户→教练辅导）
+  - 三种消息气泡样式（蓝色代理人/白色客户/绿色教练提示）
+  - 客户人设侧边栏（姓名/性格/异议标签）
+  - 教练提示实时展示（共情/产品/促单三类）
+  - 评分面板（综合分数+三维进度条+优劣势+建议）
+- 完全重写 TrainingPage.tsx:
+  - 双Tab布局（训练场景/历史记录）
+  - 分类筛选（7类场景）+ 难度筛选（入门/进阶/挑战）
+  - 23个场景卡片网格 + 历史记录列表
+- 路由更新: /training/chat/:scenarioId → TrainingChatPage
+
+- 验证结果：
+  - 后端23个场景CRUD + SSE对话 + 评分 全部通过 ✅
+  - AI Gateway客户角色扮演集成验证通过 ✅
+  - 前端TypeScript编译 0 errors ✅
+  - 前端Vite build OK (480KB JS gzip:144KB) ✅
+  - Pushed to GitHub ✅
+
+Stage Summary:
+- AI陪练模块完整实现：23个场景 + SSE流式对话 + AI客户角色扮演 + 三维评分
+- 前端双Tab（场景选择+历史记录）+ 完整对话界面 + 实时评分面板
+- 前端构建零错误，已推送GitHub
+
+---
 Task ID: 9
 Agent: main
 Task: Phase 6 — AI话术模块（多风格SSE流式生成 + RAG知识增强 + 合规引擎）
