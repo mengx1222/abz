@@ -227,35 +227,28 @@ make clean      # 清理所有数据（包括数据库卷）
 
 | 变量名 | 说明 | 默认值 |
 |--------|------|--------|
-| `APP_ENV` | 运行环境 | `development` |
-| `DEMO_MODE` | 是否启用 Demo 模式 | `true` |
-| `DATABASE_URL` | PostgreSQL 异步连接串 | — |
-| `REDIS_URL` | Redis 连接地址 | — |
-| `JWT_SECRET_KEY` | JWT 签名密钥 | — |
-| `AI_PROVIDER` | AI 服务商（mock/openai/deepseek/qwen/zhipu） | `mock` |
-| `AI_API_KEY` | AI API 密钥 | — |
-| `AI_MODEL` | 对话模型名称 | `gpt-4o` |
-| `LOG_LEVEL` | 日志级别 | `INFO` |
+| `AZB_APP_ENV` | 运行环境 | `development` |
+| `AZB_DEMO_MODE` | 是否启用 Demo 模式 | `true` |
+| `AZB_DATABASE_URL` | PostgreSQL 异步连接串 | — |
+| `AZB_REDIS_URL` | Redis 连接地址 | — |
+| `AZB_JWT_SECRET_KEY` | JWT 签名密钥 | — |
+| `AZB_AI_PROVIDER` | AI 服务商（mock/deepseek/qwen/openai） | `mock` |
+| `AZB_AI_MODEL` | 对话模型名称 | — |
 
-> ⚠️ **生产环境安全提醒**：
-> - 必须将 `DEMO_MODE` 设为 `false`
-> - 必须修改 `SECRET_KEY`、`JWT_SECRET_KEY`、`DATA_ENCRYPTION_KEY` 为强随机密钥
-> - 必须修改所有默认密码
+> ⚠️ **注意**：所有后端环境变量使用 `AZB_` 前缀，避免与宿主环境冲突。
 
 ---
 
 ## 👤 Demo 账号
 
-Demo 模式下预置以下测试账号（密码统一为 `demo123`）：
+Demo 模式下预置以下测试账号（验证码统一为 `888888`）：
 
-| 角色 | 账号 | 所属机构 | 所属团队 |
-|------|------|---------|---------|
-| 系统管理员 | `admin` | 总部 | — |
-| 总部管理员 | `hq_admin` | 总部 | — |
-| 分公司管理员 | `branch_admin` | 华东分公司 | — |
-| 团队主管 | `supervisor_1` | 华东分公司 | 销售一组 |
-| 团队主管 | `supervisor_2` | 华东分公司 | 销售二组 |
-| 代理人 | `agent_01` ~ `agent_10` | 华东分公司 | 销售一/二组 |
+| 姓名 | 手机号 | 角色 | 所属机构 |
+|------|--------|------|----------|
+| 林思远 | `13800138000` | 代理人 (AGENT) | 上海分公司-浦东团队 |
+| 张伟 | `13800138001` | 团队长 (TEAM_LEADER) | 上海分公司-浦东团队 |
+| 李芳 | `13800138002` | 分公司管理员 (BRANCH_ADMIN) | 上海分公司 |
+| 王强 | `13800138003` | 系统管理员 (SYSTEM_ADMIN) | 华安保险总部 |
 
 ---
 
