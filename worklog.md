@@ -797,3 +797,32 @@ Stage Summary:
 - script_service 从 DEMO_ONLY(6)+NEEDS_WORK(1) → PRODUCTION_READY(6)+NEEDS_WORK(1, RAG)
 - Service Production 路径总计: PRODUCTION_READY 25→31, DEMO_ONLY 8→2
 - 下一阶段: notification_service (4 方法) 生产化
+
+---
+Task ID: 23
+Agent: main
+Task: Task 3 — Notification Service Production 化
+
+Work Log:
+- 审计确认 notification_service 4 个方法生产路径全部使用硬编码零 UUID（"TODO: resolve from user_phone"），且偏好读写生产路径损坏:
+  - get_preferences 生产路径返回写死的单条偏好
+  - update_preference 用 repo.upsert(user_id, type=..., enabled=...) 尝试写入不存在的 type 列（会 AttributeError）
+- 4 个方法签名从 user_phone 改为 user_id: uuid.UUID，API 层改为传 current_user.id:
+  - list_notifications: 按用户查询 + 类型筛选 + 未读数 + 相对时间
+  - mark_read: 按 ID / 全部标记已读 + 事务回滚
+  - get_preferences: 从单行多布尔列模型构建 5 类偏好（community_enabled 映射为业务上的 achievement 偏好，与前端一致）
+  - update_preference: type → 对应布尔列写库（未知类型抛 ValueError）+ 事务回滚
+- 修复相对时间 naive datetime 问题（SQLite 不保留时区，按 UTC 处理）
+- 新增 11 个生产路径测试 tests/unit/test_notification_service_production.py
+
+验证结果:
+- 后端 pytest: 174 passed (53.13s)（含 11 个新增通知生产路径测试）
+- 前端 vitest + vite build: 通过
+- CI (GitHub Actions): backend + frontend 双 job 全部通过
+- 真实 PostgreSQL 未验证（SQLite 完成近似 Production 验证，真实 PG 验收属于后续任务）
+- Pushed to GitHub ✅
+
+Stage Summary:
+- notification_service 从 NEEDS_WORK(4) → PRODUCTION_READY(4)
+- Service Production 路径总计: PRODUCTION_READY 31→35, NEEDS_WORK 9→5, DEMO_ONLY 2
+- 下一阶段: growth_service (2 方法) 生产化
