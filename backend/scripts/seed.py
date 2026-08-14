@@ -20,6 +20,7 @@ from app.models.role import Role
 from app.models.permission import Permission, role_permissions
 from app.models.organization import Organization, OrgType
 from app.models.user import User
+from app.services.training_service import seed_training_scenarios
 
 
 # ============================================================
@@ -313,12 +314,22 @@ async def seed_database():
             print(f"   ✅ {u['name']} ({u['phone']}) → {u['role_code']} @ {u['org_name']}")
         await session.flush()
 
+        # ---- 6. Training Scenarios (幂等) ----
+        print("\n📦 创建训练场景...")
+        training_created = await seed_training_scenarios(session)
+        if training_created:
+            print(f"   ✅ 新增训练场景: {training_created} 个")
+        else:
+            print("   ⏭️  训练场景已存在，跳过")
+        await session.flush()
+
         await session.commit()
         print(f"\n🎉 种子数据填充完成！")
         print(f"   角色: {len(ROLES)} 个")
         print(f"   权限: {len(PERMISSIONS)} 个")
         print(f"   组织: {len(ORGANIZATIONS)} 个")
         print(f"   用户: {len(DEMO_USERS)} 个 (全部为演示模式)")
+        print(f"   训练场景: {training_created} 个 (本次新增)")
 
     await engine.dispose()
 

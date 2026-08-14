@@ -2,19 +2,27 @@
 
 演示模式使用内存数据，包含 23 个预设场景。
 """
+import asyncio
 import json
-import uuid
 import random
+import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone, timedelta
 
 from structlog import get_logger
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.gateway import get_ai_gateway
 from app.core.config import settings
-from app.repositories.training_repo import TrainingScenarioRepository, TrainingSessionRepository
+from app.models.training import TrainingScenario
+from app.repositories.training_repo import (
+    TrainingScenarioRepository,
+    TrainingSessionRepository,
+    TrainingMessageRepository,
+    TrainingScoreRepository,
+)
 
 logger = get_logger()
 
@@ -899,6 +907,109 @@ def _pick_random(lst: list) -> str:
     return random.choice(lst)
 
 
+def _iso_from_datetime(dt: datetime) -> str:
+    """序列化时区感知时间为 ISO 字符串。"""
+    return dt.isoformat()
+
+
+# ------------------------------------------------------------------
+# Production serializers (ORM → Schema dict)
+# ------------------------------------------------------------------
+
+def _serialize_scenario(scenario: TrainingScenario) -> dict:
+    """序列化场景为 Schema 所需 dict（生产路径）。"""
+    return {
+        "id": str(scenario.id),
+        "title": scenario.title,
+        "description": scenario.description,
+        "difficulty": scenario.difficulty,
+        "product_focus": scenario.product_focus,
+        "sales_stage": scenario.sales_stage,
+        "duration_minutes": scenario.duration_minutes,
+        "customer_persona": scenario.customer_persona or {},
+        "category": "",
+    }
+
+
+def _serialize_scenario_detail(scenario: TrainingScenario) -> dict:
+    """序列化场景详情。"""
+    data = _serialize_scenario(scenario)
+    data["evaluation_criteria"] = scenario.evaluation_criteria or {}
+    return data
+
+
+def _serialize_message(msg) -> dict:
+    """序列化训练消息。"""
+    return {
+        "id": str(msg.id),
+        "role": msg.role,
+        "content": msg.content,
+        "created_at": _iso_from_datetime(msg.created_at),
+        "score": msg.score,
+        "coaching_hint": msg.coaching_hint or None,
+    }
+
+
+def _serialize_session(session) -> dict:
+    """序列化训练会话为列表项 dict。"""
+    total_score = None
+    if session.score is not None:
+        total_score = session.score.total_score
+    return {
+        "id": str(session.id),
+        "scenario_id": str(session.scenario_id) if session.scenario_id else None,
+        "scenario_title": session.scenario.title if session.scenario is not None else None,
+        "status": session.status,
+        "started_at": (
+            _iso_from_datetime(session.started_at) if session.started_at else _iso_now()
+        ),
+        "completed_at": (
+            _iso_from_datetime(session.completed_at) if session.completed_at else None
+        ),
+        "message_count": session.message_count,
+        "total_score": total_score,
+    }
+
+
+def _serialize_session_detail(session) -> dict:
+    """序列化训练会话详情（含消息）。"""
+    data = _serialize_session(session)
+    data["messages"] = [_serialize_message(m) for m in session.messages]
+    return data
+
+
+# ------------------------------------------------------------------
+# Production scenario seeding
+# ------------------------------------------------------------------
+
+async def seed_training_scenarios(session: AsyncSession) -> int:
+    """将内置训练场景写入数据库（幂等），返回新增数量。
+
+    Production 模式下训练场景必须存在于数据库，此函数供种子脚本调用。
+    """
+    repo = TrainingScenarioRepository(session)
+    created = 0
+    for s in _DEMO_SCENARIOS:
+        existing = await session.execute(
+            select(TrainingScenario).where(TrainingScenario.title == s["title"])
+        )
+        if existing.scalar_one_or_none() is not None:
+            continue
+        await repo.create(
+            title=s["title"],
+            description=s["description"],
+            difficulty=s["difficulty"],
+            customer_persona=s.get("customer_persona", {}),
+            product_focus=s.get("product_focus"),
+            sales_stage=s.get("sales_stage"),
+            evaluation_criteria=s.get("evaluation_criteria", {}),
+            duration_minutes=s.get("duration_minutes", 10),
+            is_active=s.get("is_active", True),
+        )
+        created += 1
+    return created
+
+
 # ---- 陪练系统提示词（用于AI客户角色扮演） ----
 
 _ROLEPLAY_SYSTEM_PROMPT = """你正在扮演一位保险潜在客户，参加销售模拟训练。你需要完全进入角色，像一个真实的客户一样回应代理人的话术。
@@ -926,6 +1037,10 @@ class TrainingService:
         self.session = session
         self.db = session
         self.gateway = get_ai_gateway()
+        self.scenario_repo = TrainingScenarioRepository(session)
+        self.session_repo = TrainingSessionRepository(session)
+        self.message_repo = TrainingMessageRepository(session)
+        self.score_repo = TrainingScoreRepository(session)
 
     # ------------------------------------------------------------------
     # Scenarios
@@ -939,8 +1054,11 @@ class TrainingService:
         """列出可用场景（支持过滤）。"""
         if settings.DEMO_MODE:
             return await self._demo_get_scenarios(difficulty, product_focus)
-        # 生产模式：使用 Repository
-        return []
+        # 生产模式：使用 Repository → PostgreSQL
+        records, _total = await self.scenario_repo.list_active(
+            page=1, page_size=100, difficulty=difficulty, category=product_focus,
+        )
+        return [_serialize_scenario(s) for s in records]
 
     async def _demo_get_scenarios(self, difficulty=None, product_focus=None) -> list[dict]:
         """Demo: 列出可用场景。"""
@@ -960,7 +1078,14 @@ class TrainingService:
         """获取场景详情。"""
         if settings.DEMO_MODE:
             return self._demo_get_scenario(scenario_id)
-        return None
+        try:
+            scenario_uuid = uuid.UUID(scenario_id)
+        except (ValueError, TypeError):
+            return None
+        scenario = await self.scenario_repo.get_by_id_active(scenario_uuid)
+        if scenario is None:
+            return None
+        return _serialize_scenario_detail(scenario)
 
     def _demo_get_scenario(self, scenario_id: str) -> dict | None:
         """Demo: 获取场景详情。"""
@@ -988,7 +1113,30 @@ class TrainingService:
         """开始一个新的训练会话。"""
         if settings.DEMO_MODE:
             return await self._demo_start_session(user_id, scenario_id)
-        raise ValueError("生产模式暂未实现")
+        # 生产模式：校验场景 → 创建会话 → 提交事务
+        try:
+            scenario_uuid = uuid.UUID(scenario_id)
+        except (ValueError, TypeError):
+            raise ValueError(f"场景 {scenario_id} 不存在")
+        scenario = await self.scenario_repo.get_by_id_active(scenario_uuid)
+        if scenario is None:
+            raise ValueError(f"场景 {scenario_id} 不存在")
+        session = await self.session_repo.create(
+            user_id=uuid.UUID(user_id),
+            scenario_id=scenario_uuid,
+            status="active",
+            started_at=datetime.now(timezone.utc),
+            message_count=0,
+        )
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+        fresh = await self.session_repo.get_by_id(session.id)
+        if fresh is None:
+            raise RuntimeError("训练会话创建失败")
+        return _serialize_session_detail(fresh)
 
     async def _demo_start_session(self, user_id: str, scenario_id: str) -> dict:
         """Demo: 开始训练会话。"""
@@ -1018,7 +1166,10 @@ class TrainingService:
         """列出用户的训练会话。"""
         if settings.DEMO_MODE:
             return await self._demo_list_sessions(user_id)
-        return []
+        records, _total = await self.session_repo.list_by_user(
+            uuid.UUID(user_id), page=1, page_size=100,
+        )
+        return [_serialize_session(s) for s in records]
 
     async def _demo_list_sessions(self, user_id: str) -> list[dict]:
         """Demo: 列出用户训练会话。"""
@@ -1044,7 +1195,15 @@ class TrainingService:
         """获取会话详情（含消息）。"""
         if settings.DEMO_MODE:
             return self._demo_get_session(session_id, user_id)
-        return None
+        # 生产模式：会话必须存在且属于当前用户（权限隔离）
+        try:
+            session_uuid = uuid.UUID(session_id)
+        except (ValueError, TypeError):
+            return None
+        session = await self.session_repo.get_by_id_active(session_uuid)
+        if session is None or str(session.user_id) != user_id:
+            return None
+        return _serialize_session_detail(session)
 
     def _demo_get_session(self, session_id: str, user_id: str) -> dict | None:
         """Demo: 获取会话详情。"""
@@ -1082,7 +1241,8 @@ class TrainingService:
             async for event in self._demo_send_message(session_id, user_id, content):
                 yield event
             return
-        yield _sse_event("error", {"message": "生产模式暂未实现"})
+        async for event in self._production_send_message(session_id, user_id, content):
+            yield event
 
     async def _demo_send_message(
         self,
@@ -1220,6 +1380,142 @@ class TrainingService:
             "message_count": session["message_count"],
         })
 
+    async def _production_send_message(
+        self,
+        session_id: str,
+        user_id: str,
+        content: str,
+    ) -> AsyncGenerator[str, None]:
+        """Production: 处理代理人消息 (SSE)，消息与计数持久化到数据库。
+
+        会话校验（存在 / 归属 / 状态）通过后，同一事务内写入 agent / customer /
+        coach 三条消息并更新会话计数，失败整体回滚。
+        """
+        try:
+            session_uuid = uuid.UUID(session_id)
+        except (ValueError, TypeError):
+            yield _sse_event("error", {"message": "会话不存在或无权访问"})
+            return
+
+        session = await self.session_repo.get_by_id_active(session_uuid)
+        if session is None or str(session.user_id) != user_id:
+            yield _sse_event("error", {"message": "会话不存在或无权访问"})
+            return
+        if session.status != "active":
+            yield _sse_event("error", {"message": "会话已结束"})
+            return
+
+        # 保存代理人消息
+        await self.message_repo.create(
+            session_id=session_uuid,
+            role="agent",
+            content=content,
+            score=None,
+            coaching_hint={},
+        )
+        session.message_count += 1
+        turn_index = session.message_count // 2  # 每2条=1轮 (agent+customer)
+
+        # 获取场景人设，动态生成客户回复（优先 AI Gateway，失败用兜底文本）
+        customer_reply = ""
+        scenario = None
+        if session.scenario_id is not None:
+            scenario = await self.scenario_repo.get_by_id_active(session.scenario_id)
+        persona = scenario.customer_persona or {} if scenario is not None else {}
+
+        try:
+            persona_info = (
+                f"姓名：{persona.get('name', '客户')}\n"
+                f"年龄：{persona.get('age', 40)}岁\n"
+                f"性格：{persona.get('personality', '理性')}\n"
+                f"情绪：{persona.get('mood', '中性')}\n"
+                f"背景：{persona.get('background', '')}\n"
+                f"保险认知：{persona.get('insurance_knowledge', '一般')}\n"
+                f"关键异议：{'、'.join(persona.get('key_objections', []))}"
+            )
+
+            # 从数据库读取最近消息构建对话历史
+            history_msgs = await self.message_repo.list_by_session(session_uuid)
+            history_str = ""
+            for msg in history_msgs[-10:]:  # 最近10条
+                role_label = "代理人" if msg.role == "agent" else "客户"
+                history_str += f"{role_label}：{msg.content}\n"
+
+            system_prompt = _ROLEPLAY_SYSTEM_PROMPT.format(
+                persona_info=persona_info,
+                conversation_history=history_str or "（这是对话开始）",
+            )
+            messages = [
+                {"role": "system", "content": system_prompt},
+                {"role": "user", "content": content},
+            ]
+
+            full_reply = ""
+            stream = await self.gateway.chat(messages=messages, stream=True)
+            async for token in stream:
+                full_reply += token
+            customer_reply = (full_reply or "").strip()[:300]
+        except Exception as e:
+            logger.warning("training_ai_customer_failed", error=str(e))
+        if not customer_reply:
+            customer_reply = "嗯，你说的我考虑一下。"
+
+        # message_start
+        yield _sse_event("message_start", {
+            "session_id": session_id,
+            "role": "customer",
+        })
+
+        # 流式输出客户回复
+        chunk_size = random.choice([2, 3, 4])
+        i = 0
+        while i < len(customer_reply):
+            chunk = customer_reply[i:i + chunk_size]
+            yield _sse_event("token", {"content": chunk})
+            i += chunk_size
+            await asyncio.sleep(random.uniform(0.03, 0.07))
+
+        # 保存客户消息
+        await self.message_repo.create(
+            session_id=session_uuid,
+            role="customer",
+            content=customer_reply,
+            score=None,
+            coaching_hint={},
+        )
+        session.message_count += 1
+
+        # 教练辅导
+        coach_category = random.choice(["empathy", "product", "closing"])
+        hints = _COACHING_HINTS.get(coach_category, [])
+        coach_hint = _pick_random(hints) if hints else "💡 继续保持，注意倾听客户需求。"
+        coaching_data = {
+            "hint": coach_hint,
+            "category": coach_category,
+        }
+        yield _sse_event("coaching", coaching_data)
+
+        # 保存教练消息
+        await self.message_repo.create(
+            session_id=session_uuid,
+            role="coach",
+            content=coach_hint,
+            score=None,
+            coaching_hint=coaching_data,
+        )
+
+        # 单事务提交：三条消息 + 会话计数
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+
+        # turn_complete
+        yield _sse_event("turn_complete", {
+            "message_count": session.message_count,
+        })
+
     # ------------------------------------------------------------------
     # Complete session (SSE)
     # ------------------------------------------------------------------
@@ -1234,7 +1530,8 @@ class TrainingService:
             async for event in self._demo_complete_session(session_id, user_id):
                 yield event
             return
-        yield _sse_event("error", {"message": "生产模式暂未实现"})
+        async for event in self._production_complete_session(session_id, user_id):
+            yield event
 
     async def _demo_complete_session(
         self,
@@ -1301,6 +1598,97 @@ class TrainingService:
         yield _sse_event("score_data", score_data)
         yield _sse_event("scoring_complete", {"session_id": session_id})
 
+    async def _production_complete_session(
+        self,
+        session_id: str,
+        user_id: str,
+    ) -> AsyncGenerator[str, None]:
+        """Production: 结束训练会话 (SSE)，评分与会话完成状态持久化到数据库。
+
+        会话完成状态 + 评分在同一事务内提交，失败整体回滚，避免
+        "Session 已完成但 Score 未保存" 的不一致。
+        """
+        try:
+            session_uuid = uuid.UUID(session_id)
+        except (ValueError, TypeError):
+            yield _sse_event("error", {"message": "会话不存在或无权访问"})
+            return
+
+        session = await self.session_repo.get_by_id_active(session_uuid)
+        if session is None or str(session.user_id) != user_id:
+            yield _sse_event("error", {"message": "会话不存在或无权访问"})
+            return
+        if session.status != "active":
+            yield _sse_event("error", {"message": "会话已结束"})
+            return
+
+        # 标记完成
+        session.status = "completed"
+        session.completed_at = datetime.now(timezone.utc)
+
+        # scoring_start
+        yield _sse_event("scoring_start", {"session_id": session_id})
+
+        # 模拟评分过程（与 Demo 一致的展示节奏）
+        analysis_texts = [
+            "正在分析您的对话表现...",
+            "评估产品知识准确性...",
+            "分析客户共情表现...",
+            "评价促单技巧...",
+            "生成综合评分报告...",
+        ]
+        for text in analysis_texts:
+            for i in range(0, len(text), 3):
+                chunk = text[i:i + 3]
+                yield _sse_event("token", {"content": chunk})
+                await asyncio.sleep(0.05)
+            await asyncio.sleep(0.15)
+
+        # 依据当前项目评分体系生成评分（模板 + 消息量加成，不重新设计评分）
+        msg_count = session.message_count
+        template = random.choice(_DEMO_SCORE_TEMPLATES)
+        bonus = min(msg_count // 4, 10)
+        total = min(template["total_score"] + bonus, 98)
+        pa = min(template["product_accuracy"] + random.randint(-3, 5), 98)
+        em = min(template["empathy"] + random.randint(-3, 5), 98)
+        ca = min(template["closing_action"] + random.randint(-3, 5), 98)
+
+        score_data = {
+            "total_score": total,
+            "product_accuracy": pa,
+            "empathy": em,
+            "closing_action": ca,
+            "strengths": template["strengths"],
+            "weaknesses": template["weaknesses"],
+            "recommendations": template["recommendations"],
+        }
+
+        # 持久化评分（每会话唯一，已存在则更新）
+        existing_score = await self.score_repo.get_by_session(session_uuid)
+        score_fields = {
+            "total_score": total,
+            "product_accuracy": pa,
+            "empathy": em,
+            "closing_action": ca,
+            "strengths": score_data["strengths"],
+            "weaknesses": score_data["weaknesses"],
+            "recommendations": score_data["recommendations"],
+        }
+        if existing_score is not None:
+            await self.score_repo.update(existing_score.id, **score_fields)
+        else:
+            await self.score_repo.create(session_id=session_uuid, **score_fields)
+
+        # 单事务提交：会话完成状态 + 评分
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+
+        yield _sse_event("score_data", score_data)
+        yield _sse_event("scoring_complete", {"session_id": session_id})
+
     # ------------------------------------------------------------------
     # Stats
     # ------------------------------------------------------------------
@@ -1309,7 +1697,83 @@ class TrainingService:
         """获取训练统计。"""
         if settings.DEMO_MODE:
             return await self._demo_get_stats(user_id)
-        return {"total_sessions": 0, "completed_sessions": 0}
+        # 生产模式：基于数据库聚合当前用户的训练统计
+        uid = uuid.UUID(user_id)
+
+        total = (
+            await self.session.execute(
+                select(func.count()).select_from(TrainingSession).where(
+                    TrainingSession.user_id == uid,
+                    TrainingSession.is_deleted == False,
+                )
+            )
+        ).scalar() or 0
+        completed = (
+            await self.session.execute(
+                select(func.count()).select_from(TrainingSession).where(
+                    TrainingSession.user_id == uid,
+                    TrainingSession.is_deleted == False,
+                    TrainingSession.status == "completed",
+                )
+            )
+        ).scalar() or 0
+
+        # 已完成会话的评分 + 场景信息（join 保证归属当前用户）
+        score_rows = (
+            await self.session.execute(
+                select(TrainingScore, TrainingSession, TrainingScenario)
+                .join(TrainingSession, TrainingScore.session_id == TrainingSession.id)
+                .outerjoin(TrainingScenario, TrainingSession.scenario_id == TrainingScenario.id)
+                .where(
+                    TrainingSession.user_id == uid,
+                    TrainingSession.is_deleted == False,
+                    TrainingSession.status == "completed",
+                )
+            )
+        ).all()
+
+        scores = [r[0].total_score for r in score_rows]
+        pa_scores = [r[0].product_accuracy for r in score_rows]
+        em_scores = [r[0].empathy for r in score_rows]
+        ca_scores = [r[0].closing_action for r in score_rows]
+
+        # 难度分布 / 产品分布 / 按天趋势
+        diff_dist: dict[str, int] = {"easy": 0, "medium": 0, "hard": 0}
+        pf_dist: dict[str, int] = {}
+        scores_by_day: dict[str, list[float]] = {}
+        for r in score_rows:
+            tscore, tsession, tscenario = r
+            diff = tscenario.difficulty if tscenario is not None else "medium"
+            diff_dist[diff] = diff_dist.get(diff, 0) + 1
+            pf = tscenario.product_focus if tscenario is not None else None
+            if pf:
+                pf_dist[pf] = pf_dist.get(pf, 0) + 1
+            if tsession.started_at is not None:
+                day = tsession.started_at.strftime("%Y-%m-%d")
+                scores_by_day.setdefault(day, []).append(tscore.total_score)
+
+        trend = []
+        for i in range(6, -1, -1):
+            day = (datetime.now(timezone.utc) - timedelta(days=i)).strftime("%Y-%m-%d")
+            day_scores = scores_by_day.get(day, [])
+            trend.append({
+                "date": day,
+                "avg_score": round(sum(day_scores) / len(day_scores), 1) if day_scores else 0.0,
+                "session_count": len(day_scores),
+            })
+
+        return {
+            "total_sessions": total,
+            "completed_sessions": completed,
+            "avg_score": round(sum(scores) / len(scores), 1) if scores else None,
+            "avg_product_accuracy": round(sum(pa_scores) / len(pa_scores), 1) if pa_scores else None,
+            "avg_empathy": round(sum(em_scores) / len(em_scores), 1) if em_scores else None,
+            "avg_closing_action": round(sum(ca_scores) / len(ca_scores), 1) if ca_scores else None,
+            "best_score": max(scores) if scores else None,
+            "trend": trend,
+            "difficulty_distribution": diff_dist,
+            "product_focus_distribution": pf_dist,
+        }
 
     async def _demo_get_stats(self, user_id: str) -> dict:
         """Demo: 获取训练统计。"""

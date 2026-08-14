@@ -120,6 +120,7 @@ class TrainingSession(Base):
     scenario: Mapped["TrainingScenario"] = relationship(
         "TrainingScenario",
         back_populates="sessions",
+        lazy="selectin",
     )
     messages: Mapped[list["TrainingMessage"]] = relationship(
         "TrainingMessage",
