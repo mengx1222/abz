@@ -7,6 +7,7 @@ from app.api.v1.knowledge import router as knowledge_router
 from app.api.v1.customer import router as customer_router
 from app.api.v1.training import router as training_router
 from app.api.v1.script import router as script_router
+from app.api.v1.community import router as community_router
 
 router = APIRouter()
 
@@ -17,3 +18,4 @@ router.include_router(knowledge_router, prefix="/admin", tags=["知识库管理"
 router.include_router(customer_router, prefix="/customers", tags=["客户360"])
 router.include_router(training_router, prefix="/training", tags=["AI 陪练"])
 router.include_router(script_router, prefix="/scripts", tags=["AI 话术"])
+router.include_router(community_router, prefix="/community", tags=["AI 社区"])
