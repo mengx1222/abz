@@ -1,6 +1,5 @@
 import { Navigate, useLocation } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
-import { LoadingSpinner } from '../ui/LoadingSpinner';
 import type { ReactNode } from 'react';
 
 interface AuthGuardProps {
