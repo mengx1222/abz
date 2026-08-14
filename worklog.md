@@ -40,3 +40,64 @@ Stage Summary:
 - Both frontend and backend are fully runnable in demo mode without database
 - All Phase 1 基础工程 code from previous session is verified working
 - 3 TS build errors fixed and committed
+
+---
+Task ID: 3
+Agent: main
+Task: RBAC 升级 — 7 标准角色 + 多演示用户 + 完整权限
+
+Work Log:
+- Rewrote seed.py with 7 standard roles matching decisions.md:
+  SYSTEM_ADMIN, HQ_ADMIN, BRANCH_ADMIN, TEAM_LEADER, COMPLIANCE, KNOWLEDGE_ADMIN, AGENT
+- Added 21 permissions across 7 modules (customer, ai, knowledge, community, report, system, compliance)
+- Added complete role-permission mapping per design doc
+- Created 6 hierarchical organizations (总部→分公司→团队)
+- Added 4 demo users with different roles (林思远/张伟/李芳/王强)
+- Updated auth_service.py: multi-user demo login with DEMO_USERS_CONFIG
+- Updated deps.py: get_current_user supports all 4 demo users
+- Made seed.py idempotent (skip existing records)
+- Updated docker-compose.yml: AZB_ prefix, auto-run alembic+seed on startup
+- Updated .env.example with AZB_ prefix
+- Verified all 4 demo users can login and get correct roles via API
+
+Stage Summary:
+- 7 roles, 21 permissions, 6 orgs, 4 demo users fully defined
+- API tested: login, /me, refresh all working in demo mode (no DB required)
+- Pushed to GitHub
+
+---
+Task ID: 4
+Agent: main + sub-agent
+Task: 前端 7 个业务模块完整 Demo 页面
+
+Work Log:
+- LoginPage: 4 demo user quick-switch cards (click to auto-login)
+- ProductQaPage: AI chat interface with demo conversation, input box
+- CustomersPage: 8-row customer table, search bar, insurance type filters
+- ScriptsPage: 6 script cards, scenario selector, usage/rating stats
+- TrainingPage: 4 stat cards, 6 training scenarios with difficulty badges
+- CommunityPage: 5 demo posts with tags, engagement metrics
+- GrowthPage: Monthly stats, weekly bar chart, ability radar, learning progress
+- NotificationsPage: 8 notifications, 4 type filters, read/unread indicators
+- Fixed 2 unused import TS errors (CardTitle, CardDescription)
+- All pages use 演示模式 Badge, disabled submit buttons, user.name greeting
+- Frontend build passes: 28.36KB CSS + 409KB JS (gzip: 130KB)
+
+Stage Summary:
+- All 8 front-end pages have rich demo content
+- Consistent demo mode banner across all pages
+- Pushed to GitHub
+
+---
+Task ID: 5
+Agent: main
+Task: Makefile + README + documentation update
+
+Work Log:
+- Enhanced Makefile with 18+ commands: init, dev, backend, frontend, migrate, seed, test, lint, build, etc.
+- Updated README.md: AZB_ env var prefix, correct demo accounts table, correct credentials
+- Updated .env.example: all vars use AZB_ prefix
+
+Stage Summary:
+- Complete development workflow documentation
+- Pushed to GitHub
