@@ -13,6 +13,14 @@ import { CommunityPage } from '../features/community/CommunityPage';
 import { GrowthPage } from '../features/growth/GrowthPage';
 import { NotificationsPage } from '../features/notifications/NotificationsPage';
 import { KnowledgePage } from '../features/knowledge/KnowledgePage';
+import { UsersPage } from '../features/admin/UsersPage';
+import { AnalyticsPage } from '../features/admin/AnalyticsPage';
+import { AuditLogPage } from '../features/admin/AuditLogPage';
+import { CompliancePage } from '../features/admin/CompliancePage';
+import { CommunityManagePage } from '../features/admin/CommunityManagePage';
+import { ScriptManagePage } from '../features/admin/ScriptManagePage';
+import { TrainingManagePage } from '../features/admin/TrainingManagePage';
+import { SettingsPage } from '../features/admin/SettingsPage';
 
 function ProtectedLayout() {
   return (
@@ -43,6 +51,15 @@ export const router = createBrowserRouter([
       { path: 'growth', element: <GrowthPage /> },
       { path: 'notifications', element: <NotificationsPage /> },
       { path: 'knowledge', element: <KnowledgePage /> },
+      // 管理后台
+      { path: 'admin/users', element: <UsersPage /> },
+      { path: 'admin/analytics', element: <AnalyticsPage /> },
+      { path: 'admin/audit', element: <AuditLogPage /> },
+      { path: 'admin/compliance', element: <CompliancePage /> },
+      { path: 'admin/community', element: <CommunityManagePage /> },
+      { path: 'admin/scripts', element: <ScriptManagePage /> },
+      { path: 'admin/training', element: <TrainingManagePage /> },
+      { path: 'admin/settings', element: <SettingsPage /> },
     ],
   },
 ]);

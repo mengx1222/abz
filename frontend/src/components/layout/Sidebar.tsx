@@ -31,9 +31,15 @@ const mainNav: NavGroup = {
 const adminNav: NavGroup = {
   label: '管理后台',
   items: [
-    { label: '团队管理', path: '/admin/team', icon: '📋' },
-    { label: '知识库管理', path: '/knowledge', icon: '📚' },
-    { label: '数据报表', path: '/admin/reports', icon: '📈' },
+    { label: '用户管理', path: '/admin/users', icon: '👥' },
+    { label: '数据看板', path: '/admin/analytics', icon: '📊' },
+    { label: '审计日志', path: '/admin/audit', icon: '📋' },
+    { label: '合规中心', path: '/admin/compliance', icon: '🛡️' },
+    { label: '社区管理', path: '/admin/community', icon: '🌐' },
+    { label: '话术管理', path: '/admin/scripts', icon: '💬' },
+    { label: '陪练场景', path: '/admin/training', icon: '🎯' },
+    { label: '知识库', path: '/knowledge', icon: '📚' },
+    { label: '系统设置', path: '/admin/settings', icon: '⚙️' },
   ],
 };
 
@@ -84,7 +90,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       <nav className="flex-1 overflow-y-auto px-3 py-1">
         <div className="flex flex-col gap-0.5">
           {mainNav.items.map((item) => (
-            <SidebarNavLink key={item.path} item={item} collapsed={collapsed} active={location.pathname === item.path} />
+            <SidebarNavLink key={item.path} item={item} collapsed={collapsed} active={location.pathname === item.path || location.pathname.startsWith(item.path + '/')} />
           ))}
         </div>
 
@@ -103,7 +109,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             {(adminExpanded || collapsed) && (
               <div className="flex flex-col gap-0.5 mt-0.5">
                 {adminNav.items.map((item) => (
-                  <SidebarNavLink key={item.path} item={item} collapsed={collapsed} active={location.pathname === item.path} />
+                  <SidebarNavLink key={item.path} item={item} collapsed={collapsed} active={location.pathname === item.path || location.pathname.startsWith(item.path + '/')} />
                 ))}
               </div>
             )}

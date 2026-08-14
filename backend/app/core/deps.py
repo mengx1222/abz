@@ -171,7 +171,7 @@ def _build_demo_user(user_id: uuid.UUID, phone: str) -> User:
     return user
 
 
-async def require_role(allowed_roles: list[str]):
+def require_role(allowed_roles: list[str]):
     """FastAPI 依赖工厂：校验用户角色。"""
     async def _check(current_user: User = Depends(get_current_user)) -> User:
         if current_user.role_code not in allowed_roles:
