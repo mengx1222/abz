@@ -5,10 +5,17 @@ Demo 模式使用内存数据，生产模式无缝切换到数据库。
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
 from app.core.config import settings
+from app.models.ai_log import AIRequestLog
+from app.models.customer import Customer, CustomerFollowup, CustomerInteraction
+from app.models.growth import UserAchievement
+from app.models.organization import Organization
+from app.models.training import TrainingSession, TrainingScore
+from app.models.user import User
 from app.repositories.notification_repo import UserAchievementRepository
 from app.schemas.growth import (
     AchievementItem,
@@ -225,6 +232,11 @@ _DEMO_ACHIEVEMENTS: list[dict] = [
 ]
 
 
+def _day_name(dt) -> str:
+    """返回周几中文名（周一..周日）。"""
+    return ["周一", "周二", "周三", "周四", "周五", "周六", "周日"][dt.weekday()]
+
+
 class GrowthService:
     """成长体系服务。"""
 
@@ -233,52 +245,259 @@ class GrowthService:
 
     # ---- Public methods ----
 
-    async def get_overview(self, user_phone: str) -> GrowthOverview:
-        """获取成长概览数据。"""
+    async def get_overview(self, user_id: uuid.UUID) -> GrowthOverview:
+        """获取成长概览数据（生产模式从数据库聚合）。"""
         if settings.DEMO_MODE:
-            return self._demo_get_overview(user_phone)
+            return self._demo_get_overview(user_id)
+        return await self._production_get_overview(user_id)
 
-        # Production path — returns minimal placeholder data
-        return GrowthOverview(
-            monthly_stats=[],
-            weekly_trend=[],
-            ability_scores=[],
-            learning_courses=[],
-            level=1,
-            level_name="代理人",
-            exp_current=0,
-            exp_next=100,
-            total_exp=0,
+    async def _production_get_overview(self, user_id: uuid.UUID) -> GrowthOverview:
+        now = datetime.now(timezone.utc)
+        year, month = now.year, now.month
+        last_year, last_month = (year - 1, 12) if month == 1 else (year, month - 1)
+
+        customer_ids = list(
+            (
+                await self.session.execute(
+                    select(Customer.id).where(
+                        Customer.assigned_to == user_id,
+                        Customer.is_deleted == False,
+                    )
+                )
+            ).scalars().all()
         )
 
-    async def get_course_detail(self, course_id: str, user_phone: str) -> CourseDetail | None:
-        """获取课程详情。"""
-        if settings.DEMO_MODE:
-            return self._demo_get_course_detail(course_id, user_phone)
+        # ---- monthly_stats ----
+        inter_month = inter_last = 0
+        closed = high_intent = pending = 0
+        if customer_ids:
+            inter_month = (
+                await self.session.execute(
+                    select(func.count()).select_from(CustomerInteraction).where(
+                        CustomerInteraction.customer_id.in_(customer_ids),
+                        func.extract("year", CustomerInteraction.created_at) == year,
+                        func.extract("month", CustomerInteraction.created_at) == month,
+                    )
+                )
+            ).scalar() or 0
+            inter_last = (
+                await self.session.execute(
+                    select(func.count()).select_from(CustomerInteraction).where(
+                        CustomerInteraction.customer_id.in_(customer_ids),
+                        func.extract("year", CustomerInteraction.created_at) == last_year,
+                        func.extract("month", CustomerInteraction.created_at) == last_month,
+                    )
+                )
+            ).scalar() or 0
+            closed = (
+                await self.session.execute(
+                    select(func.count()).select_from(Customer).where(
+                        Customer.id.in_(customer_ids),
+                        Customer.current_stage == "closed_won",
+                    )
+                )
+            ).scalar() or 0
+            high_intent = (
+                await self.session.execute(
+                    select(func.count()).select_from(Customer).where(
+                        Customer.id.in_(customer_ids),
+                        Customer.intention_level >= 4,
+                    )
+                )
+            ).scalar() or 0
+            pending = (
+                await self.session.execute(
+                    select(func.count()).select_from(CustomerFollowup).where(
+                        CustomerFollowup.customer_id.in_(customer_ids),
+                        CustomerFollowup.status == "pending",
+                    )
+                )
+            ).scalar() or 0
 
-        # Production path — placeholder
+        ai_month = (
+            await self.session.execute(
+                select(func.count()).select_from(AIRequestLog).where(
+                    AIRequestLog.user_id == user_id,
+                    func.extract("year", AIRequestLog.created_at) == year,
+                    func.extract("month", AIRequestLog.created_at) == month,
+                )
+            )
+        ).scalar() or 0
+
+        inter_diff = inter_month - inter_last
+        monthly_stats = [
+            MonthlyStatItem(
+                label="本月互动", value=str(inter_month), unit="次",
+                change=("+" if inter_diff > 0 else "") + str(inter_diff) + " 较上月",
+                up=inter_diff >= 0,
+            ),
+            MonthlyStatItem(label="成交保单", value=str(closed), unit="件", change=f"{high_intent}个高意向", up=True),
+            MonthlyStatItem(label="待跟进客户", value=str(pending), unit="个", change="待处理", up=True),
+            MonthlyStatItem(label="AI 使用次数", value=str(ai_month), unit="次", change="本月累计", up=True),
+        ]
+
+        # ---- weekly_trend（最近7天互动量） ----
+        weekly_trend = []
+        for i in range(6, -1, -1):
+            day_dt = now - timedelta(days=i)
+            day_str = day_dt.strftime("%Y-%m-%d")
+            calls = 0
+            if customer_ids:
+                calls = (
+                    await self.session.execute(
+                        select(func.count()).select_from(CustomerInteraction).where(
+                            CustomerInteraction.customer_id.in_(customer_ids),
+                            func.date(CustomerInteraction.created_at) == day_str,
+                        )
+                    )
+                ).scalar() or 0
+            weekly_trend.append(WeeklyTrendItem(day=_day_name(day_dt), calls=calls, deals=0))
+
+        # ---- ability_scores（由陪练评分映射） ----
+        ability_scores: list[AbilityScore] = []
+        score_rows = list(
+            (
+                await self.session.execute(
+                    select(TrainingScore)
+                    .join(TrainingSession, TrainingScore.session_id == TrainingSession.id)
+                    .where(TrainingSession.user_id == user_id, TrainingSession.is_deleted == False)
+                )
+            ).scalars().all()
+        )
+        if score_rows:
+            n = len(score_rows)
+            ability_scores = [
+                AbilityScore(label="产品知识", score=round(sum(s.product_accuracy for s in score_rows) / n)),
+                AbilityScore(label="沟通技巧", score=round(sum(s.empathy for s in score_rows) / n)),
+                AbilityScore(label="促成能力", score=round(sum(s.closing_action for s in score_rows) / n)),
+                AbilityScore(label="综合表现", score=round(sum(s.total_score for s in score_rows) / n)),
+            ]
+
+        # ---- learning_courses（当前无课程表，生产环境暂为空，见 course_detail 说明） ----
+        learning_courses: list[LearningCourse] = []
+
+        # ---- level / exp（由真实活动推导的简单等级体系） ----
+        training_count = (
+            await self.session.execute(
+                select(func.count()).select_from(TrainingSession).where(
+                    TrainingSession.user_id == user_id,
+                    TrainingSession.status == "completed",
+                    TrainingSession.is_deleted == False,
+                )
+            )
+        ).scalar() or 0
+        achievement_count = (
+            await self.session.execute(
+                select(func.count()).select_from(UserAchievement).where(
+                    UserAchievement.user_id == user_id,
+                    UserAchievement.is_unlocked == True,
+                )
+            )
+        ).scalar() or 0
+
+        total_exp = training_count * 10 + achievement_count * 50
+        level = total_exp // 500 + 1
+        exp_current = total_exp % 500
+        exp_next = 500
+        if level <= 2:
+            level_name = "新人代理人"
+        elif level <= 5:
+            level_name = "资深代理人"
+        else:
+            level_name = "专家代理人"
+
+        return GrowthOverview(
+            monthly_stats=monthly_stats,
+            weekly_trend=weekly_trend,
+            ability_scores=ability_scores,
+            learning_courses=learning_courses,
+            level=level,
+            level_name=level_name,
+            exp_current=exp_current,
+            exp_next=exp_next,
+            total_exp=total_exp,
+        )
+
+    async def get_course_detail(self, course_id: str, user_id: uuid.UUID) -> CourseDetail | None:
+        """获取课程详情。
+
+        当前数据库尚无课程表，课程为 Demo 静态数据，生产模式返回 None（待课程体系落库）。
+        """
+        if settings.DEMO_MODE:
+            return self._demo_get_course_detail(course_id, user_id)
         return None
 
-    async def get_leaderboard(self, period: str = "month", user_phone: str = "") -> LeaderboardResponse:
-        """获取排行榜。"""
+    async def get_leaderboard(
+        self, period: str = "month", user_id: uuid.UUID | None = None
+    ) -> LeaderboardResponse:
+        """获取排行榜（生产模式按真实活动聚合打分）。"""
         if settings.DEMO_MODE:
-            return self._demo_get_leaderboard(period, user_phone)
+            return self._demo_get_leaderboard(period, user_id)
 
-        # Production path — empty leaderboard
-        return LeaderboardResponse(
-            period=period,
-            leaderboard=[],
-            my_rank=None,
+        # 各用户的活动统计
+        user_rows = list(
+            (
+                await self.session.execute(
+                    select(User.id, User.name, Organization.name)
+                    .outerjoin(Organization, User.organization_id == Organization.id)
+                    .where(User.is_deleted == False)
+                )
+            ).all()
+        )
+        closed_counts = dict(
+            (
+                await self.session.execute(
+                    select(Customer.assigned_to, func.count()).where(
+                        Customer.current_stage == "closed_won",
+                        Customer.is_deleted == False,
+                    ).group_by(Customer.assigned_to)
+                )
+            ).all()
+        )
+        ach_counts = dict(
+            (
+                await self.session.execute(
+                    select(UserAchievement.user_id, func.count()).where(
+                        UserAchievement.is_unlocked == True,
+                    ).group_by(UserAchievement.user_id)
+                )
+            ).all()
+        )
+        train_counts = dict(
+            (
+                await self.session.execute(
+                    select(TrainingSession.user_id, func.count()).where(
+                        TrainingSession.status == "completed",
+                        TrainingSession.is_deleted == False,
+                    ).group_by(TrainingSession.user_id)
+                )
+            ).all()
         )
 
-    async def get_achievements(self, user_phone: str) -> AchievementList:
-        """获取成就列表。"""
-        if settings.DEMO_MODE:
-            return self._demo_get_achievements(user_phone)
+        scored = []
+        for uid, name, org_name in user_rows:
+            s = closed_counts.get(uid, 0) * 100 + ach_counts.get(uid, 0) * 50 + train_counts.get(uid, 0) * 10
+            if s > 0:
+                scored.append((uid, name, org_name or "", s))
+        scored.sort(key=lambda e: e[3], reverse=True)
 
-        # Production path — query via repository
+        leaderboard = [
+            LeaderboardItem(rank=i, user_name=name, org_name=org_name, score=s, avatar="")
+            for i, (uid, name, org_name, s) in enumerate(scored[:10], start=1)
+        ]
+        my_rank = None
+        for i, (uid, name, org_name, s) in enumerate(scored, start=1):
+            if uid == user_id:
+                my_rank = LeaderboardItem(rank=i, user_name=name, org_name=org_name, score=s, avatar="")
+                break
+        return LeaderboardResponse(period=period, leaderboard=leaderboard, my_rank=my_rank)
+
+    async def get_achievements(self, user_id: uuid.UUID) -> AchievementList:
+        """获取成就列表（生产模式按用户 ID 查询）。"""
+        if settings.DEMO_MODE:
+            return self._demo_get_achievements(user_id)
+
         repo = UserAchievementRepository(self.session)
-        user_id = uuid.UUID("00000000-0000-0000-0000-000000000000")  # TODO: resolve from user_phone
         rows = await repo.list_by_user(user_id)
         unlocked = []
         locked = []
@@ -286,21 +505,18 @@ class GrowthService:
             item = AchievementItem(
                 id=str(r.id),
                 name=r.achievement_name or "",
-                description="",
-                icon="🏅",
+                description=r.description or "",
+                icon=r.icon or "🏅",
                 is_unlocked=bool(r.is_unlocked),
-                category="",
-                unlocked_at=r.created_at,
+                category=r.category or "",
+                unlocked_at=r.unlocked_at or r.created_at,
             )
-            if item.is_unlocked:
-                unlocked.append(item)
-            else:
-                locked.append(item)
+            (unlocked if item.is_unlocked else locked).append(item)
         return AchievementList(unlocked=unlocked, locked=locked)
 
     # ---- Demo methods ----
 
-    def _demo_get_overview(self, user_phone: str) -> GrowthOverview:
+    def _demo_get_overview(self, user_id: uuid.UUID) -> GrowthOverview:
         """Demo：获取成长概览数据。"""
         return GrowthOverview(
             monthly_stats=[MonthlyStatItem(**s) for s in _DEMO_MONTHLY_STATS],
@@ -314,14 +530,14 @@ class GrowthService:
             total_exp=8200,
         )
 
-    def _demo_get_course_detail(self, course_id: str, user_phone: str) -> CourseDetail | None:
+    def _demo_get_course_detail(self, course_id: str, user_id: uuid.UUID) -> CourseDetail | None:
         """Demo：获取课程详情。"""
         for c in _DEMO_LEARNING_COURSES:
             if c["id"] == course_id:
                 return CourseDetail(**c)
         return None
 
-    def _demo_get_leaderboard(self, period: str = "month", user_phone: str = "") -> LeaderboardResponse:
+    def _demo_get_leaderboard(self, period: str = "month", user_id: uuid.UUID | None = None) -> LeaderboardResponse:
         """Demo：获取排行榜。"""
         leaderboard = [LeaderboardItem(**item) for item in _DEMO_LEADERBOARD]
         my_rank = None
@@ -335,7 +551,7 @@ class GrowthService:
             my_rank=my_rank,
         )
 
-    def _demo_get_achievements(self, user_phone: str) -> AchievementList:
+    def _demo_get_achievements(self, user_id: uuid.UUID) -> AchievementList:
         """Demo：获取成就列表。"""
         unlocked = []
         locked = []
