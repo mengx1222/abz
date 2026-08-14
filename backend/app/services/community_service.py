@@ -8,9 +8,16 @@ import uuid
 from datetime import datetime, timedelta, timezone
 from typing import AsyncGenerator
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
 from app.core.config import settings
+from app.repositories.community_repo import (
+    PostRepository,
+    PostCommentRepository,
+    PostLikeRepository,
+    PostFavoriteRepository,
+)
 from app.schemas.community import (
     AuthorBrief,
     CommentAuthor,
@@ -378,9 +385,10 @@ def _post_to_detail(post: dict, user_id: uuid.UUID | None = None) -> PostDetail:
 
 
 class CommunityService:
-    """社区服务 —— Demo 模式使用内存列表。"""
+    """社区服务 —— Demo 模式使用内存列表，生产模式使用数据库。"""
 
-    def __init__(self):
+    def __init__(self, session: AsyncSession | None = None):
+        self.session = session
         self._posts: dict[str, dict] = {str(p["id"]): p for p in _DEMO_POSTS}
         self._comments: dict[str, list[dict]] = dict(_DEMO_COMMENTS)
         self._likes: dict[str, set[str]] = {}  # post_id -> set[user_id]
@@ -401,6 +409,32 @@ class CommunityService:
         user_id: uuid.UUID | None = None,
     ) -> tuple[list[PostListItem], int]:
         """获取帖子列表，返回 (items, total)。"""
+        if settings.DEMO_MODE:
+            return await self._demo_list_posts(
+                keyword=keyword, category=category, tags=tags, sort_by=sort_by,
+                sort_order=sort_order, page=page, page_size=page_size, user_id=user_id,
+            )
+        # Production path
+        repo = PostRepository(self.session)  # type: ignore[arg-type]
+        sort_map = {"created_at": "latest", "likes_count": "most_liked", "comments_count": "most_commented", "views_count": "latest"}
+        db_sort = sort_map.get(sort_by, "latest")
+        orm_posts, total = await repo.list_posts(page=page, page_size=page_size, category=category, search=keyword, sort_by=db_sort)
+        items = [_post_to_list_item({"id": p.id, "title": p.title, "author_phone": "", "category": p.category or "", "created_at": p.created_at, "views_count": p.views_count or 0, "likes_count": p.likes_count or 0, "comments_count": p.comments_count or 0, "is_pinned": p.is_pinned or False, "is_recommended": False, "tags": []}, user_id) for p in orm_posts]
+        return items, total
+
+    async def _demo_list_posts(
+        self,
+        *,
+        keyword: str | None = None,
+        category: str | None = None,
+        tags: list[str] | None = None,
+        sort_by: str = "created_at",
+        sort_order: str = "desc",
+        page: int = 1,
+        page_size: int = 20,
+        user_id: uuid.UUID | None = None,
+    ) -> tuple[list[PostListItem], int]:
+        """Demo: 获取帖子列表。"""
         posts = list(self._posts.values())
 
         # 筛选
@@ -442,6 +476,25 @@ class CommunityService:
         self, post_id: str, user_id: uuid.UUID | None = None
     ) -> PostDetail | None:
         """获取帖子详情（自动+1浏览量）。"""
+        if settings.DEMO_MODE:
+            return await self._demo_get_post(post_id, user_id)
+        # Production path
+        repo = PostRepository(self.session)  # type: ignore[arg-type]
+        try:
+            pid = uuid.UUID(post_id)
+        except ValueError:
+            return None
+        post = await repo.get_by_id(pid)
+        if post is None or post.is_deleted:
+            return None
+        post.views_count = (post.views_count or 0) + 1
+        await self.session.flush()  # type: ignore[union-attr]
+        return _post_to_detail({"id": post.id, "title": post.title, "author_phone": "", "category": post.category or "", "content": post.content or "", "created_at": post.created_at, "updated_at": post.updated_at, "views_count": post.views_count, "likes_count": post.likes_count or 0, "comments_count": post.comments_count or 0, "is_pinned": post.is_pinned or False, "is_recommended": False, "tags": [], "ai_summary": post.ai_summary}, user_id)
+
+    async def _demo_get_post(
+        self, post_id: str, user_id: uuid.UUID | None = None
+    ) -> PostDetail | None:
+        """Demo: 获取帖子详情。"""
         post = self._posts.get(post_id)
         if post is None:
             return None
@@ -455,6 +508,28 @@ class CommunityService:
         self, data: PostCreate, author_id: uuid.UUID, author_phone: str
     ) -> dict:
         """创建帖子。"""
+        if settings.DEMO_MODE:
+            return await self._demo_create_post(data, author_id, author_phone)
+        # Production path
+        repo = PostRepository(self.session)  # type: ignore[arg-type]
+        from app.models.community import Post
+        now = datetime.now(timezone.utc)
+        post = Post(
+            title=data.title.strip(),
+            content=data.content.strip(),
+            category=data.category,
+            tags=data.tags[:5],
+            author_id=author_id,
+            status="published",
+        )
+        self.session.add(post)  # type: ignore[union-attr]
+        await self.session.flush()  # type: ignore[union-attr]
+        return {"id": str(post.id), "title": post.title, "status": "published", "created_at": now}
+
+    async def _demo_create_post(
+        self, data: PostCreate, author_id: uuid.UUID, author_phone: str
+    ) -> dict:
+        """Demo: 创建帖子。"""
         post_id = str(uuid.uuid4())
         now = datetime.now(timezone.utc)
         content = data.content.strip()
@@ -489,6 +564,33 @@ class CommunityService:
         self, post_id: str, data: PostUpdate, user_id: uuid.UUID
     ) -> dict | None:
         """更新帖子。"""
+        if settings.DEMO_MODE:
+            return await self._demo_update_post(post_id, data, user_id)
+        # Production path
+        repo = PostRepository(self.session)  # type: ignore[arg-type]
+        try:
+            pid = uuid.UUID(post_id)
+        except ValueError:
+            return None
+        post = await repo.get_by_id(pid)
+        if post is None or post.is_deleted:
+            return None
+        if data.title is not None:
+            post.title = data.title.strip()
+        if data.content is not None:
+            post.content = data.content.strip()
+        if data.category is not None:
+            post.category = data.category
+        if data.tags is not None:
+            post.tags = data.tags[:5]
+        post.updated_at = datetime.now(timezone.utc)
+        await self.session.flush()  # type: ignore[union-attr]
+        return {"id": post_id, "status": "published", "updated_at": post.updated_at}
+
+    async def _demo_update_post(
+        self, post_id: str, data: PostUpdate, user_id: uuid.UUID
+    ) -> dict | None:
+        """Demo: 更新帖子。"""
         post = self._posts.get(post_id)
         if post is None:
             return None
@@ -510,6 +612,23 @@ class CommunityService:
 
     async def delete_post(self, post_id: str) -> bool:
         """删除帖子。"""
+        if settings.DEMO_MODE:
+            return await self._demo_delete_post(post_id)
+        # Production path
+        repo = PostRepository(self.session)  # type: ignore[arg-type]
+        try:
+            pid = uuid.UUID(post_id)
+        except ValueError:
+            return False
+        post = await repo.get_by_id(pid)
+        if post is None:
+            return False
+        post.is_deleted = True
+        await self.session.flush()  # type: ignore[union-attr]
+        return True
+
+    async def _demo_delete_post(self, post_id: str) -> bool:
+        """Demo: 删除帖子。"""
         if post_id not in self._posts:
             return False
         del self._posts[post_id]
@@ -524,6 +643,28 @@ class CommunityService:
         self, post_id: str, user_id: uuid.UUID
     ) -> LikeToggleResponse | None:
         """切换点赞状态。"""
+        if settings.DEMO_MODE:
+            return await self._demo_toggle_like(post_id, user_id)
+        # Production path
+        try:
+            pid = uuid.UUID(post_id)
+        except ValueError:
+            return None
+        repo = PostRepository(self.session)  # type: ignore[arg-type]
+        like_repo = PostLikeRepository(self.session)  # type: ignore[arg-type]
+        post = await repo.get_by_id(pid)
+        if post is None or post.is_deleted:
+            return None
+        is_liked = await like_repo.toggle(user_id, pid)
+        new_count = (post.likes_count or 0) + (1 if is_liked else -1)
+        post.likes_count = max(0, new_count)
+        await self.session.flush()  # type: ignore[union-attr]
+        return LikeToggleResponse(is_liked=is_liked, likes_count=post.likes_count)
+
+    async def _demo_toggle_like(
+        self, post_id: str, user_id: uuid.UUID
+    ) -> LikeToggleResponse | None:
+        """Demo: 切换点赞状态。"""
         post = self._posts.get(post_id)
         if post is None:
             return None
@@ -544,6 +685,28 @@ class CommunityService:
         self, post_id: str, user_id: uuid.UUID
     ) -> FavoriteToggleResponse | None:
         """切换收藏状态。"""
+        if settings.DEMO_MODE:
+            return await self._demo_toggle_favorite(post_id, user_id)
+        # Production path
+        try:
+            pid = uuid.UUID(post_id)
+        except ValueError:
+            return None
+        repo = PostRepository(self.session)  # type: ignore[arg-type]
+        fav_repo = PostFavoriteRepository(self.session)  # type: ignore[arg-type]
+        post = await repo.get_by_id(pid)
+        if post is None or post.is_deleted:
+            return None
+        is_fav = await fav_repo.toggle(user_id, pid)
+        new_count = (post.favorites_count or 0) + (1 if is_fav else -1)
+        post.favorites_count = max(0, new_count)
+        await self.session.flush()  # type: ignore[union-attr]
+        return FavoriteToggleResponse(is_favorited=is_fav, favorites_count=post.favorites_count)
+
+    async def _demo_toggle_favorite(
+        self, post_id: str, user_id: uuid.UUID
+    ) -> FavoriteToggleResponse | None:
+        """Demo: 切换收藏状态。"""
         post = self._posts.get(post_id)
         if post is None:
             return None
@@ -564,6 +727,41 @@ class CommunityService:
         self, post_id: str, data: CommentCreate, author_id: uuid.UUID, author_phone: str
     ) -> dict | None:
         """添加评论。"""
+        if settings.DEMO_MODE:
+            return await self._demo_add_comment(post_id, data, author_id, author_phone)
+        # Production path
+        try:
+            pid = uuid.UUID(post_id)
+        except ValueError:
+            return None
+        repo = PostRepository(self.session)  # type: ignore[arg-type]
+        comment_repo = PostCommentRepository(self.session)  # type: ignore[arg-type]
+        post = await repo.get_by_id(pid)
+        if post is None or post.is_deleted:
+            return None
+        from app.models.community import PostComment
+        now = datetime.now(timezone.utc)
+        comment = PostComment(
+            post_id=pid,
+            author_id=author_id,
+            content=data.content.strip(),
+            parent_comment_id=data.parent_comment_id,
+        )
+        self.session.add(comment)  # type: ignore[union-attr]
+        post.comments_count = (post.comments_count or 0) + 1
+        await self.session.flush()  # type: ignore[union-attr]
+        return {
+            "id": str(comment.id),
+            "content": comment.content,
+            "author": {"id": author_id, "name": ""},
+            "parent_comment_id": str(data.parent_comment_id) if data.parent_comment_id else None,
+            "created_at": now,
+        }
+
+    async def _demo_add_comment(
+        self, post_id: str, data: CommentCreate, author_id: uuid.UUID, author_phone: str
+    ) -> dict | None:
+        """Demo: 添加评论。"""
         post = self._posts.get(post_id)
         if post is None:
             return None
@@ -592,6 +790,50 @@ class CommunityService:
         self, post_id: str, page: int = 1, page_size: int = 20, user_id: uuid.UUID | None = None
     ) -> tuple[list[CommentItem], int]:
         """获取帖子评论列表。"""
+        if settings.DEMO_MODE:
+            return await self._demo_list_comments(post_id, page, page_size, user_id)
+        # Production path
+        try:
+            pid = uuid.UUID(post_id)
+        except ValueError:
+            return [], 0
+        comment_repo = PostCommentRepository(self.session)  # type: ignore[arg-type]
+        orm_comments, total = await comment_repo.list_by_post(pid, page=page, page_size=page_size)
+        # Build comment tree
+        top_comments = [c for c in orm_comments if not c.parent_comment_id]
+        replies_map: dict[str, list] = {}
+        for c in orm_comments:
+            if c.parent_comment_id:
+                replies_map.setdefault(str(c.parent_comment_id), []).append(c)
+        items = []
+        for c in top_comments:
+            replies = replies_map.get(str(c.id), [])
+            items.append(
+                CommentItem(
+                    id=c.id,
+                    content=c.content,
+                    author=CommentAuthor(id=c.author_id, name=""),
+                    parent_comment_id=None,
+                    likes_count=c.likes_count or 0,
+                    replies=[
+                        CommentItem(
+                            id=r.id, content=r.content,
+                            author=CommentAuthor(id=r.author_id, name=""),
+                            parent_comment_id=str(r.parent_comment_id),
+                            likes_count=r.likes_count or 0,
+                            created_at=r.created_at,
+                        )
+                        for r in replies
+                    ],
+                    created_at=c.created_at,
+                )
+            )
+        return items, total
+
+    async def _demo_list_comments(
+        self, post_id: str, page: int = 1, page_size: int = 20, user_id: uuid.UUID | None = None
+    ) -> tuple[list[CommentItem], int]:
+        """Demo: 获取帖子评论列表。"""
         raw_comments = self._comments.get(post_id, [])
 
         # 分离顶级评论和回复
@@ -637,6 +879,18 @@ class CommunityService:
         self, user_id: uuid.UUID, page: int = 1, page_size: int = 20
     ) -> tuple[list[PostListItem], int]:
         """获取当前用户的收藏帖子列表。"""
+        if settings.DEMO_MODE:
+            return await self._demo_my_favorites(user_id, page, page_size)
+        # Production path
+        repo = PostRepository(self.session)  # type: ignore[arg-type]
+        orm_posts, total = await repo.list_user_favorites(user_id, page=page, page_size=page_size)
+        items = [_post_to_list_item({"id": p.id, "title": p.title, "author_phone": "", "category": p.category or "", "created_at": p.created_at, "views_count": p.views_count or 0, "likes_count": p.likes_count or 0, "comments_count": p.comments_count or 0, "is_pinned": False, "is_recommended": False, "tags": []}, user_id) for p in orm_posts]
+        return items, total
+
+    async def _demo_my_favorites(
+        self, user_id: uuid.UUID, page: int = 1, page_size: int = 20
+    ) -> tuple[list[PostListItem], int]:
+        """Demo: 获取当前用户的收藏帖子列表。"""
         uid = str(user_id)
         fav_post_ids = []
         for post_id, users in self._favorites.items():
@@ -658,6 +912,29 @@ class CommunityService:
         self, post_id: str
     ) -> AsyncGenerator[str, None]:
         """生成 AI 摘要（SSE 流式）。"""
+        if settings.DEMO_MODE:
+            async for event in self._demo_generate_ai_summary(post_id):
+                yield event
+            return
+        # Production path — simple event stream placeholder
+        yield json.dumps({"event": "summary_start", "data": {"post_id": post_id}}, ensure_ascii=False)
+        await asyncio.sleep(0.3)
+        summary_text = "AI 摘要生成功能将在生产环境中接入 AI 网关。"
+        for i, char in enumerate(summary_text):
+            yield json.dumps(
+                {"event": "token", "data": {"content": char, "index": i}},
+                ensure_ascii=False,
+            )
+            await asyncio.sleep(0.02)
+        yield json.dumps(
+            {"event": "summary_complete", "data": {"summary": summary_text}},
+            ensure_ascii=False,
+        )
+
+    async def _demo_generate_ai_summary(
+        self, post_id: str
+    ) -> AsyncGenerator[str, None]:
+        """Demo: 生成 AI 摘要（SSE 流式）。"""
         post = self._posts.get(post_id)
         if post is None:
             yield json.dumps({"event": "error", "data": {"message": "帖子不存在"}}, ensure_ascii=False)
@@ -713,5 +990,5 @@ def get_community_service() -> CommunityService:
     """获取社区服务单例。"""
     global _community_service
     if _community_service is None:
-        _community_service = CommunityService()
+        _community_service = CommunityService(session=None)
     return _community_service

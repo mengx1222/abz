@@ -35,12 +35,27 @@ async_session_factory = async_sessionmaker(
 
 
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
-    """FastAPI 依赖：获取异步数据库会话。"""
-    async with async_session_factory() as session:
+    """FastAPI 依赖：获取异步数据库会话。
+
+    Demo 模式下如果数据库不可连接，返回 None 以便 Service 层
+    通过 DEMO_MODE 分支使用内存数据。
+    """
+    if settings.DEMO_MODE:
         try:
-            yield session
-        finally:
-            await session.close()
+            async with async_session_factory() as session:
+                try:
+                    yield session
+                finally:
+                    await session.close()
+        except Exception:
+            logger.debug("demo_mode_db_unavailable", msg="Database unavailable in demo mode, services will use in-memory data")
+            yield None  # type: ignore[misc]
+    else:
+        async with async_session_factory() as session:
+            try:
+                yield session
+            finally:
+                await session.close()
 
 
 # ---- Redis ----

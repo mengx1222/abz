@@ -10,6 +10,9 @@ from app.models.training import TrainingScenario, TrainingSession, TrainingMessa
 from app.models.customer import Customer, CustomerTag, CustomerInteraction, CustomerFollowup
 from app.models.script import Script, ScriptFavorite, ScriptVersion
 from app.models.community import Post, PostComment, PostLike, PostFavorite
+from app.models.notification import Notification, NotificationPreference
+from app.models.growth import UserAchievement
+from app.models.audit_log import AuditLog
 
 __all__ = [
     "Base",
@@ -40,4 +43,8 @@ __all__ = [
     "PostComment",
     "PostLike",
     "PostFavorite",
+    "Notification",
+    "NotificationPreference",
+    "UserAchievement",
+    "AuditLog",
 ]

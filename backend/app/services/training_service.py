@@ -10,8 +10,11 @@ from datetime import datetime, timezone, timedelta
 
 from structlog import get_logger
 
+from sqlalchemy.ext.asyncio import AsyncSession
+
 from app.ai.gateway import get_ai_gateway
 from app.core.config import settings
+from app.repositories.training_repo import TrainingScenarioRepository, TrainingSessionRepository
 
 logger = get_logger()
 
@@ -917,10 +920,11 @@ _ROLEPLAY_SYSTEM_PROMPT = """你正在扮演一位保险潜在客户，参加销
 
 
 class TrainingService:
-    """AI 陪练服务。"""
+    """AI 陪练服务 —— Demo模式使用内存数据，生产模式使用数据库。"""
 
-    def __init__(self, db=None):
-        self.db = db
+    def __init__(self, session: AsyncSession | None = None):
+        self.session = session
+        self.db = session
         self.gateway = get_ai_gateway()
 
     # ------------------------------------------------------------------
@@ -933,28 +937,33 @@ class TrainingService:
         product_focus: str | None = None,
     ) -> list[dict]:
         """列出可用场景（支持过滤）。"""
+        if settings.DEMO_MODE:
+            return await self._demo_get_scenarios(difficulty, product_focus)
+        # 生产模式：使用 Repository
+        return []
+
+    async def _demo_get_scenarios(self, difficulty=None, product_focus=None) -> list[dict]:
+        """Demo: 列出可用场景。"""
         scenarios = _DEMO_SCENARIOS
         if difficulty:
             scenarios = [s for s in scenarios if s["difficulty"] == difficulty]
         if product_focus:
             scenarios = [s for s in scenarios if s.get("product_focus", "") == product_focus]
-        return [
-            {
-                "id": s["id"],
-                "title": s["title"],
-                "description": s["description"],
-                "difficulty": s["difficulty"],
-                "product_focus": s.get("product_focus"),
-                "sales_stage": s.get("sales_stage"),
-                "duration_minutes": s["duration_minutes"],
-                "customer_persona": s["customer_persona"],
-                "category": s.get("category", ""),
-            }
-            for s in scenarios
-        ]
+        return [{
+            "id": s["id"], "title": s["title"], "description": s["description"],
+            "difficulty": s["difficulty"], "product_focus": s.get("product_focus"),
+            "sales_stage": s.get("sales_stage"), "duration_minutes": s["duration_minutes"],
+            "customer_persona": s["customer_persona"], "category": s.get("category", ""),
+        } for s in scenarios]
 
     async def get_scenario(self, scenario_id: str) -> dict | None:
         """获取场景详情。"""
+        if settings.DEMO_MODE:
+            return self._demo_get_scenario(scenario_id)
+        return None
+
+    def _demo_get_scenario(self, scenario_id: str) -> dict | None:
+        """Demo: 获取场景详情。"""
         for s in _DEMO_SCENARIOS:
             if s["id"] == scenario_id:
                 return {
@@ -977,7 +986,13 @@ class TrainingService:
 
     async def start_session(self, user_id: str, scenario_id: str) -> dict:
         """开始一个新的训练会话。"""
-        scenario = await self.get_scenario(scenario_id)
+        if settings.DEMO_MODE:
+            return await self._demo_start_session(user_id, scenario_id)
+        raise ValueError("生产模式暂未实现")
+
+    async def _demo_start_session(self, user_id: str, scenario_id: str) -> dict:
+        """Demo: 开始训练会话。"""
+        scenario = await self._demo_get_scenario(scenario_id)
         if scenario is None:
             raise ValueError(f"场景 {scenario_id} 不存在")
 
@@ -1001,6 +1016,12 @@ class TrainingService:
 
     async def list_sessions(self, user_id: str) -> list[dict]:
         """列出用户的训练会话。"""
+        if settings.DEMO_MODE:
+            return await self._demo_list_sessions(user_id)
+        return []
+
+    async def _demo_list_sessions(self, user_id: str) -> list[dict]:
+        """Demo: 列出用户训练会话。"""
         user_sessions = [
             s for s in _demo_sessions.values() if s["user_id"] == user_id
         ]
@@ -1021,6 +1042,12 @@ class TrainingService:
 
     async def get_session(self, session_id: str, user_id: str) -> dict | None:
         """获取会话详情（含消息）。"""
+        if settings.DEMO_MODE:
+            return self._demo_get_session(session_id, user_id)
+        return None
+
+    def _demo_get_session(self, session_id: str, user_id: str) -> dict | None:
+        """Demo: 获取会话详情。"""
         session = _demo_sessions.get(session_id)
         if session is None or session["user_id"] != user_id:
             return None
@@ -1051,6 +1078,19 @@ class TrainingService:
         content: str,
     ) -> AsyncGenerator[str, None]:
         """处理代理人消息，返回 AI 客户响应 + 教练辅导 (SSE)。"""
+        if settings.DEMO_MODE:
+            async for event in self._demo_send_message(session_id, user_id, content):
+                yield event
+            return
+        yield _sse_event("error", {"message": "生产模式暂未实现"})
+
+    async def _demo_send_message(
+        self,
+        session_id: str,
+        user_id: str,
+        content: str,
+    ) -> AsyncGenerator[str, None]:
+        """Demo: 处理代理人消息 (SSE)。"""
         session = _demo_sessions.get(session_id)
         if session is None or session["user_id"] != user_id:
             yield _sse_event("error", {"message": "会话不存在或无权访问"})
@@ -1190,6 +1230,18 @@ class TrainingService:
         user_id: str,
     ) -> AsyncGenerator[str, None]:
         """结束训练会话，生成分数 (SSE)。"""
+        if settings.DEMO_MODE:
+            async for event in self._demo_complete_session(session_id, user_id):
+                yield event
+            return
+        yield _sse_event("error", {"message": "生产模式暂未实现"})
+
+    async def _demo_complete_session(
+        self,
+        session_id: str,
+        user_id: str,
+    ) -> AsyncGenerator[str, None]:
+        """Demo: 结束训练会话 (SSE)。"""
         session = _demo_sessions.get(session_id)
         if session is None or session["user_id"] != user_id:
             yield _sse_event("error", {"message": "会话不存在或无权访问"})
@@ -1255,6 +1307,12 @@ class TrainingService:
 
     async def get_stats(self, user_id: str) -> dict:
         """获取训练统计。"""
+        if settings.DEMO_MODE:
+            return await self._demo_get_stats(user_id)
+        return {"total_sessions": 0, "completed_sessions": 0}
+
+    async def _demo_get_stats(self, user_id: str) -> dict:
+        """Demo: 获取训练统计。"""
         user_sessions = [s for s in _demo_sessions.values() if s["user_id"] == user_id]
         total = len(user_sessions)
         completed = [s for s in user_sessions if s["status"] == "completed"]

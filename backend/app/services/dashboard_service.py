@@ -5,8 +5,10 @@ Demo 模式使用内存数据，生产模式无缝切换到数据库。
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
+from app.core.config import settings
 from app.schemas.dashboard import (
     AiSuggestion,
     DashboardOverview,
@@ -137,8 +139,36 @@ _DEMO_RECENT_ACTIVITIES: list[dict] = [
 class DashboardService:
     """Dashboard 服务。"""
 
+    def __init__(self, session: AsyncSession | None = None):
+        self.session = session
+
+    # ---- Public methods ----
+
     async def get_overview(self, user_phone: str, user_name: str) -> DashboardOverview:
         """获取 Dashboard 概览。"""
+        if settings.DEMO_MODE:
+            return self._demo_get_overview(user_phone, user_name)
+
+        # Production path — basic structure with zeros/empty lists
+        return DashboardOverview(
+            greeting="你好",
+            user_name=user_name,
+            today_stats=[],
+            ai_suggestions=[],
+            quick_actions=[
+                QuickAction(label="问产品", icon="🤖", path="/product-qa", color="bg-accent/10 text-accent"),
+                QuickAction(label="分析客户", icon="👥", path="/customers", color="bg-success/10 text-success"),
+                QuickAction(label="生成话术", icon="💬", path="/scripts", color="bg-warning/10 text-warning"),
+                QuickAction(label="开始陪练", icon="🎯", path="/training", color="bg-error/10 text-error"),
+            ],
+            recent_activities=[],
+            unread_notifications=0,
+        )
+
+    # ---- Demo methods ----
+
+    def _demo_get_overview(self, user_phone: str, user_name: str) -> DashboardOverview:
+        """Demo：获取 Dashboard 概览。"""
         hour = datetime.now(timezone.utc).hour + 8  # UTC+8
         if hour < 6:
             greeting = "凌晨好"

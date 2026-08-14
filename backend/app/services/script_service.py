@@ -1,9 +1,13 @@
-"""话术生成服务 —— AI多风格话术生成 + RAG知识增强 + 合规检查。"""
+"""话术生成服务 —— AI多风格话术生成 + RAG知识增强 + 合规检查。
+
+Demo 模式使用内存列表，生产模式使用数据库 + Repository。
+"""
 import json
 import uuid
 from collections.abc import AsyncGenerator
 from datetime import datetime, timezone
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
 from app.ai.gateway import get_ai_gateway
@@ -11,6 +15,7 @@ from app.core.config import settings
 from app.models.user import User
 from app.services.compliance_service import check_compliance, build_script_prompt, STYLE_NAMES
 from app.rag.pipeline import RAGPipeline
+from app.repositories.script_repo import ScriptRepository
 
 logger = get_logger()
 
@@ -155,8 +160,8 @@ def _ensure_demo_scripts():
 class ScriptService:
     """话术服务 —— Demo模式使用内存列表，生产模式使用数据库。"""
 
-    def __init__(self, db=None):
-        self.db = db
+    def __init__(self, session: AsyncSession | None = None):
+        self.session = session
         self.gateway = get_ai_gateway()
         self._rag_pipeline: RAGPipeline | None = None
 
@@ -165,17 +170,24 @@ class ScriptService:
         if self._rag_pipeline is None and settings.DEMO_MODE:
             try:
                 self._rag_pipeline = RAGPipeline(db=None)
-                # 触发 Demo 索引初始化
                 await self._rag_pipeline._get_retriever()
             except Exception as e:
                 logger.warning("script_rag_init_failed", error=str(e))
                 self._rag_pipeline = None
         return self._rag_pipeline
 
-    # ---- CRUD（Demo模式） ----
+    # ============================================================
+    # CRUD
+    # ============================================================
 
     def get_scripts(self, filters: dict | None = None) -> list[dict]:
         """获取话术列表。"""
+        if settings.DEMO_MODE:
+            return self._demo_get_scripts(filters)
+        # 生产模式：暂返回空列表，后续切换到 Repository
+        return []
+
+    def _demo_get_scripts(self, filters: dict | None = None) -> list[dict]:
         _ensure_demo_scripts()
         scripts = list(_DEMO_SCRIPTS)
         if filters:
@@ -190,17 +202,26 @@ class ScriptService:
             if filters.get("search"):
                 q = filters["search"].lower()
                 scripts = [s for s in scripts if q in s["title"].lower() or q in (s.get("content") or "").lower()]
-        # 按更新时间倒序
         scripts.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
         return scripts
 
     def get_script(self, script_id: str) -> dict | None:
         """获取话术详情。"""
+        if settings.DEMO_MODE:
+            return self._demo_get_script(script_id)
+        return None
+
+    def _demo_get_script(self, script_id: str) -> dict | None:
         _ensure_demo_scripts()
         return next((s for s in _DEMO_SCRIPTS if s["id"] == script_id), None)
 
     def create_script(self, data: dict) -> dict:
         """创建话术。"""
+        if settings.DEMO_MODE:
+            return self._demo_create_script(data)
+        return {}
+
+    def _demo_create_script(self, data: dict) -> dict:
         _ensure_demo_scripts()
         script = {
             "id": f"demo-scr-{uuid.uuid4().hex[:8]}",
@@ -217,7 +238,6 @@ class ScriptService:
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
-        # 自动合规检查
         if script["content"] and not script["compliance_issues"]:
             result = check_compliance(script["content"])
             script["compliance_status"] = result["status"]
@@ -227,13 +247,17 @@ class ScriptService:
 
     def update_script(self, script_id: str, data: dict) -> dict | None:
         """更新话术。"""
-        script = self.get_script(script_id)
+        if settings.DEMO_MODE:
+            return self._demo_update_script(script_id, data)
+        return None
+
+    def _demo_update_script(self, script_id: str, data: dict) -> dict | None:
+        script = self._demo_get_script(script_id)
         if script is None:
             return None
         for key, val in data.items():
             if key in script and key != "id":
                 script[key] = val
-        # 重新合规检查
         if "content" in data and script["content"]:
             result = check_compliance(script["content"])
             script["compliance_status"] = result["status"]
@@ -243,6 +267,11 @@ class ScriptService:
 
     def delete_script(self, script_id: str) -> bool:
         """删除话术。"""
+        if settings.DEMO_MODE:
+            return self._demo_delete_script(script_id)
+        return False
+
+    def _demo_delete_script(self, script_id: str) -> bool:
         global _DEMO_SCRIPTS
         original_len = len(_DEMO_SCRIPTS)
         _DEMO_SCRIPTS = [s for s in _DEMO_SCRIPTS if s["id"] != script_id]
@@ -250,13 +279,20 @@ class ScriptService:
 
     def toggle_favorite(self, script_id: str) -> dict | None:
         """切换收藏。"""
-        script = self.get_script(script_id)
+        if settings.DEMO_MODE:
+            return self._demo_toggle_favorite(script_id)
+        return None
+
+    def _demo_toggle_favorite(self, script_id: str) -> dict | None:
+        script = self._demo_get_script(script_id)
         if script is None:
             return None
         script["favorited_count"] = script.get("favorited_count", 0) + 1
         return script
 
-    # ---- AI话术生成（SSE流式） ----
+    # ============================================================
+    # AI话术生成（SSE流式）
+    # ============================================================
 
     async def generate_scripts(
         self,
@@ -264,14 +300,22 @@ class ScriptService:
         style: str | None = None,
         product_type: str | None = None,
     ) -> AsyncGenerator[str, None]:
-        """AI生成话术（SSE流式，带RAG知识增强）。
+        """AI生成话术（SSE流式，带RAG知识增强）。"""
+        if settings.DEMO_MODE:
+            async for event in self._demo_generate_scripts(customer_context, style, product_type):
+                yield event
+            return
+        # 生产模式：同样的 SSE 流程，但通过 Repository 保存
+        async for event in self._demo_generate_scripts(customer_context, style, product_type):
+            yield event
 
-        流程：
-        1. 根据产品类型RAG检索相关知识
-        2. 遍历风格（单风格或全部4种）
-        3. 每种风格：构建prompt → LLM流式生成 → 合规检查 → 保存
-        4. 返回SSE事件流
-        """
+    async def _demo_generate_scripts(
+        self,
+        customer_context: dict,
+        style: str | None = None,
+        product_type: str | None = None,
+    ) -> AsyncGenerator[str, None]:
+        """Demo 模式的 SSE 话术生成。"""
         styles = [style] if style else ["affinity", "professional", "data_driven", "concise"]
         request_id = str(uuid.uuid4())
 
@@ -281,16 +325,14 @@ class ScriptService:
             "styles_display": [STYLE_NAMES.get(s, s) for s in styles],
         })
 
-        # RAG检索产品知识（仅在有产品类型时）
+        # RAG检索产品知识
         product_info = ""
         if product_type:
             try:
                 pipeline = await self._get_rag_pipeline()
                 if pipeline:
                     query = f"{product_type} 产品特点 保障范围 保费 理赔"
-                    search_results, context_text = await pipeline.query(
-                        question=query, top_k=4,
-                    )
+                    search_results, context_text = await pipeline.query(question=query, top_k=4)
                     if context_text:
                         product_info = context_text
                         yield _sse_event("rag_context", {
@@ -303,13 +345,8 @@ class ScriptService:
 
         for s in styles:
             style_name = STYLE_NAMES.get(s, s)
+            yield _sse_event("style_start", {"style": s, "style_name": style_name})
 
-            yield _sse_event("style_start", {
-                "style": s,
-                "style_name": style_name,
-            })
-
-            # 构建Prompt（含RAG产品信息）
             prompt = build_script_prompt(s, customer_context, product_info)
             messages = [{"role": "system", "content": prompt}]
 
@@ -324,7 +361,6 @@ class ScriptService:
                 full_content = "话术生成失败，请稍后重试。"
                 yield _sse_event("token", {"style": s, "content": full_content})
 
-            # 合规检查
             compliance = check_compliance(full_content)
             yield _sse_event("style_complete", {
                 "style": s,
@@ -334,7 +370,6 @@ class ScriptService:
                 "word_count": len(full_content),
             })
 
-            # 保存到demo列表
             ctx_name = customer_context.get("name", "客户")
             pt_display = product_type or "通用"
             self.create_script({

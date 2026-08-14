@@ -5,8 +5,11 @@ Demo 模式使用内存数据，生产模式无缝切换到数据库。
 import uuid
 from datetime import datetime, timedelta, timezone
 
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
+from app.core.config import settings
+from app.repositories.notification_repo import UserAchievementRepository
 from app.schemas.growth import (
     AchievementItem,
     AchievementList,
@@ -225,8 +228,80 @@ _DEMO_ACHIEVEMENTS: list[dict] = [
 class GrowthService:
     """成长体系服务。"""
 
+    def __init__(self, session: AsyncSession | None = None):
+        self.session = session
+
+    # ---- Public methods ----
+
     async def get_overview(self, user_phone: str) -> GrowthOverview:
         """获取成长概览数据。"""
+        if settings.DEMO_MODE:
+            return self._demo_get_overview(user_phone)
+
+        # Production path — returns minimal placeholder data
+        return GrowthOverview(
+            monthly_stats=[],
+            weekly_trend=[],
+            ability_scores=[],
+            learning_courses=[],
+            level=1,
+            level_name="代理人",
+            exp_current=0,
+            exp_next=100,
+            total_exp=0,
+        )
+
+    async def get_course_detail(self, course_id: str, user_phone: str) -> CourseDetail | None:
+        """获取课程详情。"""
+        if settings.DEMO_MODE:
+            return self._demo_get_course_detail(course_id, user_phone)
+
+        # Production path — placeholder
+        return None
+
+    async def get_leaderboard(self, period: str = "month", user_phone: str = "") -> LeaderboardResponse:
+        """获取排行榜。"""
+        if settings.DEMO_MODE:
+            return self._demo_get_leaderboard(period, user_phone)
+
+        # Production path — empty leaderboard
+        return LeaderboardResponse(
+            period=period,
+            leaderboard=[],
+            my_rank=None,
+        )
+
+    async def get_achievements(self, user_phone: str) -> AchievementList:
+        """获取成就列表。"""
+        if settings.DEMO_MODE:
+            return self._demo_get_achievements(user_phone)
+
+        # Production path — query via repository
+        repo = UserAchievementRepository(self.session)
+        user_id = uuid.UUID("00000000-0000-0000-0000-000000000000")  # TODO: resolve from user_phone
+        rows = await repo.list_by_user(user_id)
+        unlocked = []
+        locked = []
+        for r in rows:
+            item = AchievementItem(
+                id=str(r.id),
+                name=r.achievement_name or "",
+                description="",
+                icon="🏅",
+                is_unlocked=bool(r.is_unlocked),
+                category="",
+                unlocked_at=r.created_at,
+            )
+            if item.is_unlocked:
+                unlocked.append(item)
+            else:
+                locked.append(item)
+        return AchievementList(unlocked=unlocked, locked=locked)
+
+    # ---- Demo methods ----
+
+    def _demo_get_overview(self, user_phone: str) -> GrowthOverview:
+        """Demo：获取成长概览数据。"""
         return GrowthOverview(
             monthly_stats=[MonthlyStatItem(**s) for s in _DEMO_MONTHLY_STATS],
             weekly_trend=[WeeklyTrendItem(**s) for s in _DEMO_WEEKLY_TREND],
@@ -239,15 +314,15 @@ class GrowthService:
             total_exp=8200,
         )
 
-    async def get_course_detail(self, course_id: str, user_phone: str) -> CourseDetail | None:
-        """获取课程详情。"""
+    def _demo_get_course_detail(self, course_id: str, user_phone: str) -> CourseDetail | None:
+        """Demo：获取课程详情。"""
         for c in _DEMO_LEARNING_COURSES:
             if c["id"] == course_id:
                 return CourseDetail(**c)
         return None
 
-    async def get_leaderboard(self, period: str = "month", user_phone: str = "") -> LeaderboardResponse:
-        """获取排行榜。"""
+    def _demo_get_leaderboard(self, period: str = "month", user_phone: str = "") -> LeaderboardResponse:
+        """Demo：获取排行榜。"""
         leaderboard = [LeaderboardItem(**item) for item in _DEMO_LEADERBOARD]
         my_rank = None
         for item in leaderboard:
@@ -260,8 +335,8 @@ class GrowthService:
             my_rank=my_rank,
         )
 
-    async def get_achievements(self, user_phone: str) -> AchievementList:
-        """获取成就列表。"""
+    def _demo_get_achievements(self, user_phone: str) -> AchievementList:
+        """Demo：获取成就列表。"""
         unlocked = []
         locked = []
         for a in _DEMO_ACHIEVEMENTS:

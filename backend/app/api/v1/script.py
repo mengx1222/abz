@@ -6,9 +6,10 @@ from fastapi import APIRouter, Depends, Request
 from fastapi.responses import StreamingResponse
 from structlog import get_logger
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.common import SuccessResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.script import (
     ComplianceCheckRequest,
     ScriptGenerateRequest,
