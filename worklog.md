@@ -610,3 +610,58 @@ Stage Summary:
 - 前端安全: 角色路由守卫 + 侧边栏按角色过滤 + 代码分割（入口↓34%）
 - 版本升级: 0.2.0 → 0.3.0
 - 下一阶段: Phase 5 — 全链路测试与生产加固
+
+---
+Task ID: 18
+Agent: main + 3 sub-agents
+Task: Phase 5 — 全链路测试与生产加固
+
+Work Log:
+- 创建后端 pytest 测试框架:
+  - pytest.ini + pyproject.toml [tool.pytest.ini_options]
+  - tests/conftest.py: 全局 fixtures (client, demo_token, auth_headers, admin_token)
+  - tests/api/conftest.py: API 公共 fixtures (sample_customer_data)
+- 创建 6 个单元测试文件 (91 个测试用例):
+  - test_sanitize.py: 25 断言 — 手机/身份证/银行卡/姓名/邮箱脱敏 + 递归脱敏
+  - test_rag_safety.py: 40 断言 — 拒答/置信度门控/Prompt Injection 检测/输入消毒
+  - test_compliance.py: 25 断言 — 8 条合规规则全覆盖
+  - test_authorization.py: 30 断言 — 5 种角色 IDOR 防护
+  - test_rate_limit.py: 15 断言 — 令牌桶核心逻辑
+  - test_auth.py: 20 断言 — JWT 创建/解码/过期/密钥错误
+- 创建 10 个 API 集成测试文件 (42 个测试用例):
+  - test_health.py / test_auth_api.py / test_customer_api.py / test_script_api.py
+  - test_community_api.py / test_training_api.py / test_growth_api.py
+  - test_notification_api.py / test_dashboard_api.py / test_admin_api.py
+- 后端测试结果: 133 passed, 0 failed (21.65s)
+- 后端覆盖率: 60% (core 95%, rag/safety 99%, compliance 92%)
+- 创建前端 vitest 测试框架:
+  - vitest.config.ts + setup.ts + @testing-library 依赖
+  - 3 个测试文件 (27 个测试用例):
+    - roleRoutes.test.ts: 13 用例 — 角色路由权限
+    - cn.test.ts: 7 用例 — cn 工具函数
+    - authStore.test.ts: 7 用例 — zustand 状态管理
+- 前端测试结果: 27 passed, 0 failed (2.47s)
+- 创建生产部署配置:
+  - .env.production: JWT/AI/API 密钥模板
+  - docker-compose.prod.yml: 资源限制 + restart:always + env_file + workers 4
+  - 修复 Dockerfile HEALTHCHECK 路径
+- 创建部署工具:
+  - phase5_verify_migrations.py: 迁移验证 (31 表全通过)
+  - phase5_deploy_check.sh: 部署前检查脚本
+  - scripts/deploy.sh: 交互式部署引导
+
+验证结果:
+  - 后端 133 测试全通过 ✅
+  - 前端 27 测试全通过 ✅
+  - 迁移验证 31 张表全存在 ✅
+  - 前端 TSC 0 errors ✅
+  - 前端 Vite build OK ✅
+  - Pushed to GitHub ✅
+
+Stage Summary:
+  - 后端自动化测试: 133 个 pytest 用例 (6 单元 + 10 API 集成), 覆盖率 60%
+  - 前端自动化测试: 27 个 vitest 用例 (3 文件), roleRoutes/cn/authStore 100% 覆盖
+  - 生产部署配置: docker-compose.prod.yml + .env.production + deploy.sh
+  - 迁移验证: 0001→0007 全链路通过, 31 张关键表存在
+  - Dockerfile 修复: HEALTHCHECK 路径修正
+  - 下一阶段: Phase 6 — 内部试点发布准备

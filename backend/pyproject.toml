@@ -33,5 +33,10 @@ dev = [
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+
 [tool.hatch.build.targets.wheel]
 packages = ["app"]
