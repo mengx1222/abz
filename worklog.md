@@ -214,3 +214,49 @@ Stage Summary:
 - 客户360°前端完整实现：列表页（API对接+多维筛选+创建） + 详情页（4Tab+AI分析）
 - 后端CRUD+Demo数据+AI分析SSE全部验证通过
 - 前端构建零错误，已推送GitHub
+
+---
+Task ID: 9
+Agent: main
+Task: Phase 6 — AI话术模块（多风格SSE流式生成 + RAG知识增强 + 合规引擎）
+
+Work Log:
+- 新增 Alembic 迁移 0003_scripts: scripts/script_versions/script_favorites 三表（含GIN全文索引）
+- 新增 ScriptFavorite 模型（用户-话术多对多收藏关联，联合唯一约束）
+- 重写 ScriptService:
+  - RAG知识库增强话术生成（根据产品类型自动检索相关知识注入Prompt）
+  - SSE流式输出：generation_start → rag_context → style_start → token → style_complete → generation_complete
+  - Demo模式使用内存列表，生产模式可无缝切换到数据库
+  - 8条高质量预设Demo话术（覆盖医疗险/重疾险/意外险/年金险/寿险/车险）
+- 增强合规引擎（8条规则，10+匹配模式）:
+  - 收益承诺(RED) / 绝对化表达(YELLOW) / 虚假比较(YELLOW) / 夸大保障(RED)
+  - 不当核保结论(RED) / 不当理赔承诺(RED) / 诱导销售(YELLOW) / 敏感医疗结论(RED)
+- 优化 Prompt 模板 v2:
+  - 4种风格完整Prompt：亲和型/专业型/数据驱动型/简洁型
+  - 每种风格包含：风格要求 + 话术结构建议 + 禁忌规则
+  - 销售阶段中文映射（initial_contact→首次接触 等）
+- 精简 API 路由（移除冗余inline schemas，清理create/update端点）
+- 新增前端 scriptService.ts:
+  - SSE流式话术生成（AsyncGenerator模式）
+  - 完整CRUD API（getScripts/getScript/toggleFavorite/deleteScript/checkCompliance）
+  - TypeScript类型定义（Script/ComplianceResult/CustomerContext等）
+- 完全重写 ScriptsPage.tsx:
+  - 双Tab布局：生成话术 / 话术库
+  - 话术生成Tab：客户信息表单 + 销售阶段/异议选择 + 风格选择 + SSE流式实时展示
+  - 合规检查面板：实时Badge(绿/黄/红) + 合规评分 + 问题列表 + 修改建议
+  - 话术库Tab：列表视图（搜索/产品筛选/风格Badge/合规Badge/使用数/收藏数）
+  - 话术详情视图（完整内容 + 客户上下文 + 合规结果 + 收藏/删除操作）
+  - 一键复制话术功能
+
+- 验证结果：
+  - 后端8条Demo话术CRUD全部通过 ✅
+  - SSE流式生成+合规检查端到端验证通过 ✅
+  - RAG Pipeline集成验证（58 chunks / 6 documents） ✅
+  - 前端TypeScript编译 0 errors ✅
+  - 前端Vite build OK (467KB JS gzip:142KB) ✅
+  - Pushed to GitHub ✅
+
+Stage Summary:
+- AI话术模块完整实现：多风格SSE流式生成 + RAG知识库增强 + 合规引擎
+- 后端8条高质量预设Demo话术，前端双Tab交互界面
+- 前端构建零错误，已推送GitHub
