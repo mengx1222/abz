@@ -39,12 +39,13 @@ services:
     ports:
       - "8000:8000"
     environment:
-      - APP_ENV=development
-      - DEMO_MODE=true
-      - DATABASE_URL=postgresql+asyncpg://abz_user:abz_dev_2026@postgres:5432/anzhenbao
-      - REDIS_URL=redis://redis:6379/0
-      - JWT_SECRET_KEY=dev-secret-key-do-not-use-in-production
-      - AI_PROVIDER=mock
+      - AZB_APP_ENV=development
+      - AZB_DEBUG=true
+      - AZB_DEMO_MODE=true
+      - AZB_DATABASE_URL=postgresql+asyncpg://abz_user:abz_dev_2026@postgres:5432/anzhenbao
+      - AZB_REDIS_URL=redis://redis:6379/0
+      - AZB_JWT_SECRET_KEY=dev-secret-key-do-not-use-in-production
+      - AZB_AI_PROVIDER=mock
     depends_on:
       postgres:
         condition: service_healthy
@@ -52,7 +53,8 @@ services:
         condition: service_healthy
     volumes:
       - ./backend:/app
-    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    command: >
+      sh -c "alembic upgrade head && python -m scripts.seed && uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload"
 
   frontend:
     build:

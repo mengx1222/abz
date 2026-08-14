@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from structlog import get_logger
 
 from app.core.config import settings
-from app.core.security import decode_token, hash_password
+from app.core.security import decode_token
 from app.models.user import User
 from app.models.role import Role
 from app.models.organization import Organization, OrgType
@@ -114,8 +114,8 @@ async def get_current_user(
     # 演示模式：数据库中找不到用户时，从 token 重建演示用户对象
     if user is None and settings.DEMO_MODE:
         phone = payload.get("phone", "")
-        if phone == "13800138000":
-            user = _build_demo_user(user_id)
+        if phone in ("13800138000", "13800138001", "13800138002", "13800138003"):
+            user = _build_demo_user(user_id, phone)
 
     if user is None:
         raise HTTPException(
@@ -132,17 +132,20 @@ async def get_current_user(
     return user
 
 
-def _build_demo_user(user_id: uuid.UUID) -> User:
+def _build_demo_user(user_id: uuid.UUID, phone: str) -> User:
     """构造一个内存中的演示用户对象。"""
+    from app.services.auth_service import DEMO_USERS_CONFIG
+
+    config = DEMO_USERS_CONFIG.get(phone, {"name": "未知", "role_code": "AGENT", "role_name": "代理人"})
     now = datetime.now(timezone.utc)
     org_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
     role_id = uuid.UUID("00000000-0000-0000-0000-000000000002")
 
     user = User(
         id=user_id,
-        phone="13800138000",
-        name="林思远",
-        password_hash=hash_password("888888"),
+        phone=phone,
+        name=config["name"],
+        password_hash="",
         status="active",
         demo_mode=True,
         role_id=role_id,
@@ -152,8 +155,8 @@ def _build_demo_user(user_id: uuid.UUID) -> User:
     )
     user.role = Role(
         id=role_id,
-        code="AGENT",
-        name="代理人",
+        code=config["role_code"],
+        name=config["role_name"],
         level=1,
         created_at=now,
         updated_at=now,

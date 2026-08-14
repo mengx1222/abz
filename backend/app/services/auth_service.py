@@ -21,12 +21,15 @@ from app.schemas.user import TokenResponse, UserOut
 
 logger = get_logger()
 
-# 演示账号
-DEMO_PHONE = "13800138000"
+# 演示账号配置 — 支持多个演示用户
 DEMO_PASSWORD = "888888"
-DEMO_USER_NAME = "林思远"
-DEMO_ROLE_CODE = "AGENT"
-DEMO_ROLE_NAME = "代理人"
+
+DEMO_USERS_CONFIG = {
+    "13800138000": {"name": "林思远", "role_code": "AGENT",         "role_name": "代理人"},
+    "13800138001": {"name": "张伟",   "role_code": "TEAM_LEADER",   "role_name": "团队长"},
+    "13800138002": {"name": "李芳",   "role_code": "BRANCH_ADMIN",  "role_name": "分公司管理员"},
+    "13800138003": {"name": "王强",   "role_code": "SYSTEM_ADMIN",  "role_name": "系统管理员"},
+}
 
 
 class AuthService:
@@ -49,33 +52,40 @@ class AuthService:
 
     async def _demo_login(self, phone: str, password: str) -> TokenResponse:
         """演示模式登录逻辑。"""
-        if phone != DEMO_PHONE or password != DEMO_PASSWORD:
+        if password != DEMO_PASSWORD:
+            raise ValueError("密码错误")
+
+        if phone not in DEMO_USERS_CONFIG:
             raise ValueError("手机号或密码错误")
 
         # 尝试从数据库查找演示用户，失败则动态构造
         user: User | None = None
         try:
-            user = await self.user_repo.find_by_phone(DEMO_PHONE)
+            user = await self.user_repo.find_by_phone(phone)
         except Exception as e:
             logger.debug("Database query failed in demo login, using in-memory user", error=str(e))
 
         if user is None:
-            user = self._build_demo_user()
+            user = self._build_demo_user(phone)
 
         return self._issue_tokens(user)
 
     @staticmethod
-    def _build_demo_user() -> User:
+    def _build_demo_user(phone: str) -> User:
         """构造一个内存中的演示用户对象。"""
+        config = DEMO_USERS_CONFIG.get(phone)
+        if not config:
+            raise ValueError(f"未知的演示用户: {phone}")
+
         now = datetime.now(timezone.utc)
         org_id = uuid.UUID("00000000-0000-0000-0000-000000000001")
-        role_id = uuid.UUID("00000000-0000-0000-0000-000000000002")
+        role_id = uuid.uuid4()
         user_id = uuid.uuid4()
 
         user = User(
             id=user_id,
-            phone=DEMO_PHONE,
-            name=DEMO_USER_NAME,
+            phone=phone,
+            name=config["name"],
             password_hash=hash_password(DEMO_PASSWORD),
             status="active",
             demo_mode=True,
@@ -86,8 +96,8 @@ class AuthService:
         )
         user.role = Role(
             id=role_id,
-            code=DEMO_ROLE_CODE,
-            name=DEMO_ROLE_NAME,
+            code=config["role_code"],
+            name=config["role_name"],
             level=1,
             created_at=now,
             updated_at=now,
@@ -152,10 +162,12 @@ class AuthService:
         user_id = uuid.UUID(user_id_str)
 
         # 演示模式下从 token 重建用户
-        if settings.DEMO_MODE and payload.get("phone") == DEMO_PHONE:
-            user = self._build_demo_user()
-            user.id = user_id
-            return self._issue_tokens(user)
+        if settings.DEMO_MODE:
+            phone = payload.get("phone", "")
+            if phone in DEMO_USERS_CONFIG:
+                user = self._build_demo_user(phone)
+                user.id = user_id
+                return self._issue_tokens(user)
 
         user = await self.user_repo.get_by_id_active(user_id)
         if user is None:
