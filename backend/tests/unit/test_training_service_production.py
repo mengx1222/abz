@@ -22,6 +22,24 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import StaticPool
 
+# ---- SQLite 兼容：为 JSONB / Vector 注册 SQLite 编译器 ----
+# 模型使用 PG 原生类型 (JSONB / pgvector Vector)，SQLite 测试库建表时无法直接
+# 编译，这里注册编译器使其渲染为 JSON / BLOB，仅影响测试建表。
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.ext.compiler import compiles
+from pgvector.sqlalchemy import Vector
+
+
+@compiles(JSONB, "sqlite")
+def _compile_jsonb_sqlite(type_, compiler, **kw):
+    return "JSON"
+
+
+@compiles(Vector, "sqlite")
+def _compile_vector_sqlite(type_, compiler, **kw):
+    return "BLOB"
+
+
 from app.core.config import settings
 from app.models import Base, TrainingMessage, TrainingScenario, TrainingScore, TrainingSession, User
 from app.services.training_service import TrainingService, seed_training_scenarios
