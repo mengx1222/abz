@@ -1,9 +1,12 @@
 # 项目审计报告 — 安诊保 AI 副驾
 
-> **审计日期**：2025年7月  
-> **项目阶段**：0→1 绿地新建（Greenfield）  
-> **所属企业**：华安保险（Sinosafe Insurance）  
-> **审计基准文档**：《安诊保 AI 副驾｜Codex 0→1 产品研发总控 Prompt.md》
+> ⚠️ **本文档已过时** — 这是项目初始状态（Phase 0）的基线审计。
+> 
+> **最新审计报告请查看**: [`current-state-audit.md`](./current-state-audit.md)（2026-08-14）
+
+> **审计日期**：2025年7月（过时）  
+> **项目阶段**：0→1 绿地新建（Greenfield）→ 已完成MVP全部功能开发  
+> **所属企业**：华安保险（Sinosafe Insurance）
 
 ---
 

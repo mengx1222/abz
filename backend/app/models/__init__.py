@@ -9,6 +9,7 @@ from app.models.ai_log import AIRequestLog, AIFeedback
 from app.models.training import TrainingScenario, TrainingSession, TrainingMessage, TrainingScore
 from app.models.customer import Customer, CustomerTag, CustomerInteraction, CustomerFollowup
 from app.models.script import Script, ScriptFavorite, ScriptVersion
+from app.models.community import Post, PostComment, PostLike, PostFavorite
 
 __all__ = [
     "Base",
@@ -35,4 +36,8 @@ __all__ = [
     "Script",
     "ScriptFavorite",
     "ScriptVersion",
+    "Post",
+    "PostComment",
+    "PostLike",
+    "PostFavorite",
 ]
