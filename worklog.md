@@ -405,3 +405,41 @@ Stage Summary:
 - 9个管理子模块全覆盖: 用户/看板/审计/合规/社区/话术/陪练/知识库/设置
 - 全部Demo模式内存数据, 无需数据库
 - 前端构建零错误, 已推送GitHub
+
+---
+Task ID: 13
+Agent: main + sub-agents
+Task: Phase 10 — 成长体系 + 通知中心 + Dashboard API 对接
+
+Work Log:
+- 新增3个后端Schema (backend/app/schemas/):
+  - growth.py: GrowthOverview/MonthlyStat/WeeklyTrend/AbilityScore/LearningCourse/CourseDetail/LeaderboardItem/AchievementItem/AchievementList/LeaderboardResponse
+  - notification.py: NotificationItem/NotificationListResponse/MarkReadRequest/MarkReadResponse/NotificationPreference/NotificationPreferencesResponse/UpdatePreferenceRequest
+  - dashboard.py: DashboardOverview/TodayStat/AiSuggestion/QuickAction/RecentActivity
+- 新增3个后端Service (backend/app/services/):
+  - growth_service.py: GrowthService — 6个课程详情(含课时列表), 10个排行榜, 12个成就, 月度统计/周趋势/能力评分
+  - notification_service.py: NotificationService — 12条通知, 5类偏好设置, 批量/全部已读
+  - dashboard_service.py: DashboardService — 4个今日统计, 4个AI建议, 8个最近活动, 快捷操作
+- 新增3个后端API路由 (backend/app/api/v1/):
+  - growth.py: GET /overview, GET /courses/{id}, GET /leaderboard, GET /achievements
+  - notification.py: GET /notifications, POST /read, GET /preferences, PUT /preferences
+  - dashboard.py: GET /dashboard
+- 更新路由注册: 10个新API端点注册到v1 router
+- 新增3个前端Service (frontend/src/services/):
+  - growthService.ts: 完整TypeScript类型 + 4个API方法
+  - notificationService.ts: 完整TypeScript类型 + 5个API方法
+  - dashboardService.ts: 完整TypeScript类型 + 1个API方法
+- 重写DashboardPage.tsx: API对接 + Loading/Error三态 + Badge安全映射
+- 重写GrowthPage.tsx: 三Tab增强布局(学习中心/排行榜/成就中心) + 等级经验条 + 课程详情弹窗 + 能力进度条 + 周趋势柱状图
+- 重写NotificationsPage.tsx: 双Tab(通知列表+通知设置) + 类型筛选 + 分页 + 已读标记 + 偏好开关 + Toast反馈
+- 10个后端API端点全部集成测试通过 ✅
+- 前端TypeScript编译 0 errors ✅
+- 前端Vite build OK (568KB JS gzip:160KB, 174 modules) ✅
+- Pushed to GitHub ✅
+
+Stage Summary:
+- 成长体系完整实现: 月度统计/周趋势/能力评分/学习进度/排行榜/成就系统
+- 通知中心完整实现: 通知列表/类型筛选/批量已读/偏好设置开关
+- Dashboard对接真实API: 问候语/今日统计/AI建议/快捷操作/最近活动
+- 全部Demo模式内存数据, 无需数据库
+- 前端构建零错误, 已推送GitHub
