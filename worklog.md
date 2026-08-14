@@ -299,3 +299,57 @@ Stage Summary:
 - AI话术模块完整实现：多风格SSE流式生成 + RAG知识库增强 + 合规引擎
 - 后端8条高质量预设Demo话术，前端双Tab交互界面
 - 前端构建零错误，已推送GitHub
+
+---
+Task ID: 11
+Agent: main
+Task: Phase 8 — AI社区模块（帖子/评论/点赞/收藏/AI摘要）
+
+Work Log:
+- 新增社区数据模型 (app/models/community.py):
+  - Post: 标题/内容/摘要/分类/标签/浏览量/点赞数/评论数/收藏数/置顶/推荐/状态/AI摘要
+  - PostComment: 帖子评论/父评论ID(回复)/点赞数
+  - PostLike: 帖子点赞(多对多关联表,联合唯一约束)
+  - PostFavorite: 帖子收藏(多对多关联表,联合唯一约束)
+- 新增 Alembic 迁移 0004_community:
+  - 4张表 + GIN全文检索索引 + 触发器自动更新search_vector
+- 新增社区Schema (app/schemas/community.py):
+  - 12个Pydantic模型: PostCreate/PostUpdate/PostListItem/PostDetail/CommentCreate/CommentItem/LikeToggleResponse/FavoriteToggleResponse/AiSummaryEvent等
+- 新增 CommunityService (app/services/community_service.py):
+  - Demo模式内存列表, 8条高质量预设帖子(覆盖实战经验/理赔案例/销售心得/求助提问/话术模板/知识分享)
+  - 10条预设评论(含嵌套回复)
+  - 完整CRUD: list_posts/get_post/create_post/update_post/delete_post
+  - 点赞/收藏 toggle: toggle_like/toggle_favorite
+  - 评论系统: add_comment/list_comments(含replies嵌套)
+  - 我的收藏: my_favorites
+  - AI摘要SSE流式生成: generate_ai_summary(Demo模式基于内容截取)
+- 新增社区API路由 (app/api/v1/community.py):
+  - 11个端点: GET/POST/PUT/DELETE /posts, POST /like, POST /favorite, GET/POST /comments, GET /favorites, GET /ai-summary(SSE)
+  - 路由注册到 /community 前缀
+- 新增前端 communityService.ts:
+  - 完整API服务(11个方法) + TypeScript类型定义
+  - SSE流式AI摘要(AsyncGenerator模式)
+  - CATEGORY_OPTIONS/CATEGORY_BADGE_VARIANTS常量
+- 完全重写 CommunityPage.tsx:
+  - 双Tab布局(帖子列表/我的收藏)
+  - 搜索框 + 分类下拉 + 排序下拉
+  - 帖子卡片(头像/分类Badge/置顶/推荐/标签/点赞/评论/浏览/收藏)
+  - 帖子详情弹窗(Markdown渲染 + 分类Badge + 作者信息 + 标签)
+  - AI摘要面板(SSE流式生成 + 缓存显示)
+  - 评论系统(发表/显示/嵌套回复)
+  - 发布帖子弹窗(标题/分类选择/内容/标签)
+  - 分页器(上一页/下一页)
+
+验证结果:
+  - 后端15项集成测试全部通过 ✅
+  - 8条预设帖子, 10条评论, 5个分类 ✅
+  - 点赞/收藏/评论/CRUD/AI摘要 全部正常 ✅
+  - 前端TypeScript编译 0 errors ✅
+  - 前端Vite build OK (495KB JS gzip:147KB) ✅
+  - Pushed to GitHub ✅
+
+Stage Summary:
+- AI社区模块完整实现：帖子/评论/点赞/收藏/AI摘要SSE流式
+- 8条高质量预设帖子, 10条评论, 5个分类(实战经验/知识分享/求助提问/讨论/优秀话术)
+- 前端完整交互：双Tab + 帖子详情弹窗 + AI摘要 + 评论系统
+- 前端构建零错误，已推送GitHub
