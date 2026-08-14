@@ -3,6 +3,7 @@
 提供统一的高层接口：
 - index_document(): 文档入库（解析→分块→嵌入→存储）
 - query(): 查询（检索→重排→上下文组装）
+- chat_with_rag(): 安全增强的RAG聊天（输入消毒 + 拒答 + 置信度门控）
 - init_demo_index(): 初始化Demo模式的内存索引
 """
 import uuid
@@ -15,6 +16,13 @@ from app.core.config import settings
 from app.rag.chunker import chunk_document, Chunk
 from app.rag.parser import DocumentParser, ParsedDocument, get_demo_documents
 from app.rag.retriever import DemoRetriever, Retriever, SearchResult
+from app.rag.safety import (
+    sanitize_user_input,
+    should_refuse_answer,
+    assess_confidence,
+    ConfidenceLevel,
+    SeverityLevel,
+)
 
 logger = get_logger()
 
@@ -36,9 +44,18 @@ _RAG_SYSTEM_PROMPT_TEMPLATE = """你是「安诊保 AI 副驾」，华安保险�
 - 在适当位置标注引用来源 [文档名]
 - 保持语言专业但易懂
 
+## 重要：拒答规则
+- 如果参考内容中没有与用户问题相关的信息，你必须明确告知：「抱歉，我目前的知识库中没有与您问题相关的信息。建议您咨询华安保险产品部门或专业顾问获取准确信息。」
+- 绝对不允许编造或猜测任何产品细节、保费、理赔条件等信息
+- 对于核保结论、理赔承诺等敏感问题，必须建议用户咨询专业人士
+
 ## 参考内容
 {context}
 """
+
+# 安全拒答固定文本
+_SAFETY_REFUSE_TEXT = "抱歉，您的输入包含不安全内容，请重新描述您的问题。"
+_REFUSE_TEXT = "抱歉，我目前的知识库中没有与您问题相关的信息。建议您咨询华安保险产品部门或专业顾问获取准确信息。"
 
 # 拒答阈值
 MIN_CONTEXT_SCORE = 0.3
@@ -203,24 +220,80 @@ class RAGPipeline:
         top_k: int = 8,
         knowledge_base_ids: list[str] | None = None,
         user_roles: list[str] | None = None,
-    ) -> tuple[list[SearchResult], str, str]:
-        """完整的RAG增强聊天。
+    ) -> tuple[list[SearchResult], str, str, dict | None]:
+        """安全增强的 RAG 聊天。
+
+        流程:
+        1. 输入消毒 + Prompt Injection 检测
+        2. 检索
+        3. 拒答判断 + 置信度门控
+        4. 构建带拒答指令的系统提示词
 
         Returns:
-            (search_results, system_prompt_with_context, demo_response_text)
+            (search_results, system_prompt_with_context, demo_response_text, confidence_info)
+            confidence_info: {"level": str, "top_score": float, "result_count": int, "explanation": str}
         """
-        # Step 1: 检索
+        # ---- Step 1: 输入消毒 & 安全检查 ----
+        sanitized_question, safety_check = sanitize_user_input(question)
+
+        if safety_check.is_malicious and safety_check.severity == SeverityLevel.HIGH:
+            logger.warning(
+                "rag_prompt_injection_blocked",
+                attack_types=safety_check.attack_types,
+                severity=safety_check.severity.value,
+            )
+            # 直接拒答，不调用 LLM
+            return [], "", _SAFETY_REFUSE_TEXT, {
+                "level": "NONE",
+                "top_score": 0.0,
+                "result_count": 0,
+                "explanation": "输入安全检查未通过，已拦截。",
+                "refusal_reason": "prompt_injection",
+            }
+
+        # 使用消毒后的文本进行检索
+        query_text = safety_check.sanitized_text if safety_check.is_malicious else sanitized_question
+
+        # ---- Step 2: 检索 ----
         results, context = await self.query(
-            question=question,
+            question=query_text,
             top_k=top_k,
             knowledge_base_ids=knowledge_base_ids,
             user_roles=user_roles,
         )
 
-        # Step 2: 构建系统提示词
-        system_prompt = _RAG_SYSTEM_PROMPT_TEMPLATE.format(context=context) if context else _RAG_SYSTEM_PROMPT_TEMPLATE.format(context="(无相关参考内容，请基于通用保险知识回答，并说明信息未经知识库验证。)")
+        # ---- Step 3: 拒答判断 + 置信度评估 ----
+        should_refuse, top_score, result_count = should_refuse_answer(results)
+        confidence = assess_confidence(results)
 
-        return results, system_prompt, ""
+        confidence_info = {
+            "level": confidence.level.value,
+            "top_score": confidence.top_score,
+            "result_count": confidence.result_count,
+            "explanation": confidence.explanation,
+        }
+
+        # ---- Step 4: 置信度为 NONE → 固定拒答文本 ----
+        if confidence.level == ConfidenceLevel.NONE:
+            logger.info(
+                "rag_confidence_none_refuse",
+                question=query_text[:100],
+                top_score=top_score,
+            )
+            return results, "", _REFUSE_TEXT, confidence_info
+
+        # ---- Step 5: 构建系统提示词 ----
+        if should_refuse:
+            # 有一定相关性但不够 → 在提示词中强调拒答规则
+            context_for_llm = context if context else "(无直接相关的参考内容)"
+            system_prompt = _RAG_SYSTEM_PROMPT_TEMPLATE.format(context=context_for_llm)
+            confidence_info["refusal_hint"] = True
+        else:
+            system_prompt = _RAG_SYSTEM_PROMPT_TEMPLATE.format(
+                context=context if context else "(无相关参考内容，请基于通用保险知识回答，并说明信息未经知识库验证。)",
+            )
+
+        return results, system_prompt, "", confidence_info
 
 
 async def init_demo_index() -> DemoRetriever:

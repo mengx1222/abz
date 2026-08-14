@@ -1,13 +1,19 @@
+from __future__ import annotations
+
 import json
 from datetime import datetime, timezone, timedelta
 import uuid
-from typing import AsyncGenerator
+from typing import AsyncGenerator, TYPE_CHECKING
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
 from app.core.config import settings
 from app.ai.gateway import get_ai_gateway
+from app.core.authorization import DataPermissionChecker
+
+if TYPE_CHECKING:
+    from app.models.user import User
 from app.repositories.customer_repo import (
     CustomerRepository,
     CustomerInteractionRepository,
@@ -160,12 +166,22 @@ class CustomerService:
         search: str | None = None,
         page: int = 1,
         page_size: int = 20,
+        current_user: User | None = None,
     ) -> tuple[list[dict], int]:
         """获取客户列表。返回 (items, total)。"""
         if settings.DEMO_MODE:
             return self._demo_list(
-                customer_type, current_stage, intention_level, tag, search, page, page_size
+                customer_type, current_stage, intention_level, tag, search, page, page_size,
+                current_user=current_user,
             )
+
+        # DB 模式：根据当前用户角色过滤可访问的 org
+        org_filter = _DEMO_ORG_ID
+        if current_user is not None:
+            checker = DataPermissionChecker(current_user)
+            accessible_orgs = checker.filter_accessible_org_ids()
+            if accessible_orgs != ["__ALL__"]:
+                org_filter = [uuid.UUID(oid) for oid in accessible_orgs]
 
         records, total = await self.customer_repo.search_list(
             page=page,
@@ -175,7 +191,7 @@ class CustomerService:
             intention_level=intention_level,
             tag=tag,
             search=search,
-            organization_id=_DEMO_ORG_ID,
+            organization_id=org_filter,
         )
         items = [self._customer_to_dict(r) for r in records]
         return items, total
@@ -189,10 +205,22 @@ class CustomerService:
         search: str | None,
         page: int,
         page_size: int,
+        current_user: User | None = None,
     ) -> tuple[list[dict], int]:
         _build_demo_data()
 
         filtered = list(_DEMO_CUSTOMERS)
+
+        # IDOR 防护：根据当前用户角色过滤可见客户
+        if current_user is not None and hasattr(current_user, 'organization_id'):
+            checker = DataPermissionChecker(current_user)
+            accessible_orgs = checker.filter_accessible_org_ids()
+            if accessible_orgs != ["__ALL__"]:
+                filtered = [
+                    c for c in filtered
+                    if c.get('organization_id') in accessible_orgs
+                ]
+
         if customer_type:
             filtered = [c for c in filtered if c["customer_type"] == customer_type]
         if current_stage:
@@ -214,22 +242,35 @@ class CustomerService:
     # 详情
     # ------------------------------------------------------------------
 
-    async def get_customer(self, customer_id: uuid.UUID) -> dict | None:
+    async def get_customer(self, customer_id: uuid.UUID, current_user: User | None = None) -> dict | None:
         """获取客户详情（含互动和跟进）。"""
         if settings.DEMO_MODE:
-            return self._demo_get_detail(str(customer_id))
+            return self._demo_get_detail(str(customer_id), current_user=current_user)
 
         customer = await self.customer_repo.get_by_id_active(customer_id)
         if customer is None:
             return None
+
+        # IDOR 防护：检查当前用户是否有权访问该客户的组织数据
+        if current_user is not None:
+            checker = DataPermissionChecker(current_user)
+            if not checker.can_access_customer(str(customer.organization_id)):
+                return None
+
         return self._customer_detail_to_dict(customer)
 
-    def _demo_get_detail(self, customer_id: str) -> dict | None:
+    def _demo_get_detail(self, customer_id: str, current_user: User | None = None) -> dict | None:
         _build_demo_data()
 
         cust = next((c for c in _DEMO_CUSTOMERS if c["id"] == customer_id), None)
         if cust is None:
             return None
+
+        # IDOR 防护：检查当前用户是否有权访问该客户
+        if current_user is not None and hasattr(current_user, 'organization_id'):
+            checker = DataPermissionChecker(current_user)
+            if not checker.can_access_customer(cust.get('organization_id')):
+                return None
 
         interactions = [
             i for i in _DEMO_INTERACTIONS if i["customer_id"] == customer_id
@@ -244,10 +285,15 @@ class CustomerService:
     # 创建
     # ------------------------------------------------------------------
 
-    async def create_customer(self, data: CustomerCreate, user_id: uuid.UUID) -> dict:
+    async def create_customer(
+        self, data: CustomerCreate, user_id: uuid.UUID, current_user: User | None = None
+    ) -> dict:
         """创建客户。"""
         if settings.DEMO_MODE:
-            return self._demo_create(data, user_id)
+            return self._demo_create(data, user_id, current_user=current_user)
+
+        # 创建时使用当前用户的 organization_id 而非硬编码
+        org_id = current_user.organization_id if current_user else _DEMO_ORG_ID
 
         customer = await self.customer_repo.create(
             name=data.name,
@@ -262,16 +308,21 @@ class CustomerService:
             source_channel=data.source_channel,
             notes=data.notes,
             assigned_to=user_id,
-            organization_id=_DEMO_ORG_ID,
+            organization_id=org_id,
             created_by=user_id,
             updated_by=user_id,
         )
         await self.session.commit()
         return self._customer_to_dict(customer)
 
-    def _demo_create(self, data: CustomerCreate, user_id: uuid.UUID) -> dict:
+    def _demo_create(
+        self, data: CustomerCreate, user_id: uuid.UUID, current_user: User | None = None
+    ) -> dict:
         _build_demo_data()
         now = datetime.now(timezone.utc).isoformat()
+
+        # 创建时使用当前用户的 organization_id
+        org_id = str(current_user.organization_id) if current_user and hasattr(current_user, 'organization_id') else str(_DEMO_ORG_ID)
 
         cust = {
             "id": str(uuid.uuid4()),
@@ -287,7 +338,7 @@ class CustomerService:
             "source_channel": data.source_channel,
             "notes": data.notes,
             "assigned_to": str(user_id),
-            "organization_id": str(_DEMO_ORG_ID),
+            "organization_id": org_id,
             "created_at": now,
             "updated_at": now,
         }
@@ -298,14 +349,23 @@ class CustomerService:
     # 更新
     # ------------------------------------------------------------------
 
-    async def update_customer(self, customer_id: uuid.UUID, data: CustomerUpdate, user_id: uuid.UUID) -> dict | None:
+    async def update_customer(
+        self, customer_id: uuid.UUID, data: CustomerUpdate, user_id: uuid.UUID,
+        current_user: User | None = None,
+    ) -> dict | None:
         """更新客户信息。"""
         if settings.DEMO_MODE:
-            return self._demo_update(str(customer_id), data, user_id)
+            return self._demo_update(str(customer_id), data, user_id, current_user=current_user)
 
         customer = await self.customer_repo.get_by_id_active(customer_id)
         if customer is None:
             return None
+
+        # IDOR 防护：检查当前用户是否有权修改该客户
+        if current_user is not None:
+            checker = DataPermissionChecker(current_user)
+            if not checker.can_access_customer(str(customer.organization_id)):
+                return None
 
         update_fields = data.model_dump(exclude_unset=True)
         if update_fields:
@@ -316,12 +376,21 @@ class CustomerService:
         updated = await self.customer_repo.get_by_id(customer_id)
         return self._customer_to_dict(updated) if updated else None
 
-    def _demo_update(self, customer_id: str, data: CustomerUpdate, user_id: uuid.UUID) -> dict | None:
+    def _demo_update(
+        self, customer_id: str, data: CustomerUpdate, user_id: uuid.UUID,
+        current_user: User | None = None,
+    ) -> dict | None:
         _build_demo_data()
 
         cust = next((c for c in _DEMO_CUSTOMERS if c["id"] == customer_id), None)
         if cust is None:
             return None
+
+        # IDOR 防护：检查当前用户是否有权修改该客户
+        if current_user is not None and hasattr(current_user, 'organization_id'):
+            checker = DataPermissionChecker(current_user)
+            if not checker.can_access_customer(cust.get('organization_id')):
+                return None
 
         update_fields = data.model_dump(exclude_unset=True)
         for k, v in update_fields.items():
@@ -333,21 +402,38 @@ class CustomerService:
     # 软删除
     # ------------------------------------------------------------------
 
-    async def delete_customer(self, customer_id: uuid.UUID) -> bool:
+    async def delete_customer(
+        self, customer_id: uuid.UUID, current_user: User | None = None
+    ) -> bool:
         """软删除客户。"""
         if settings.DEMO_MODE:
-            return self._demo_delete(str(customer_id))
+            return self._demo_delete(str(customer_id), current_user=current_user)
 
         customer = await self.customer_repo.get_by_id_active(customer_id)
         if customer is None:
             return False
+
+        # IDOR 防护：检查当前用户是否有权删除该客户
+        if current_user is not None:
+            checker = DataPermissionChecker(current_user)
+            if not checker.can_access_customer(str(customer.organization_id)):
+                return False
+
         await self.customer_repo.soft_delete(customer_id)
         await self.session.commit()
         return True
 
-    def _demo_delete(self, customer_id: str) -> bool:
-        _build_demo_data()
+    def _demo_delete(self, customer_id: str, current_user: User | None = None) -> bool:
         global _DEMO_CUSTOMERS
+        _build_demo_data()
+
+        # IDOR 防护：检查当前用户是否有权删除该客户
+        cust = next((c for c in _DEMO_CUSTOMERS if c["id"] == customer_id), None)
+        if cust is not None and current_user is not None and hasattr(current_user, 'organization_id'):
+            checker = DataPermissionChecker(current_user)
+            if not checker.can_access_customer(cust.get('organization_id')):
+                return False
+
         original_len = len(_DEMO_CUSTOMERS)
         _DEMO_CUSTOMERS = [c for c in _DEMO_CUSTOMERS if c["id"] != customer_id]
         return len(_DEMO_CUSTOMERS) < original_len

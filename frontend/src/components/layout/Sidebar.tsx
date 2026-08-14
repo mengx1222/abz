@@ -4,10 +4,13 @@ import { cn } from '../../utils/cn';
 import { useAuthStore } from '../../stores/authStore';
 import { Avatar } from '../ui/Avatar';
 
+type RoleList = string[] | "all";
+
 interface NavItem {
   label: string;
   path: string;
   icon: string;
+  roles?: RoleList;
 }
 
 interface NavGroup {
@@ -17,29 +20,29 @@ interface NavGroup {
 
 const mainNav: NavGroup = {
   items: [
-    { label: '工作台', path: '/dashboard', icon: '🏠' },
-    { label: 'AI产品专家', path: '/product-qa', icon: '🤖' },
-    { label: '客户360', path: '/customers', icon: '👥' },
-    { label: 'AI话术', path: '/scripts', icon: '💬' },
-    { label: 'AI陪练', path: '/training', icon: '🎯' },
-    { label: 'AI社区', path: '/community', icon: '🌐' },
-    { label: '我的成长', path: '/growth', icon: '📊' },
-    { label: '消息中心', path: '/notifications', icon: '🔔' },
+    { label: '工作台', path: '/dashboard', icon: '🏠', roles: 'all' },
+    { label: 'AI产品专家', path: '/product-qa', icon: '🤖', roles: 'all' },
+    { label: '客户360', path: '/customers', icon: '👥', roles: 'all' },
+    { label: 'AI话术', path: '/scripts', icon: '💬', roles: 'all' },
+    { label: 'AI陪练', path: '/training', icon: '🎯', roles: 'all' },
+    { label: 'AI社区', path: '/community', icon: '🌐', roles: 'all' },
+    { label: '我的成长', path: '/growth', icon: '📊', roles: 'all' },
+    { label: '消息中心', path: '/notifications', icon: '🔔', roles: 'all' },
   ],
 };
 
 const adminNav: NavGroup = {
   label: '管理后台',
   items: [
-    { label: '用户管理', path: '/admin/users', icon: '👥' },
-    { label: '数据看板', path: '/admin/analytics', icon: '📊' },
-    { label: '审计日志', path: '/admin/audit', icon: '📋' },
-    { label: '合规中心', path: '/admin/compliance', icon: '🛡️' },
-    { label: '社区管理', path: '/admin/community', icon: '🌐' },
-    { label: '话术管理', path: '/admin/scripts', icon: '💬' },
-    { label: '陪练场景', path: '/admin/training', icon: '🎯' },
-    { label: '知识库', path: '/knowledge', icon: '📚' },
-    { label: '系统设置', path: '/admin/settings', icon: '⚙️' },
+    { label: '用户管理', path: '/admin/users', icon: '👥', roles: ['SYSTEM_ADMIN', 'HQ_ADMIN'] },
+    { label: '数据看板', path: '/admin/analytics', icon: '📊', roles: ['SYSTEM_ADMIN', 'HQ_ADMIN'] },
+    { label: '审计日志', path: '/admin/audit', icon: '📋', roles: ['SYSTEM_ADMIN', 'HQ_ADMIN'] },
+    { label: '合规中心', path: '/admin/compliance', icon: '🛡️', roles: ['SYSTEM_ADMIN', 'HQ_ADMIN', 'COMPLIANCE'] },
+    { label: '社区管理', path: '/admin/community', icon: '🌐', roles: ['SYSTEM_ADMIN', 'HQ_ADMIN'] },
+    { label: '话术管理', path: '/admin/scripts', icon: '💬', roles: ['SYSTEM_ADMIN', 'HQ_ADMIN'] },
+    { label: '陪练场景', path: '/admin/training', icon: '🎯', roles: ['SYSTEM_ADMIN', 'HQ_ADMIN'] },
+    { label: '知识库', path: '/knowledge', icon: '📚', roles: ['SYSTEM_ADMIN', 'HQ_ADMIN', 'BRANCH_ADMIN', 'KNOWLEDGE_ADMIN', 'AGENT'] },
+    { label: '系统设置', path: '/admin/settings', icon: '⚙️', roles: ['SYSTEM_ADMIN'] },
   ],
 };
 
@@ -48,7 +51,17 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
   const user = useAuthStore((s) => s.user);
   const [adminExpanded, setAdminExpanded] = useState(false);
 
-  const isAdmin = user && user.role_code !== 'AGENT';
+  const userRoleCode = user?.role_code || 'AGENT';
+
+  /** 按角色过滤导航项 */
+  const filterByRole = (item: NavItem) => {
+    if (!item.roles || item.roles === 'all') return true;
+    return (item.roles as string[]).includes(userRoleCode);
+  };
+
+  const filteredMainItems = mainNav.items.filter(filterByRole);
+  const filteredAdminItems = adminNav.items.filter(filterByRole);
+  const isAdmin = filteredAdminItems.length > 0;
 
   return (
     <aside
@@ -89,7 +102,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
       {/* Navigation */}
       <nav className="flex-1 overflow-y-auto px-3 py-1">
         <div className="flex flex-col gap-0.5">
-          {mainNav.items.map((item) => (
+          {filteredMainItems.map((item) => (
             <SidebarNavLink key={item.path} item={item} collapsed={collapsed} active={location.pathname === item.path || location.pathname.startsWith(item.path + '/')} />
           ))}
         </div>
@@ -108,7 +121,7 @@ export function Sidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle:
             )}
             {(adminExpanded || collapsed) && (
               <div className="flex flex-col gap-0.5 mt-0.5">
-                {adminNav.items.map((item) => (
+                {filteredAdminItems.map((item) => (
                   <SidebarNavLink key={item.path} item={item} collapsed={collapsed} active={location.pathname === item.path || location.pathname.startsWith(item.path + '/')} />
                 ))}
               </div>

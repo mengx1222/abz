@@ -5,6 +5,9 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from structlog import get_logger
 
 from app.core.config import settings
+from app.core.rate_limit import RateLimitMiddleware
+from app.core.audit import AuditMiddleware
+from app.core.security_headers import SecurityHeadersMiddleware
 
 logger = get_logger()
 
@@ -51,6 +54,17 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
 
 
 def register_middleware(app: FastAPI) -> None:
-    """注册所有自定义中间件。"""
+    """注册所有自定义中间件。
+
+    注册顺序（从外到内，即最先添加的最外层）:
+    1. SecurityHeadersMiddleware  — 确保所有响应都有安全头
+    2. RateLimitMiddleware        — 限流在安全头之后、业务逻辑之前
+    3. AuditMiddleware            — 在限流之后，需要记录限流事件
+    4. RequestIDMiddleware        — 已有
+    5. ErrorHandlerMiddleware     — 最内层
+    """
+    app.add_middleware(SecurityHeadersMiddleware)
+    app.add_middleware(RateLimitMiddleware)
+    app.add_middleware(AuditMiddleware)
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(ErrorHandlerMiddleware)

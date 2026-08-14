@@ -549,3 +549,64 @@ Stage Summary:
 - 修复 3 个遗漏的 db 注入: community.py/script.py/training.py
 - SQLite 文件: backend/data/abz_dev.db
 - 下一阶段: Phase 4 — PostgreSQL 部署验证 + 安全加固
+
+---
+Task ID: 17
+Agent: main + 4 sub-agents
+Task: Phase 4 — RAG 生产化 + 权限安全强化
+
+Work Log:
+- 创建 RAG 安全模块 (backend/app/rag/safety.py):
+  - should_refuse_answer(): 拒答机制（空结果/低分拒答）
+  - assess_confidence(): 置信度门控（HIGH/MEDIUM/LOW/NONE 四级）
+  - detect_prompt_injection(): 多规则 Prompt Injection 检测（角色劫持/指令泄露/分隔符攻击/JSON注入/编码绕过）
+  - sanitize_user_input(): 输入消毒（控制字符清理、2000字截断、换行归一化）
+- 增强 RAG Pipeline (pipeline.py): chat_with_rag 增加安全检查完整流程（输入消毒→安全检查→拒答判断→置信度门控）
+- 增强 RAG Retriever (retriever.py): 向量/BM25 检索增加文档版本过滤（effective_date/expiry_date）+ org_id 组织隔离参数
+- 创建知识库版本管理迁移 (0007_kb_versioning_audit_enhance.py):
+  - knowledge_bases: +effective_date, +expiry_date, +created_by
+  - documents: +effective_date, +expiry_date, +version_number, +previous_version_id
+  - audit_logs: +request_id
+- 更新 KnowledgeBase 模型: 17 列（+3 新字段）
+- 更新 Document 模型: 22 列（+4 新字段）
+- 更新 AuditLog 模型: 16 列（+1 新字段）
+- 创建 Rate Limiting 中间件 (backend/app/core/rate_limit.py):
+  - TokenBucketRateLimiter: 线程安全令牌桶算法
+  - RateLimitMiddleware: 按路径分级限流（登录2/s、AI 5/s、默认30/s），Demo模式放宽5倍，429标准响应
+- 创建审计日志中间件 (backend/app/core/audit.py): 自动审计 POST/PUT/DELETE，structlog记录
+- 创建敏感数据脱敏工具 (backend/app/core/sanitize.py): mask_phone/id_card/bank_card/name/email + 递归脱敏
+- 创建安全头中间件 (backend/app/core/security_headers.py): CSP/X-Frame-Options/HSTS/Permissions-Policy（Demo/Prod双策略）
+- 更新 CORS 配置: 从 allow_origins=["*"] 改为基于 FRONTEND_URL 动态配置
+- 创建 IDOR 防护模块 (backend/app/core/authorization.py):
+  - DataPermissionChecker: 7角色行级权限过滤（客户/文档/用户管理）
+  - filter_accessible_org_ids(): 组织树递归查询
+  - require_data_permission(): FastAPI 依赖工厂
+- 增强 CustomerService IDOR 防护: 所有 CRUD 方法添加 current_user + 组织级过滤
+- 更新 Customer API 路由: 传递 current_user 给 Service
+- 创建前端角色路由配置 (frontend/src/config/roleRoutes.ts): 7角色×18路径权限矩阵
+- 创建路由守卫组件 (frontend/src/components/layout/RoleGuard.tsx): 无权限显示提示页
+- 更新侧边栏 (Sidebar.tsx): 按角色动态过滤菜单项
+- 更新路由配置 (routes.tsx): 19个页面全部 React.lazy 懒加载
+- 修复 customer_service.py global 声明顺序 bug
+
+验证结果:
+  - 后端 App 加载 ✅
+  - 所有新模块导入 ✅
+  - KnowledgeBase 17列 / Document 22列 / AuditLog 16列 ✅
+  - RAG 安全（拒答/置信度/Prompt Injection/输入消毒） ✅
+  - 数据脱敏（手机号/身份证/姓名/邮箱） ✅
+  - Rate Limiter 令牌桶 ✅
+  - IDOR 防护 29项测试 ✅
+  - 前端 TypeScript 0 errors ✅
+  - 前端 Vite build OK ✅
+  - 入口包 374KB (gzip: 120KB) — ↓34% ✅
+  - 19个页面独立分chunk ✅
+  - Pushed to GitHub ✅
+
+Stage Summary:
+- RAG 生产化: 拒答机制+置信度门控+Prompt Injection防护+版本管理+组织隔离
+- 安全中间件: Rate Limiting + 审计日志 + 数据脱敏 + CSP安全头 + CORS加固
+- IDOR 防护: 7角色行级权限过滤，客户Service全方法覆盖
+- 前端安全: 角色路由守卫 + 侧边栏按角色过滤 + 代码分割（入口↓34%）
+- 版本升级: 0.2.0 → 0.3.0
+- 下一阶段: Phase 5 — 全链路测试与生产加固

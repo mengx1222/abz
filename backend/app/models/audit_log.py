@@ -62,6 +62,11 @@ class AuditLog(Base):
         nullable=True,
         comment="用户代理",
     )
+    request_id: Mapped[str | None] = mapped_column(
+        String(36),
+        nullable=True,
+        comment="请求ID",
+    )
     status: Mapped[str] = mapped_column(
         String(20),
         nullable=False,

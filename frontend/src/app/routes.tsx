@@ -1,26 +1,106 @@
+import React, { Suspense, ComponentType } from 'react';
 import { createBrowserRouter, Navigate } from 'react-router-dom';
 import { AppLayout } from '../components/layout/AppLayout';
 import { AuthGuard } from '../components/layout/AuthGuard';
-import { LoginPage } from '../features/auth/LoginPage';
-import { DashboardPage } from '../features/dashboard/DashboardPage';
-import { ProductQaPage } from '../features/product-qa/ProductQaPage';
-import { CustomersPage } from '../features/customers/CustomersPage';
-import { CustomerDetailPage } from '../features/customers/CustomerDetailPage';
-import { ScriptsPage } from '../features/scripts/ScriptsPage';
-import { TrainingPage } from '../features/training/TrainingPage';
-import { TrainingChatPage } from '../features/training/TrainingChatPage';
-import { CommunityPage } from '../features/community/CommunityPage';
-import { GrowthPage } from '../features/growth/GrowthPage';
-import { NotificationsPage } from '../features/notifications/NotificationsPage';
-import { KnowledgePage } from '../features/knowledge/KnowledgePage';
-import { UsersPage } from '../features/admin/UsersPage';
-import { AnalyticsPage } from '../features/admin/AnalyticsPage';
-import { AuditLogPage } from '../features/admin/AuditLogPage';
-import { CompliancePage } from '../features/admin/CompliancePage';
-import { CommunityManagePage } from '../features/admin/CommunityManagePage';
-import { ScriptManagePage } from '../features/admin/ScriptManagePage';
-import { TrainingManagePage } from '../features/admin/TrainingManagePage';
-import { SettingsPage } from '../features/admin/SettingsPage';
+import { LoadingSpinner } from '../components/ui/LoadingSpinner';
+
+/**
+ * 辅助函数：从命名导出的模块创建懒加载组件
+ * 用法: lazyNamed(() => import('./Foo'), 'FooPage')
+ */
+function lazyNamed<T extends string>(
+  factory: () => Promise<Record<T, ComponentType>>,
+  name: T
+): ComponentType {
+  const LazyComp = React.lazy(() =>
+    factory().then((module) => ({ default: module[name] }))
+  );
+  return function LazyPage() {
+    return (
+      <Suspense fallback={<LoadingSpinner />}>
+        <LazyComp />
+      </Suspense>
+    );
+  };
+}
+
+// Lazy load pages (named exports)
+const DashboardPage = lazyNamed(
+  () => import('../features/dashboard/DashboardPage'),
+  'DashboardPage'
+);
+const ProductQaPage = lazyNamed(
+  () => import('../features/product-qa/ProductQaPage'),
+  'ProductQaPage'
+);
+const CustomersPage = lazyNamed(
+  () => import('../features/customers/CustomersPage'),
+  'CustomersPage'
+);
+const CustomerDetailPage = lazyNamed(
+  () => import('../features/customers/CustomerDetailPage'),
+  'CustomerDetailPage'
+);
+const ScriptsPage = lazyNamed(
+  () => import('../features/scripts/ScriptsPage'),
+  'ScriptsPage'
+);
+const TrainingPage = lazyNamed(
+  () => import('../features/training/TrainingPage'),
+  'TrainingPage'
+);
+const TrainingChatPage = lazyNamed(
+  () => import('../features/training/TrainingChatPage'),
+  'TrainingChatPage'
+);
+const CommunityPage = lazyNamed(
+  () => import('../features/community/CommunityPage'),
+  'CommunityPage'
+);
+const GrowthPage = lazyNamed(
+  () => import('../features/growth/GrowthPage'),
+  'GrowthPage'
+);
+const NotificationsPage = lazyNamed(
+  () => import('../features/notifications/NotificationsPage'),
+  'NotificationsPage'
+);
+const KnowledgePage = lazyNamed(
+  () => import('../features/knowledge/KnowledgePage'),
+  'KnowledgePage'
+);
+const UsersPage = lazyNamed(
+  () => import('../features/admin/UsersPage'),
+  'UsersPage'
+);
+const AnalyticsPage = lazyNamed(
+  () => import('../features/admin/AnalyticsPage'),
+  'AnalyticsPage'
+);
+const AuditLogPage = lazyNamed(
+  () => import('../features/admin/AuditLogPage'),
+  'AuditLogPage'
+);
+const CompliancePage = lazyNamed(
+  () => import('../features/admin/CompliancePage'),
+  'CompliancePage'
+);
+const CommunityManagePage = lazyNamed(
+  () => import('../features/admin/CommunityManagePage'),
+  'CommunityManagePage'
+);
+const ScriptManagePage = lazyNamed(
+  () => import('../features/admin/ScriptManagePage'),
+  'ScriptManagePage'
+);
+const TrainingManagePage = lazyNamed(
+  () => import('../features/admin/TrainingManagePage'),
+  'TrainingManagePage'
+);
+const SettingsPage = lazyNamed(
+  () => import('../features/admin/SettingsPage'),
+  'SettingsPage'
+);
 
 function ProtectedLayout() {
   return (
@@ -33,7 +113,10 @@ function ProtectedLayout() {
 export const router = createBrowserRouter([
   {
     path: '/login',
-    element: <LoginPage />,
+    lazy: () =>
+      import('../features/auth/LoginPage').then((m) => ({
+        Component: m.LoginPage,
+      })),
   },
   {
     path: '/',

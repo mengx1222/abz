@@ -19,6 +19,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
 from app.core.deps import get_current_user, get_db
+from app.core.sanitize import sanitize_response_data
 from app.models.user import User
 from app.schemas.common import SuccessResponse, PaginatedResponse
 from app.schemas.customer import (
@@ -66,10 +67,14 @@ async def list_customers(
         search=search,
         page=page,
         page_size=page_size,
+        current_user=current_user,
     )
 
+    # 列表接口脱敏手机号
+    masked_items = sanitize_response_data(items, {"phone": "phone"})
+
     return PaginatedResponse.create(
-        items=items,
+        items=masked_items,
         total=total,
         page=page,
         page_size=page_size,
@@ -96,7 +101,7 @@ async def get_customer(
     request_id = getattr(request.state, "request_id", None)
 
     service = CustomerService(session=db)
-    customer = await service.get_customer(customer_id)
+    customer = await service.get_customer(customer_id, current_user=current_user)
     if customer is None:
         raise HTTPException(
             status_code=404,
@@ -125,7 +130,7 @@ async def create_customer(
     request_id = getattr(request.state, "request_id", None)
 
     service = CustomerService(session=db)
-    customer = await service.create_customer(body, user_id=current_user.id)
+    customer = await service.create_customer(body, user_id=current_user.id, current_user=current_user)
 
     logger.info(
         "customer_created",
@@ -157,7 +162,7 @@ async def update_customer(
     request_id = getattr(request.state, "request_id", None)
 
     service = CustomerService(session=db)
-    customer = await service.update_customer(customer_id, body, user_id=current_user.id)
+    customer = await service.update_customer(customer_id, body, user_id=current_user.id, current_user=current_user)
     if customer is None:
         raise HTTPException(
             status_code=404,
@@ -192,7 +197,7 @@ async def delete_customer(
     request_id = getattr(request.state, "request_id", None)
 
     service = CustomerService(session=db)
-    success = await service.delete_customer(customer_id)
+    success = await service.delete_customer(customer_id, current_user=current_user)
     if not success:
         raise HTTPException(
             status_code=404,

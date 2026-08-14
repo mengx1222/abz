@@ -5,11 +5,13 @@
 - BM25检索：PostgreSQL全文检索 GIN索引
 - RRF融合：K=60，两个排序的倒数排名之和
 - 权限过滤：根据用户角色过滤可见知识库
+- 版本过滤：根据文档生效/失效日期过滤过期文档
 - Demo模式：内存中的关键词匹配检索
 """
 import math
 import uuid
 from dataclasses import dataclass, field
+from datetime import datetime, timezone
 
 from sqlalchemy import func, select, text, or_
 from sqlalchemy.dialects.postgresql import UUID
@@ -64,6 +66,8 @@ class DemoRetriever:
         top_k: int = RERANK_TOP_K,
         knowledge_base_ids: list[str] | None = None,
         user_roles: list[str] | None = None,
+        org_id: str | None = None,
+        effective_only: bool = True,
     ) -> list[SearchResult]:
         """基于关键词匹配的简单检索。
 
@@ -71,6 +75,7 @@ class DemoRetriever:
         1. 每个匹配的关键词得分
         2. 标题匹配加分
         3. 按总分排序
+        4. 可选日期有效性过滤
         """
         query_lower = query.lower()
         # 提取查询中的关键词
@@ -79,6 +84,7 @@ class DemoRetriever:
             keywords = [query_lower]
 
         scored: list[tuple[float, dict]] = []
+        now = datetime.now(timezone.utc) if effective_only else None
 
         for chunk in self._chunks:
             content_lower = chunk["content"].lower()
@@ -87,6 +93,16 @@ class DemoRetriever:
             # 跳过被知识库ID过滤的
             if knowledge_base_ids and chunk.get("knowledge_base_id") not in knowledge_base_ids:
                 continue
+
+            # 日期有效性过滤（Demo模式简单检查 metadata）
+            if effective_only and now is not None:
+                meta = chunk.get("metadata", {})
+                eff = meta.get("effective_date")
+                exp = meta.get("expiry_date")
+                if eff and eff > now.isoformat():
+                    continue
+                if exp and exp <= now.isoformat():
+                    continue
 
             # 计算匹配分数
             score = 0.0
@@ -165,27 +181,34 @@ class Retriever:
         top_k: int = RERANK_TOP_K,
         knowledge_base_ids: list[str] | None = None,
         user_roles: list[str] | None = None,
+        org_id: str | None = None,
     ) -> list[SearchResult]:
         """执行混合检索。
 
         1. 向量检索 (cosine similarity)
         2. BM25 全文检索
         3. RRF 融合
+        4. 权限过滤
+        5. 文档版本日期过滤
         """
         if self.db is None:
             logger.warning("retriever_no_db_session")
             return []
 
+        now = datetime.now(timezone.utc)
+
         # Step 1: 向量检索
         vector_results = await self._vector_search(
             query_embedding, top_k=VECTOR_SEARCH_TOP_K,
             knowledge_base_ids=knowledge_base_ids,
+            effective_now=now, org_id=org_id,
         )
 
         # Step 2: BM25检索
         bm25_results = await self._bm25_search(
             query, top_k=BM25_SEARCH_TOP_K,
             knowledge_base_ids=knowledge_base_ids,
+            effective_now=now, org_id=org_id,
         )
 
         # Step 3: RRF融合
@@ -203,6 +226,8 @@ class Retriever:
         embedding: list[float] | None,
         top_k: int,
         knowledge_base_ids: list[str] | None,
+        effective_now: datetime | None = None,
+        org_id: str | None = None,
     ) -> list[dict]:
         """pgvector cosine距离检索。"""
         if embedding is None:
@@ -222,14 +247,34 @@ class Retriever:
             .where(~Document.is_deleted)
             .where(Document.status == "published")
             .join(Document, DocumentChunk.document_id == Document.id)
-            .order_by(text("score DESC"))
-            .limit(top_k)
         )
 
+        # 文档版本过滤：生效/失效日期
+        if effective_now is not None:
+            stmt = stmt.where(
+                or_(Document.effective_date.is_(None), Document.effective_date <= effective_now)
+            )
+            stmt = stmt.where(
+                or_(Document.expiry_date.is_(None), Document.expiry_date > effective_now)
+            )
+
+        # org_id 过滤（预留组织级隔离）
+        if org_id:
+            try:
+                org_uuid = uuid.UUID(org_id)
+                stmt = stmt.where(Document.knowledge_base_id.in_(
+                    select(KnowledgeBase.id).where(KnowledgeBase.id == org_uuid)
+                ))
+            except (ValueError, TypeError):
+                pass
+
+        # knowledge_base_ids 过滤
         if knowledge_base_ids:
             kb_uuids = [uuid.UUID(kid) for kid in knowledge_base_ids if kid]
             if kb_uuids:
                 stmt = stmt.where(Document.knowledge_base_id.in_(kb_uuids))
+
+        stmt = stmt.order_by(text("score DESC")).limit(top_k)
 
         try:
             result = await self.db.execute(stmt)
@@ -253,6 +298,8 @@ class Retriever:
         query: str,
         top_k: int,
         knowledge_base_ids: list[str] | None,
+        effective_now: datetime | None = None,
+        org_id: str | None = None,
     ) -> list[dict]:
         """PostgreSQL 全文检索 (tsvector + GIN)。"""
         # 使用 plainto_tsquery 进行简单查询
@@ -270,14 +317,34 @@ class Retriever:
             .where(~Document.is_deleted)
             .where(Document.status == "published")
             .join(Document, DocumentChunk.document_id == Document.id)
-            .order_by(text("score DESC"))
-            .limit(top_k)
         )
 
+        # 文档版本过滤：生效/失效日期
+        if effective_now is not None:
+            stmt = stmt.where(
+                or_(Document.effective_date.is_(None), Document.effective_date <= effective_now)
+            )
+            stmt = stmt.where(
+                or_(Document.expiry_date.is_(None), Document.expiry_date > effective_now)
+            )
+
+        # org_id 过滤（预留组织级隔离）
+        if org_id:
+            try:
+                org_uuid = uuid.UUID(org_id)
+                stmt = stmt.where(Document.knowledge_base_id.in_(
+                    select(KnowledgeBase.id).where(KnowledgeBase.id == org_uuid)
+                ))
+            except (ValueError, TypeError):
+                pass
+
+        # knowledge_base_ids 过滤
         if knowledge_base_ids:
             kb_uuids = [uuid.UUID(kid) for kid in knowledge_base_ids if kid]
             if kb_uuids:
                 stmt = stmt.where(Document.knowledge_base_id.in_(kb_uuids))
+
+        stmt = stmt.order_by(text("score DESC")).limit(top_k)
 
         try:
             result = await self.db.execute(stmt)
@@ -367,5 +434,5 @@ class Retriever:
         return results  # TODO: 实现权限过滤逻辑
 
 
-# 需要导入DocumentChunk和Document
-from app.models.knowledge import DocumentChunk, Document
+# 需要导入DocumentChunk、Document、KnowledgeBase
+from app.models.knowledge import DocumentChunk, Document, KnowledgeBase

@@ -21,17 +21,23 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     description="华安保险 AI 销售赋能工作台 API",
-    version="0.1.0",
+    version="0.3.0",
     lifespan=lifespan,
 )
 
-# CORS — 开发模式允许所有来源
+# CORS 配置
+cors_origins = settings.FRONTEND_URL.split(",") if settings.FRONTEND_URL else ["http://localhost:3000"]
+if settings.DEBUG or settings.DEMO_MODE:
+    cors_origins.append("http://localhost:5173")  # Vite dev server
+    cors_origins.append("*")  # Demo模式允许所有来源
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=cors_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    allow_headers=["Authorization", "Content-Type", "X-Request-ID", "X-Forwarded-For"],
+    expose_headers=["X-Request-ID", "X-RateLimit-Limit", "X-RateLimit-Remaining"],
 )
 
 # 自定义中间件
