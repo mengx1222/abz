@@ -766,3 +766,34 @@ Stage Summary:
 - training_service 从 DEMO_ONLY(8) → PRODUCTION_READY(8)
 - Service Production 路径总计: PRODUCTION_READY 17→25, DEMO_ONLY 13→8
 - 下一阶段: script_service CRUD (6) 生产化
+
+---
+Task ID: 22
+Agent: main
+Task: Task 2 — Script Service CRUD Production 化
+
+Work Log:
+- 审计确认 script_service 6 个 CRUD 方法生产路径全为空桩（get_scripts→[] / get_script→None / create_script→{} / update_script→None / delete_script→False / toggle_favorite→None），唯一调用方为 api/v1/script.py
+- 将 6 个 CRUD 方法改为 async 并实现 Production 路径（Repository → SQLAlchemy → DB）:
+  - get_scripts: ScriptRepository.list_by_user（按 created_by 隔离 + style/product_type/status/compliance_status/search 多维筛选）
+  - get_script: 归属校验 + 详情序列化
+  - create_script: 持久化 + created_by 归属 + 自动合规检查（小写规范化）
+  - update_script: 归属校验 + 内容变更重新合规 + 事务
+  - delete_script: 归属校验 + 软删除 + 事务
+  - toggle_favorite: ScriptFavoriteRepository.toggle + 收藏计数增减 + 事务
+- generate_scripts 增加 user_id 透传，生产模式生成结果经 create_script 真实落库（修复"生成复用 demo"缺口）
+- API 层 4 个路由改为 await 并传入 current_user.id
+- 修复合规大小写一致性: check_compliance 返回大写，持久化前统一转小写（与 demo 数据/前端 COMPLIANCE_CONFIG 一致）
+- 新增 12 个生产路径测试 tests/unit/test_script_service_production.py
+
+验证结果:
+- 后端 pytest: 163 passed (49.40s)（含 12 个新增话术生产路径测试）
+- 前端 vitest + vite build: 通过
+- CI (GitHub Actions): backend + frontend 双 job 全部通过
+- 真实 PostgreSQL 未验证（SQLite 完成近似 Production 验证，真实 PG 验收属于后续任务）
+- Pushed to GitHub ✅
+
+Stage Summary:
+- script_service 从 DEMO_ONLY(6)+NEEDS_WORK(1) → PRODUCTION_READY(6)+NEEDS_WORK(1, RAG)
+- Service Production 路径总计: PRODUCTION_READY 25→31, DEMO_ONLY 8→2
+- 下一阶段: notification_service (4 方法) 生产化
