@@ -17,4 +17,4 @@ async def get_dashboard(
     """获取 Dashboard 概览：问候语、今日统计、AI建议、快捷操作、最近活动。"""
     user_name = user.name or "代理人"
     service = DashboardService(session=db)
-    return await service.get_overview(user.phone, user_name)
+    return await service.get_overview(user.id, user_name)
