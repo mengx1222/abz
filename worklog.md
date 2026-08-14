@@ -180,3 +180,37 @@ Stage Summary:
 - AI Chat RAG增强：基于知识库检索结果生成回答，附带引用来源
 - Demo模式完全可用：6份华安保险知识文档预加载，58个知识块
 - Pushed to GitHub
+
+---
+Task ID: 8
+Agent: main + sub-agent
+Task: Phase 5 — 客户360° 前端完整实现（API对接 + 列表/详情页 + AI分析SSE）
+
+Work Log:
+- 创建 customerService.ts: 完整客户API服务（listCustomers, getCustomer, createCustomer, updateCustomer, deleteCustomer, addInteraction, addFollowup, analyzeCustomerSSE）
+- 重写 CustomersPage.tsx: 真实API对接替换硬编码Demo数据
+  - 搜索框（姓名/手机号）
+  - 客户类型筛选（全部/准客户/活跃/流失）
+  - 阶段下拉筛选（7个阶段）
+  - 意向等级下拉筛选（1-5星）
+  - 9列客户表格（姓名、手机号脱敏、险种、标签Badges、阶段Badge、意向度星级、来源、更新时间、操作）
+  - 行点击导航到详情页
+  - 分页器（上一页/下一页）
+  - 创建客户弹窗表单（11个字段：姓名/年龄/性别/手机/类型/险种/阶段/意向/来源/标签/备注）
+  - Loading/Empty/Error三态
+- 新建 CustomerDetailPage.tsx: 客户详情页（4个Tab）
+  - 基本信息 Tab: 14项字段网格展示 + 备注
+  - 互动记录 Tab: 时间线布局（类型图标/方向Badge/内容/结果） + 添加互动表单
+  - 跟进任务 Tab: 卡片列表（日期/状态Badge/内容/结果） + 添加跟进表单
+  - AI分析 Tab: SSE流式文本 + 结构化结果面板（客户画像/购买意向进度条/价格敏感度Badge/推荐产品/建议行动/禁忌事项/风险提示）
+  - 所有AI分析标注"AI分析 / 仅供业务辅助"
+- 修复 KnowledgePage.tsx: export default→命名导出, showToast→useToast hook适配
+- 路由更新: 添加 /customers/:id → CustomerDetailPage
+- 后端10项集成测试全通过（list/filter/search/detail/create/interaction/followup/delete/AI SSE）
+- 前端构建验证: TSC 0 errors, Vite build OK (452KB JS gzip:139KB)
+- Pushed to GitHub
+
+Stage Summary:
+- 客户360°前端完整实现：列表页（API对接+多维筛选+创建） + 详情页（4Tab+AI分析）
+- 后端CRUD+Demo数据+AI分析SSE全部验证通过
+- 前端构建零错误，已推送GitHub
