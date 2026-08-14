@@ -32,7 +32,7 @@ const adminNav: NavGroup = {
   label: '管理后台',
   items: [
     { label: '团队管理', path: '/admin/team', icon: '📋' },
-    { label: '知识库管理', path: '/admin/knowledge', icon: '📚' },
+    { label: '知识库管理', path: '/knowledge', icon: '📚' },
     { label: '数据报表', path: '/admin/reports', icon: '📈' },
   ],
 };

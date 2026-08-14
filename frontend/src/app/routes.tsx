@@ -10,6 +10,7 @@ import { TrainingPage } from '../features/training/TrainingPage';
 import { CommunityPage } from '../features/community/CommunityPage';
 import { GrowthPage } from '../features/growth/GrowthPage';
 import { NotificationsPage } from '../features/notifications/NotificationsPage';
+import { KnowledgePage } from '../features/knowledge/KnowledgePage';
 
 function ProtectedLayout() {
   return (
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
       { path: 'community', element: <CommunityPage /> },
       { path: 'growth', element: <GrowthPage /> },
       { path: 'notifications', element: <NotificationsPage /> },
+      { path: 'knowledge', element: <KnowledgePage /> },
     ],
   },
 ]);

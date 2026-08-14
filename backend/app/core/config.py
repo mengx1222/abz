@@ -46,9 +46,27 @@ class Settings(BaseSettings):
     AI_BASE_URL: str = ""
     AI_MODEL: str = ""
     AI_EMBEDDING_MODEL: str = ""
+    AI_RERANK_MODEL: str = ""
+
+    # --- RAG Pipeline ---
+    RAG_CHUNK_TARGET_TOKENS: int = 512
+    RAG_CHUNK_OVERLAP_TOKENS: int = 50
+    RAG_VECTOR_TOP_K: int = 20
+    RAG_BM25_TOP_K: int = 20
+    RAG_RERANK_TOP_K: int = 8
+    RAG_RRF_K: int = 60
+    RAG_MIN_RELEVANCE: float = 0.3
+    RAG_MAX_CONTEXT_CHARS: int = 4000
 
     # --- Frontend ---
     FRONTEND_URL: str = "http://localhost:3000"
+
+    @property
+    def effective_ai_provider(self) -> str:
+        """有效AI Provider：Demo模式下强制使用mock。"""
+        if self.DEMO_MODE:
+            return "mock"
+        return self.AI_PROVIDER
 
 
 settings = Settings()

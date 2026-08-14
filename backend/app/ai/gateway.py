@@ -49,7 +49,8 @@ class AIGateway:
 
     def _create_provider(self) -> AIProvider:
         """根据配置创建 Provider 实例。"""
-        name = self._provider_name.lower().strip()
+        # Demo模式下强制使用mock
+        name = settings.effective_ai_provider.lower().strip()
 
         if name == "mock":
             return MockProvider()
