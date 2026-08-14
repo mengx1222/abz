@@ -26,7 +26,7 @@ async def list_notifications(
 ):
     """获取通知列表（支持分页和类型筛选）。"""
     service = NotificationService(session=db)
-    return await service.list_notifications(user.phone, type, page, page_size)
+    return await service.list_notifications(user.id, type, page, page_size)
 
 
 @router.post("/read", response_model=MarkReadResponse)
@@ -37,7 +37,7 @@ async def mark_notifications_read(
 ):
     """标记通知已读（支持批量标记和全部标记）。"""
     service = NotificationService(session=db)
-    return await service.mark_read(user.phone, req.notification_ids, req.read_all)
+    return await service.mark_read(user.id, req.notification_ids, req.read_all)
 
 
 @router.get("/preferences", response_model=NotificationPreferencesResponse)
@@ -47,7 +47,7 @@ async def get_notification_preferences(
 ):
     """获取通知偏好设置。"""
     service = NotificationService(session=db)
-    return await service.get_preferences(user.phone)
+    return await service.get_preferences(user.id)
 
 
 @router.put("/preferences", response_model=NotificationPreference)
@@ -58,4 +58,4 @@ async def update_notification_preference(
 ):
     """更新通知偏好设置。"""
     service = NotificationService(session=db)
-    return await service.update_preference(user.phone, req)
+    return await service.update_preference(user.id, req)
