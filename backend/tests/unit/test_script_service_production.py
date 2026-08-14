@@ -156,18 +156,19 @@ class TestScriptReadProduction:
         await session.commit()
         service = await _make_production_service(session, monkeypatch)
         await service.create_script(
-            _script_data(style="affinity", product_type="医疗险", status="draft"),
+            _script_data(title="百万医疗亲和话术", style="affinity", product_type="医疗险", status="draft"),
             user_id=str(uid),
         )
         await service.create_script(
-            _script_data(style="professional", product_type="重疾险", status="published"),
+            _script_data(title="少儿重疾专业话术", style="professional", product_type="重疾险", status="published"),
             user_id=str(uid),
         )
 
         assert len(await service.get_scripts({"style": "affinity"}, user_id=str(uid))) == 1
         assert len(await service.get_scripts({"product_type": "重疾险"}, user_id=str(uid))) == 1
         assert len(await service.get_scripts({"status": "draft"}, user_id=str(uid))) == 1
-        assert len(await service.get_scripts({"search": "Affinity"}, user_id=str(uid))) == 1
+        assert len(await service.get_scripts({"search": "亲和"}, user_id=str(uid))) == 1
+        assert len(await service.get_scripts(user_id=str(uid))) == 2
 
     async def test_get_script_detail_and_permission(self, session, monkeypatch):
         alice = await _create_user(session, "13900110006")
