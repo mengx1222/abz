@@ -162,6 +162,14 @@ def _iso_from_datetime(dt) -> str:
     return dt.isoformat()
 
 
+def _normalize_compliance(result: dict) -> dict:
+    """将合规检查结果的状态统一为小写，与既有数据/前端约定一致。"""
+    normalized = dict(result)
+    status = normalized.get("status") or "GREEN"
+    normalized["status"] = status.lower()
+    return normalized
+
+
 def _serialize_script(script) -> dict:
     """序列化话术为列表项 dict（生产路径）。"""
     return {
@@ -280,7 +288,7 @@ class ScriptService:
         compliance_status = data.get("compliance_status", "green")
         compliance_issues = data.get("compliance_issues")
         if content and not compliance_issues:
-            result = check_compliance(content)
+            result = _normalize_compliance(check_compliance(content))
             compliance_status = result["status"]
             compliance_issues = result
         script = await self.script_repo.create(
@@ -346,7 +354,7 @@ class ScriptService:
             if key in data:
                 update_fields[key] = data[key]
         if "content" in update_fields and update_fields["content"]:
-            result = check_compliance(update_fields["content"])
+            result = _normalize_compliance(check_compliance(update_fields["content"]))
             update_fields["compliance_status"] = result["status"]
             update_fields["compliance_issues"] = result
         if update_fields:
