@@ -353,3 +353,55 @@ Stage Summary:
 - 8条高质量预设帖子, 10条评论, 5个分类(实战经验/知识分享/求助提问/讨论/优秀话术)
 - 前端完整交互：双Tab + 帖子详情弹窗 + AI摘要 + 评论系统
 - 前端构建零错误，已推送GitHub
+
+---
+Task ID: 12
+Agent: main + sub-agents
+Task: Phase 9 — 管理后台完整实现
+
+Work Log:
+- 新增管理后台 Schema (backend/app/schemas/admin.py):
+  - 用户管理: AdminUserCreate/Update/Item/DisableRequest
+  - 审计日志: AuditLogItem/ExportRequest
+  - 数据看板: OverviewStats/AiUsageStats/TrainingStats/CommunityStats
+  - 合规中心: ComplianceRuleCreate/Update/Item + ComplianceReviewItem/Process
+  - 社区管理: AdminPostItem + PinRequest/RecommendRequest
+  - 话术管理: AdminScriptItem + ScriptApproveRequest
+  - 陪练场景: ScenarioCreate/Update + AdminScenarioItem
+  - 系统设置: SystemSettings/Update
+- 新增管理后台 API (backend/app/api/v1/admin.py):
+  - 28个API端点, 全部Demo模式内存数据
+  - 用户管理: GET/POST/PUT /users + POST /disable + POST /enable (5)
+  - 审计日志: GET /audit-logs (多维筛选) (1)
+  - 数据看板: GET /analytics/overview + /ai-usage + /training + /community (4)
+  - 合规中心: GET/POST/PUT /compliance/rules + GET /compliance/reviews + POST /process (5)
+  - 社区管理: GET /community/posts + POST /pin + POST /recommend + DELETE (4)
+  - 话术管理: GET /scripts + POST /approve (2)
+  - 陪练场景: GET/POST/PUT/DELETE /training/scenarios + POST /publish (5)
+  - 系统设置: GET/PUT /settings (2)
+- 修复 require_role: async def → def (FastAPI依赖工厂修正)
+- Demo数据: 10个用户, 50条审计日志, 6条合规规则, 5条审核, 6个帖子, 6条话术, 5个场景
+- 新增前端 adminService.ts: 完整API服务 + TypeScript类型定义
+- 更新 Sidebar: 管理后台9个子菜单 (用户/看板/审计/合规/社区/话术/陪练/知识库/设置)
+- 新增8个前端管理页面:
+  - UsersPage: 用户管理 (搜索/角色筛选/状态筛选/禁用启用)
+  - AnalyticsPage: 数据看板 (5统计卡/AI使用柱状图/训练社区分析)
+  - AuditLogPage: 审计日志 (14种action筛选/8种resource筛选/彩色Badge/分页)
+  - CompliancePage: 合规中心 (双Tab: 规则管理+审核队列)
+  - CommunityManagePage: 社区管理 (状态筛选/置顶推荐删除)
+  - ScriptManagePage: 话术管理 (审批通过/拒绝)
+  - TrainingManagePage: 陪练场景管理 (卡片网格/发布/删除)
+  - SettingsPage: 系统设置 (5分组只读/折叠面板)
+- 路由注册: 8个新管理路由 /admin/*
+
+验证结果:
+  - 后端9个GET端点全部200 OK (系统管理员Token) ✅
+  - 前端TypeScript编译 0 errors ✅
+  - 前端Vite build OK (553KB JS gzip:157KB, 171 modules) ✅
+  - Pushed to GitHub ✅
+
+Stage Summary:
+- 管理后台完整实现: 28个后端API + 8个前端页面
+- 9个管理子模块全覆盖: 用户/看板/审计/合规/社区/话术/陪练/知识库/设置
+- 全部Demo模式内存数据, 无需数据库
+- 前端构建零错误, 已推送GitHub
