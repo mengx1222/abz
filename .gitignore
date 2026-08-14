@@ -1,1 +1,31 @@
 node_modules/\n__pycache__/\n*.pyc\n.env\n.DS_Store\n*.egg-info/\ndist/\nbuild/\n.cache/\n.pytest_cache/\n.vite/\nfrontend/dist/\nbackend/.venv/\n*.db\npgdata/\nredisdata/\nuploads/\n
+
+# Python
+.venv/
+*.egg-info/
+__pycache__/
+*.pyc
+
+# Node
+node_modules/
+frontend/dist/
+
+# Environment
+.env
+*.db
+
+# Docker volumes
+pgdata/
+redisdata/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+.venv/
+frontend/dist/
+frontend/node_modules/
+backend/.env
+node_modules/
+__pycache__/
