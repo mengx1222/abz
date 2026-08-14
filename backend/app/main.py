@@ -21,7 +21,7 @@ async def lifespan(app: FastAPI):
 app = FastAPI(
     title=settings.APP_NAME,
     description="华安保险 AI 销售赋能工作台 API",
-    version="0.3.0",
+    version=settings.APP_VERSION,
     lifespan=lifespan,
 )
 

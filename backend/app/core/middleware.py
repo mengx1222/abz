@@ -8,6 +8,7 @@ from app.core.config import settings
 from app.core.rate_limit import RateLimitMiddleware
 from app.core.audit import AuditMiddleware
 from app.core.security_headers import SecurityHeadersMiddleware
+from app.core.monitoring import RequestLoggingMiddleware
 
 logger = get_logger()
 
@@ -60,11 +61,13 @@ def register_middleware(app: FastAPI) -> None:
     1. SecurityHeadersMiddleware  — 确保所有响应都有安全头
     2. RateLimitMiddleware        — 限流在安全头之后、业务逻辑之前
     3. AuditMiddleware            — 在限流之后，需要记录限流事件
-    4. RequestIDMiddleware        — 已有
-    5. ErrorHandlerMiddleware     — 最内层
+    4. RequestIDMiddleware        — 请求ID注入
+    5. RequestLoggingMiddleware   — 结构化请求日志（跳过/health）
+    6. ErrorHandlerMiddleware     — 最内层，全局异常捕获
     """
     app.add_middleware(SecurityHeadersMiddleware)
     app.add_middleware(RateLimitMiddleware)
     app.add_middleware(AuditMiddleware)
     app.add_middleware(RequestIDMiddleware)
+    app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(ErrorHandlerMiddleware)

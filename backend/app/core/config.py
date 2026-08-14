@@ -24,6 +24,7 @@ class Settings(BaseSettings):
 
     # --- App ---
     APP_NAME: str = "安诊保 AI 副驾"
+    APP_VERSION: str = "1.0.0-rc.1"
     APP_ENV: str = "development"
     DEBUG: bool = True
     DEMO_MODE: bool = True
