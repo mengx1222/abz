@@ -6,9 +6,10 @@ from typing import AsyncGenerator
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.common import SuccessResponse, ErrorResponse
 from app.schemas.training import (
@@ -49,10 +50,11 @@ async def list_scenarios(
     difficulty: str | None = Query(None, description="按难度过滤: easy/medium/hard"),
     product_focus: str | None = Query(None, description="按产品类型过滤"),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse[list[ScenarioList]]:
     """获取可用的训练场景列表，支持按难度和产品类型过滤。"""
     request_id = getattr(request.state, "request_id", None)
-    service = TrainingService()
+    service = TrainingService(session=db)
     scenarios = await service.get_scenarios(
         difficulty=difficulty,
         product_focus=product_focus,
@@ -69,10 +71,11 @@ async def get_scenario(
     scenario_id: str,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse[ScenarioDetail]:
     """获取指定训练场景的详细信息。"""
     request_id = getattr(request.state, "request_id", None)
-    service = TrainingService()
+    service = TrainingService(session=db)
     scenario = await service.get_scenario(scenario_id)
     if scenario is None:
         from fastapi import status
@@ -96,10 +99,11 @@ async def start_session(
     body: SessionStart,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse[SessionDetail]:
     """基于指定场景开始一个新的 AI 陪练会话。"""
     request_id = getattr(request.state, "request_id", None)
-    service = TrainingService()
+    service = TrainingService(session=db)
     try:
         session = await service.start_session(
             user_id=str(current_user.id),
@@ -122,10 +126,11 @@ async def start_session(
 async def list_sessions(
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse[list[SessionListItem]]:
     """获取当前用户的训练会话列表。"""
     request_id = getattr(request.state, "request_id", None)
-    service = TrainingService()
+    service = TrainingService(session=db)
     sessions = await service.list_sessions(user_id=str(current_user.id))
     return SuccessResponse(data=sessions, request_id=request_id)
 
@@ -139,10 +144,11 @@ async def get_session(
     session_id: str,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse[SessionDetail]:
     """获取指定训练会话的详情，包含所有消息记录。"""
     request_id = getattr(request.state, "request_id", None)
-    service = TrainingService()
+    service = TrainingService(session=db)
     session = await service.get_session(
         session_id=session_id,
         user_id=str(current_user.id),
@@ -165,6 +171,7 @@ async def send_message(
     body: SendMessageRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     """发送代理人消息，SSE 流式返回 AI 客户响应和教练辅导。
 
@@ -184,7 +191,7 @@ async def send_message(
         request_id=request_id,
     )
 
-    service = TrainingService()
+    service = TrainingService(session=db)
 
     async def event_stream() -> AsyncGenerator[str, None]:
         try:
@@ -228,6 +235,7 @@ async def complete_session(
     session_id: str,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     """结束训练会话，SSE 流式返回评分报告。
 
@@ -246,7 +254,7 @@ async def complete_session(
         request_id=request_id,
     )
 
-    service = TrainingService()
+    service = TrainingService(session=db)
 
     async def event_stream() -> AsyncGenerator[str, None]:
         try:
@@ -293,9 +301,10 @@ async def complete_session(
 async def get_stats(
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse[TrainingHistoryStats]:
     """获取当前用户的训练历史统计数据。"""
     request_id = getattr(request.state, "request_id", None)
-    service = TrainingService()
+    service = TrainingService(session=db)
     stats = await service.get_stats(user_id=str(current_user.id))
     return SuccessResponse(data=stats, request_id=request_id)

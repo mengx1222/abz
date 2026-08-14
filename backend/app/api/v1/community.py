@@ -16,9 +16,10 @@
 import uuid
 
 from fastapi import APIRouter, Depends, Query, Response
+from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
-from app.core.deps import get_current_user
+from app.core.deps import get_current_user, get_db
 from app.models.user import User
 from app.schemas.common import PaginatedResponse, SuccessResponse
 from app.schemas.community import (
@@ -31,7 +32,7 @@ from app.schemas.community import (
     PostListItem,
     PostUpdate,
 )
-from app.services.community_service import get_community_service
+from app.services.community_service import CommunityService
 
 logger = get_logger()
 router = APIRouter()
@@ -47,8 +48,9 @@ async def list_posts(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=50),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     tag_list = [t.strip() for t in tags.split(",") if t.strip()] if tags else None
     items, total = await service.list_posts(
         keyword=keyword,
@@ -68,8 +70,9 @@ async def my_favorites(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=50),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     items, total = await service.my_favorites(
         user_id=current_user.id, page=page, page_size=page_size
     )
@@ -80,8 +83,9 @@ async def my_favorites(
 async def get_post(
     post_id: str,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     post = await service.get_post(post_id, user_id=current_user.id)
     if post is None:
         return SuccessResponse(data=None)
@@ -92,8 +96,9 @@ async def get_post(
 async def create_post(
     data: PostCreate,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     # 找到用户手机号
     from app.services.auth_service import DEMO_USERS_CONFIG
     phone = "13800138000"
@@ -110,8 +115,9 @@ async def update_post(
     post_id: str,
     data: PostUpdate,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     result = await service.update_post(post_id, data, user_id=current_user.id)
     if result is None:
         return SuccessResponse(data=None)
@@ -122,8 +128,9 @@ async def update_post(
 async def delete_post(
     post_id: str,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     ok = await service.delete_post(post_id)
     if not ok:
         return SuccessResponse(data=None)
@@ -134,8 +141,9 @@ async def delete_post(
 async def toggle_like(
     post_id: str,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     result = await service.toggle_like(post_id, current_user.id)
     if result is None:
         return SuccessResponse(data=None)
@@ -146,8 +154,9 @@ async def toggle_like(
 async def toggle_favorite(
     post_id: str,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     result = await service.toggle_favorite(post_id, current_user.id)
     if result is None:
         return SuccessResponse(data=None)
@@ -160,8 +169,9 @@ async def list_comments(
     page: int = Query(1, ge=1),
     page_size: int = Query(20, ge=1, le=50),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     items, total = await service.list_comments(
         post_id, page=page, page_size=page_size, user_id=current_user.id
     )
@@ -173,8 +183,9 @@ async def add_comment(
     post_id: str,
     data: CommentCreate,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     from app.services.auth_service import DEMO_USERS_CONFIG
     phone = "13800138000"
     for p, cfg in DEMO_USERS_CONFIG.items():
@@ -191,8 +202,9 @@ async def add_comment(
 async def ai_summary(
     post_id: str,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ):
-    service = get_community_service()
+    service = CommunityService(session=db)
     return Response(
         content=service.generate_ai_summary(post_id),
         media_type="text/event-stream",

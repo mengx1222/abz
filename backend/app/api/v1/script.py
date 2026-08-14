@@ -31,6 +31,7 @@ async def generate_scripts(
     body: ScriptGenerateRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> StreamingResponse:
     """AI多风格话术生成，SSE流式返回。
 
@@ -42,7 +43,7 @@ async def generate_scripts(
 
     async def event_stream():
         yield f"event: connected\ndata: {{\"request_id\": \"{request_id}\"}}\n\n"
-        service = ScriptService()
+        service = ScriptService(session=db)
         try:
             async for event_json in service.generate_scripts(
                 customer_context=body.customer_context.model_dump(),
@@ -72,6 +73,7 @@ async def check_compliance_endpoint(
     body: ComplianceCheckRequest,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
     """对话术文本进行合规检查，返回风险等级和问题列表。"""
     request_id = getattr(request.state, "request_id", None)
@@ -94,10 +96,11 @@ async def list_scripts(
     status: str | None = None,
     search: str | None = None,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
     """获取话术列表，支持多维筛选。"""
     request_id = getattr(request.state, "request_id", None)
-    service = ScriptService()
+    service = ScriptService(session=db)
     scripts = service.get_scripts({
         "style": style,
         "product_type": product_type,
@@ -117,10 +120,11 @@ async def get_script(
     script_id: str,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
     """获取话术详情，包含完整内容和合规检查结果。"""
     request_id = getattr(request.state, "request_id", None)
-    service = ScriptService()
+    service = ScriptService(session=db)
     script = service.get_script(script_id)
     if not script:
         from fastapi import HTTPException
@@ -137,10 +141,11 @@ async def toggle_favorite(
     script_id: str,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
     """收藏话术。"""
     request_id = getattr(request.state, "request_id", None)
-    service = ScriptService()
+    service = ScriptService(session=db)
     script = service.toggle_favorite(script_id)
     if not script:
         from fastapi import HTTPException
@@ -157,10 +162,11 @@ async def delete_script(
     script_id: str,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
     """删除话术。"""
     request_id = getattr(request.state, "request_id", None)
-    service = ScriptService()
+    service = ScriptService(session=db)
     if not service.delete_script(script_id):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "话术不存在"})
