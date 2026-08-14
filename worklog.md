@@ -89,6 +89,29 @@ Stage Summary:
 - Pushed to GitHub
 
 ---
+Task ID: 6
+Agent: main + sub-agent
+Task: Phase 2 — AI Gateway + 产品问答 SSE 流式 + 前端 AI 对话
+
+Work Log:
+- Created AI module structure: app/ai/ (protocol, gateway, providers, service)
+- Implemented AIProvider Protocol (AIResponse, EmbedResponse, RerankResult)
+- Implemented MockProvider: keyword-matched insurance responses, MD5-based 1536-dim pseudo-embeddings, SSE streaming simulation
+- Implemented OpenAIProvider: httpx async client, OpenAI-compatible API calls
+- Implemented AIGateway: lazy singleton, provider routing (mock→MockProvider, else→OpenAIProvider), structlog logging
+- Implemented ProductQaService: orchestrates RAG+LLM, demo mode SSE streaming
+- Created AI API routes: POST /ai/product-qa/chat (SSE), GET conversations, GET conversation detail
+- Added Conversation + Message DB models (users, conversations, messages tables)
+- Updated ProductQaPage: real AI chat interface with SSE streaming, suggested questions, source citations
+- Created productQaService.ts: SSE ReadableStream parser for frontend
+- Verified: SSE streaming works end-to-end (login → chat → stream tokens → complete)
+- Frontend build: 0 errors, 0 warnings
+
+Stage Summary:
+- AI Gateway fully operational with MockProvider (no API keys needed)
+- Product Q&A chat works in demo mode without database
+- Real AI integration ready: just change AZB_AI_PROVIDER to deepseek/qwen/openai
+- Pushed to GitHub
 Task ID: 5
 Agent: main
 Task: Makefile + README + documentation update
