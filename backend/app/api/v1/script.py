@@ -49,6 +49,7 @@ async def generate_scripts(
                 customer_context=body.customer_context.model_dump(),
                 style=body.style,
                 product_type=body.product_type,
+                user_id=str(current_user.id),
             ):
                 yield f"data: {event_json}\n\n"
         except Exception as e:
@@ -101,13 +102,13 @@ async def list_scripts(
     """获取话术列表，支持多维筛选。"""
     request_id = getattr(request.state, "request_id", None)
     service = ScriptService(session=db)
-    scripts = service.get_scripts({
+    scripts = await service.get_scripts({
         "style": style,
         "product_type": product_type,
         "compliance_status": compliance_status,
         "status": status,
         "search": search,
-    })
+    }, user_id=str(current_user.id))
     return SuccessResponse(data=scripts, request_id=request_id)
 
 
@@ -125,7 +126,7 @@ async def get_script(
     """获取话术详情，包含完整内容和合规检查结果。"""
     request_id = getattr(request.state, "request_id", None)
     service = ScriptService(session=db)
-    script = service.get_script(script_id)
+    script = await service.get_script(script_id, user_id=str(current_user.id))
     if not script:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "话术不存在"})
@@ -146,7 +147,7 @@ async def toggle_favorite(
     """收藏话术。"""
     request_id = getattr(request.state, "request_id", None)
     service = ScriptService(session=db)
-    script = service.toggle_favorite(script_id)
+    script = await service.toggle_favorite(script_id, user_id=str(current_user.id))
     if not script:
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "话术不存在"})
@@ -167,7 +168,7 @@ async def delete_script(
     """删除话术。"""
     request_id = getattr(request.state, "request_id", None)
     service = ScriptService(session=db)
-    if not service.delete_script(script_id):
+    if not await service.delete_script(script_id, user_id=str(current_user.id)):
         from fastapi import HTTPException
         raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "话术不存在"})
     return SuccessResponse(data={"message": "话术已删除"}, request_id=request_id)
