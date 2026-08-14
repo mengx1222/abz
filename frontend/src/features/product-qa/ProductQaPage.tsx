@@ -1,101 +1,235 @@
-import { useState } from 'react';
+import { useState, useRef, useEffect, type FormEvent } from 'react';
 import { useAuthStore } from '../../stores/authStore';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
-import { Input } from '../../components/ui/Input';
+import { streamProductQa, type ChatMessage } from '../../services/productQaService';
 
-interface ChatMessage {
-  id: number;
-  role: 'user' | 'ai';
-  content: string;
-}
-
-const demoMessages: ChatMessage[] = [
-  {
-    id: 1,
-    role: 'user',
-    content: '请帮我对比一下平安福和超级玛丽9号重疾险的区别，哪个更适合30岁男性？',
-  },
-  {
-    id: 2,
-    role: 'ai',
-    content:
-      '好的，我来为您对比这两款热门重疾险产品：\n\n**平安福（2024版）**\n• 保额：最高50万\n• 保障期限：终身\n• 重疾赔付：单次赔付，120种重疾\n• 优势：大品牌、线下服务网络完善、含身故责任\n• 年费参考（30岁男）：约8,500元\n\n**超级玛丽9号**\n• 保额：最高60万\n• 保障期限：可选至70岁/终身\n• 重疾赔付：单次赔付，110种重疾\n• 优势：价格更优、可选癌症二次赔付、互联网产品投保便捷\n• 年费参考（30岁男）：约5,200元（保至终身）\n\n**建议**：如果预算有限且追求性价比，超级玛丽9号更合适；如果更看重品牌服务和线下理赔体验，可考虑平安福。需要我进一步分析某款产品的细节吗？',
-  },
-  {
-    id: 3,
-    role: 'user',
-    content: '百万医疗险和重疾险有什么区别？需要都买吗？',
-  },
-  {
-    id: 4,
-    role: 'ai',
-    content:
-      '这是两个互补型产品，简单来说：\n\n**百万医疗险** — 解决"看病贵"的问题\n• 报销型：花多少报多少（不超过实际花费）\n• 低保费高保额：30岁约300元/年，保额600万\n• 有免赔额：通常1万元\n• 适合所有人，尤其是预算有限时优先配置\n\n**重疾险** — 解决"收入损失"的问题\n• 给付型：确诊即赔一笔钱，怎么花都行\n• 保额较高：建议至少30-50万\n• 年费较高：30岁约4,000-8,000元/年\n• 弥补生病期间的收入损失和康复费用\n\n**建议**：两者搭配购买最佳。百万医疗险作为基础保障，重疾险提供收入补偿。经济紧张时可先配百万医疗险，再逐步补充重疾险。',
-  },
+const SUGGESTED_QUESTIONS = [
+  '百万医疗险和重疾险有什么区别？',
+  '安诊保慢病版，高血压患者能买吗？',
+  '推荐一个适合30岁家庭的保险方案',
+  '意外险的理赔流程是怎样的？',
 ];
 
 export function ProductQaPage() {
   const user = useAuthStore((s) => s.user);
-  const [inputValue, setInputValue] = useState('');
+  const [messages, setMessages] = useState<ChatMessage[]>([]);
+  const [input, setInput] = useState('');
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [sources, setSources] = useState<ChatMessage['sources']>([]);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  // Auto-scroll to bottom
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  }, [messages]);
+
+  async function handleSend(question?: string) {
+    const q = question || input.trim();
+    if (!q || isStreaming) return;
+
+    setInput('');
+    setIsStreaming(true);
+
+    // Add user message
+    const userMsg: ChatMessage = {
+      id: `user-${Date.now()}`,
+      role: 'user',
+      content: q,
+      timestamp: new Date(),
+    };
+    setMessages((prev) => [...prev, userMsg]);
+
+    // Add placeholder assistant message
+    const assistantId = `assistant-${Date.now()}`;
+    setMessages((prev) => [
+      ...prev,
+      { id: assistantId, role: 'assistant', content: '', timestamp: new Date(), isLoading: true },
+    ]);
+    setSources([]);
+
+    try {
+      for await (const event of streamProductQa(q)) {
+        const { event: eventType, data } = event;
+
+        if (eventType === 'token' && typeof data.content === 'string') {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: m.content + data.content, isLoading: false }
+                : m
+            )
+          );
+        }
+
+        if (eventType === 'reference_sources' && Array.isArray(data.sources)) {
+          setSources(data.sources as ChatMessage['sources']);
+        }
+
+        if (eventType === 'error') {
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId
+                ? { ...m, content: m.content || '抱歉，服务暂时不可用，请稍后重试。', isLoading: false }
+                : m
+            )
+          );
+        }
+      }
+    } catch (err) {
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId
+            ? { ...m, content: '网络异常，请检查连接后重试。', isLoading: false }
+            : m
+        )
+      );
+    } finally {
+      setIsStreaming(false);
+      inputRef.current?.focus();
+    }
+  }
+
+  function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    handleSend();
+  }
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (e.key === 'Enter' && !e.shiftKey) {
+      e.preventDefault();
+      handleSend();
+    }
+  }
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4">
+    <div className="h-full flex flex-col">
       {/* Header */}
-      <div className="flex items-center gap-3">
+      <div className="flex items-center justify-between mb-4 flex-shrink-0">
         <div>
           <div className="flex items-center gap-2">
-            <h1 className="text-2xl font-bold text-text">AI产品专家</h1>
+            <h1 className="text-xl font-bold text-text">AI 产品专家</h1>
             <Badge variant="warning">演示模式</Badge>
           </div>
-          <p className="text-muted text-sm mt-1">
-            {user?.name || '用户'}，向AI提问任何保险产品相关问题，获取专业解答
+          <p className="text-sm text-muted mt-0.5">
+            基于知识库的智能保险产品问答，所有回答附带来源引用 [Demo]
           </p>
         </div>
+        <button
+          type="button"
+          onClick={() => { setMessages([]); setSources([]); }}
+          className="text-sm text-muted hover:text-accent transition-colors cursor-pointer"
+        >
+          清空对话
+        </button>
       </div>
 
       {/* Chat Area */}
-      <Card padding="none" className="flex flex-col" style={{ height: 'calc(100vh - 240px)', minHeight: '400px' }}>
+      <Card padding="none" className="flex-1 flex flex-col overflow-hidden">
         {/* Messages */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {demoMessages.map((msg) => (
+          {messages.length === 0 && (
+            <div className="flex flex-col items-center justify-center h-full text-center">
+              <span className="text-5xl mb-4">🤖</span>
+              <h2 className="text-lg font-semibold text-text mb-2">
+                你好，{user?.name || '代理人'}！我是安诊保 AI 产品专家
+              </h2>
+              <p className="text-sm text-muted max-w-md mb-6">
+                我可以帮你查询保险产品信息、对比产品差异、推荐保险方案。
+                请选择以下问题，或直接输入你的问题。
+              </p>
+              <div className="flex flex-wrap justify-center gap-2 max-w-lg">
+                {SUGGESTED_QUESTIONS.map((q) => (
+                  <button
+                    key={q}
+                    type="button"
+                    onClick={() => handleSend(q)}
+                    disabled={isStreaming}
+                    className="text-sm bg-bg border border-border rounded-full px-3.5 py-2 hover:border-accent/40 hover:text-accent transition-colors cursor-pointer disabled:opacity-50 text-left"
+                  >
+                    {q}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {messages.map((msg) => (
             <div
               key={msg.id}
               className={`flex ${msg.role === 'user' ? 'justify-end' : 'justify-start'}`}
             >
               <div
-                className={`max-w-[75%] rounded-2xl px-4 py-3 text-sm leading-relaxed whitespace-pre-line ${
+                className={`max-w-[80%] rounded-2xl px-4 py-3 ${
                   msg.role === 'user'
                     ? 'bg-accent text-white rounded-br-md'
-                    : 'bg-bg text-text rounded-bl-md border border-border'
+                    : 'bg-bg border border-border text-text rounded-bl-md'
                 }`}
               >
-                {msg.role === 'ai' && (
-                  <p className="text-xs font-medium text-accent mb-1.5">安诊保 AI 专家</p>
-                )}
-                {msg.content}
+                <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+                  {msg.content}
+                  {msg.isLoading && (
+                    <span className="inline-block w-1.5 h-4 bg-accent/60 ml-0.5 animate-pulse rounded-sm" />
+                  )}
+                </div>
+                <div className="flex items-center gap-1.5 mt-1.5">
+                  <span className="text-[11px] opacity-60">
+                    {msg.timestamp.toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
+                  {msg.role === 'assistant' && (
+                    <span className="text-[11px] opacity-40">AI</span>
+                  )}
+                </div>
               </div>
             </div>
           ))}
+          <div ref={chatEndRef} />
         </div>
 
+        {/* Sources */}
+        {sources && sources.length > 0 && (
+          <div className="border-t border-border px-4 py-3 bg-bg/50">
+            <p className="text-xs font-medium text-muted mb-2">📖 参考来源</p>
+            <div className="flex flex-wrap gap-2">
+              {sources.map((s, i) => (
+                <div
+                  key={i}
+                  className="flex items-center gap-1.5 text-xs bg-card border border-border rounded-lg px-2.5 py-1.5"
+                >
+                  <span className="text-accent">📄</span>
+                  <span className="text-text">{s.title}</span>
+                  <span className="text-muted">({Math.round(s.relevance_score * 100)}%)</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {/* Input Area */}
-        <div className="border-t border-border p-4">
-          <div className="flex gap-2">
-            <Input
-              placeholder="输入您的问题，例如：30岁适合买什么保险？"
-              value={inputValue}
-              onChange={(e) => setInputValue(e.target.value)}
-              className="flex-1"
-            />
-            <Button variant="primary" disabled>
+        <div className="border-t border-border p-4 flex-shrink-0">
+          <form onSubmit={handleSubmit} className="flex items-end gap-3">
+            <div className="flex-1 relative">
+              <input
+                ref={inputRef}
+                type="text"
+                value={input}
+                onChange={(e) => setInput(e.target.value)}
+                onKeyDown={handleKeyDown}
+                placeholder="输入你的保险问题..."
+                disabled={isStreaming}
+                maxLength={2000}
+                className="w-full h-11 rounded-xl border border-border bg-white px-4 pr-12 text-sm text-text placeholder:text-muted/50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent disabled:opacity-50"
+              />
+              <span className="absolute right-3 bottom-3 text-[11px] text-muted/40">
+                {input.length}/2000
+              </span>
+            </div>
+            <Button type="submit" loading={isStreaming} disabled={!input.trim()} size="lg">
               发送
             </Button>
-          </div>
-          <p className="text-xs text-muted mt-2">
-            演示模式 — 功能待开发 · 当前展示为预设对话示例
-          </p>
+          </form>
         </div>
       </Card>
     </div>
