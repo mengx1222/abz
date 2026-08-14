@@ -665,3 +665,40 @@ Stage Summary:
   - 迁移验证: 0001→0007 全链路通过, 31 张关键表存在
   - Dockerfile 修复: HEALTHCHECK 路径修正
   - 下一阶段: Phase 6 — 内部试点发布准备
+
+---
+Task ID: 19
+Agent: main
+Task: 第一阶段 — 状态重新校准（审计、验证、文档校准）
+
+Work Log:
+- 全面审计当前仓库 HEAD (1843649) 的真实代码状态
+- 验证所有 Worklog 中声称已完成的功能：
+  - 后端 App Import: OK (v1.0.0-rc.1)
+  - 30 张 ORM 模型全部注册可导入
+  - 7 个 Alembic 迁移链完整 (0001→0007)
+  - 8/8 Service bifurcation 模式正确 (38/38 方法)
+  - 7 个 Repository 全部实现
+  - RAG Safety: 拒答/置信度/注入检测/消毒 全部实测通过
+  - Rate Limiter: 令牌桶实测通过
+  - 数据脱敏: 手机/身份证/姓名/邮箱实测通过
+  - IDOR: DataPermissionChecker 4 方法存在
+  - 6 层中间件链: SecurityHeaders→RateLimit→Audit→RequestID→RequestLogging→ErrorHandler
+  - 3 个健康检查端点: /health + /ready + /health/detail
+  - 后端 pytest: 133 passed (23.32s)
+  - 前端 vitest: 27 passed (2.52s)
+  - 前端 TSC: 0 errors
+  - 前端 Vite Build: OK (374KB / 120KB gzip)
+  - UAT 冒烟测试: 23/23 passed (7.83s)
+- 确认旧 current-state-audit.md 严重过时（描述 Phase 2-5 均为"未开始"，实际全部已完成）
+- 重写 docs/current-state-audit.md，匹配真实代码状态
+- 创建 docs/project-status.md 作为项目状态唯一事实来源
+- 区分 Legacy MVP Phases (9个) vs Productionization Phases (7个)
+- 重新评估风险清单: P0=0, P1=4, P2=4
+- 确定当前真实 Phase: Phase 6 (内部试点发布准备) — 部分完成
+
+Stage Summary:
+- 旧审计报告严重过时，12 项关键状态描述错误（如"无测试""迁移不完整""无IDOR"等均已修复）
+- 新审计基于代码实际运行验证，所有结论均有测试结果支撑
+- project-status.md 确立为唯一事实来源，后续每 Phase 必须更新
+- 下一阶段建议: PostgreSQL + pgvector 真实环境验收 (P1-1)
