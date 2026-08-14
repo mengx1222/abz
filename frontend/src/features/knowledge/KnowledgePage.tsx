@@ -22,9 +22,9 @@ import {
   deleteKnowledgeBase,
 } from '../../services/knowledgeService';
 import { useAuthStore } from '../../stores/authStore';
-import Button from '../../components/ui/Button';
-import Badge from '../../components/ui/Badge';
-import { showToast } from '../../hooks/useToast';
+import { Button } from '../../components/ui/Button';
+import { Badge } from '../../components/ui/Badge';
+import { useToast } from '../../hooks/useToast';
 
 // ---- Category labels ----
 const CATEGORY_LABELS: Record<string, string> = {
@@ -46,8 +46,9 @@ const STATUS_VARIANTS: Record<string, 'default' | 'success' | 'warning' | 'dange
   expired: 'danger',
 };
 
-export default function KnowledgePage() {
+export function KnowledgePage() {
   const { user } = useAuthStore();
+  const { toast: showToast } = useToast();
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [selectedKB, setSelectedKB] = useState<KnowledgeBase | null>(null);
   const [documents, setDocuments] = useState<KnowledgeDocument[]>([]);
@@ -63,7 +64,7 @@ export default function KnowledgePage() {
       const data = await listKnowledgeBases();
       setKnowledgeBases(data);
     } catch (err) {
-      showToast('加载知识库失败', 'error');
+      showToast({ title: '加载知识库失败', variant: 'error' });
     } finally {
       setLoading(false);
     }
@@ -80,7 +81,7 @@ export default function KnowledgePage() {
       const docs = await listDocuments(kb.id);
       setDocuments(docs);
     } catch (err) {
-      showToast('加载文档列表失败', 'error');
+      showToast({ title: '加载文档列表失败', variant: 'error' });
     }
   };
 
@@ -93,7 +94,7 @@ export default function KnowledgePage() {
   // 创建知识库
   const handleCreate = async () => {
     if (!newKB.name.trim()) {
-      showToast('请输入知识库名称', 'error');
+      showToast({ title: '请输入知识库名称', variant: 'error' });
       return;
     }
     try {
@@ -104,12 +105,12 @@ export default function KnowledgePage() {
         category: newKB.category,
         is_public: newKB.is_public,
       });
-      showToast('知识库创建成功', 'success');
+      showToast({ title: '知识库创建成功', variant: 'success' });
       setShowCreateForm(false);
       setNewKB({ name: '', description: '', category: 'product', is_public: true });
       fetchKBs();
     } catch (err) {
-      showToast('创建失败', 'error');
+      showToast({ title: '创建失败', variant: 'error' });
     } finally {
       setCreating(false);
     }
@@ -123,12 +124,12 @@ export default function KnowledgePage() {
     try {
       setUploading(true);
       const result: UploadResult = await uploadDocument(selectedKB.id, file);
-      showToast(result.message, 'success');
+      showToast({ title: result.message, variant: 'success' });
       const docs = await listDocuments(selectedKB.id);
       setDocuments(docs);
       fetchKBs();
     } catch (err) {
-      showToast('文档上传失败', 'error');
+      showToast({ title: '文档上传失败', variant: 'error' });
     } finally {
       setUploading(false);
       e.target.value = '';
@@ -140,11 +141,11 @@ export default function KnowledgePage() {
     if (!selectedKB) return;
     try {
       await publishDocument(selectedKB.id, doc.id);
-      showToast('文档已发布', 'success');
+      showToast({ title: '文档已发布', variant: 'success' });
       const docs = await listDocuments(selectedKB.id);
       setDocuments(docs);
     } catch (err) {
-      showToast('发布失败', 'error');
+      showToast({ title: '发布失败', variant: 'error' });
     }
   };
 
@@ -154,11 +155,11 @@ export default function KnowledgePage() {
     if (!confirm(`确定删除文档「${doc.title}」？`)) return;
     try {
       await deleteDocument(selectedKB.id, doc.id);
-      showToast('文档已删除', 'success');
+      showToast({ title: '文档已删除', variant: 'success' });
       const docs = await listDocuments(selectedKB.id);
       setDocuments(docs);
     } catch (err) {
-      showToast('删除失败', 'error');
+      showToast({ title: '文档删除失败', variant: 'error' });
     }
   };
 
@@ -167,10 +168,10 @@ export default function KnowledgePage() {
     if (!confirm(`确定删除知识库「${kb.name}」及其所有文档？`)) return;
     try {
       await deleteKnowledgeBase(kb.id);
-      showToast('知识库已删除', 'success');
+      showToast({ title: '知识库已删除', variant: 'success' });
       fetchKBs();
     } catch (err) {
-      showToast('删除失败', 'error');
+      showToast({ title: '知识库删除失败', variant: 'error' });
     }
   };
 

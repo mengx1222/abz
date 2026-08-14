@@ -5,6 +5,7 @@ import { LoginPage } from '../features/auth/LoginPage';
 import { DashboardPage } from '../features/dashboard/DashboardPage';
 import { ProductQaPage } from '../features/product-qa/ProductQaPage';
 import { CustomersPage } from '../features/customers/CustomersPage';
+import { CustomerDetailPage } from '../features/customers/CustomerDetailPage';
 import { ScriptsPage } from '../features/scripts/ScriptsPage';
 import { TrainingPage } from '../features/training/TrainingPage';
 import { CommunityPage } from '../features/community/CommunityPage';
@@ -33,6 +34,7 @@ export const router = createBrowserRouter([
       { path: 'dashboard', element: <DashboardPage /> },
       { path: 'product-qa', element: <ProductQaPage /> },
       { path: 'customers', element: <CustomersPage /> },
+      { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'scripts', element: <ScriptsPage /> },
       { path: 'training', element: <TrainingPage /> },
       { path: 'community', element: <CommunityPage /> },
