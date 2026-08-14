@@ -91,8 +91,9 @@
 |---|------|------|
 | P1-1 | PostgreSQL + pgvector 真实环境未验证 | 代码就绪，需实际运行 `alembic upgrade head` + 全链路 |
 | P1-2 | AI Provider 未接入真实模型 | 需配置 API Key 并验证 SSE 流式 |
-| P1-3 | ScriptService 生产路径复用 demo 逻辑 | `generate_scripts()` 的 else 分支调用了 `_demo_generate_scripts` |
-| P1-4 | 无 Playwright E2E 测试 | 仅有 API 级 UAT，无浏览器级 E2E |
+| P1-3 | **13 个 Service 方法 Production 路径为空桩** | training_service(8) + script_service CRUD(6) — 生产路径返回 `[]`/`None`/raise error |
+| P1-4 | **8 个 Service 方法 Production 路径需完善** | dashboard/growth(2)/notification(4)/community.ai_summary/script.generate_scripts |
+| P1-5 | 无 Playwright E2E 测试 | 仅有 API 级 UAT，无浏览器级 E2E |
 
 ### P2
 
@@ -105,29 +106,36 @@
 
 ---
 
+## E2. Service Production 路径审计结果
+
+| Service | PRODUCTION_READY | NEEDS_WORK | DEMO_ONLY |
+|---------|:---:|:---:|:---:|
+| customer_service | **8** | 0 | 0 |
+| community_service | **9** | 1 (ai_summary) | 0 |
+| notification_service | 0 | **4** (hardcoded user_id) | 0 |
+| growth_service | 0 | **2** (overview空/leaderboard空) | 2 (course/leaderboard) |
+| dashboard_service | 0 | **1** (空zeros) | 0 |
+| training_service | 0 | 0 | **8** |
+| script_service | 0 | 1 (generate复用demo) | **6** (CRUD) |
+| **合计** | **17** | **8** | **13** |
+
+---
+
 ## F. 下一阶段建议
 
-**用户提出的三个方向，按优先级排序：**
+**最高优先级: 补全 21 个 Service 方法的 Production 路径**
 
-### 方向 1: PostgreSQL + pgvector 真实环境验收 (优先级: 最高)
+1. **training_service** (8 方法) — 集成 TrainingRepository，实现 session/message/score CRUD
+2. **script_service** (6 CRUD 方法) — 集成 ScriptRepository，实现 list/get/create/update/delete/toggle
+3. **notification_service** (4 方法) — 修复 hardcoded user_id，从 current_user 获取
+4. **growth_service** (4 方法) — 集成 GrowthRepository，实现 DB 聚合查询
+5. **dashboard_service** (1 方法) — 集成多 Repository 聚合统计
+6. **community_service** (1 方法) — ai_summary 调用 AI Gateway
 
-**原因**: 当前所有 Production 代码路径已就绪，但从未在真实 PostgreSQL + pgvector 环境验证。这是从 "代码就绪" 到 "真正 Production Ready" 的关键一步。
-
-**建议范围**:
-1. 启动 PostgreSQL + pgvector Docker 容器
-2. 执行 `alembic upgrade head`（全部 7 个迁移）
-3. 执行 seed.py 种子数据
-4. 以 `AZB_DEMO_MODE=false` 启动后端
-5. 验证所有 API 端点在真实 DB 下正常工作
-6. 验证 RAG Pipeline 在真实 pgvector 下工作（需 AI Embedding API）
-
-### 方向 2: Web E2E (Playwright) (优先级: 中)
-
-**原因**: 当前有 API 级 UAT (23/23) 但无浏览器级 E2E 测试。Playwright 可覆盖真实用户操作路径。
-
-### 方向 3: AI Sales Agent (优先级: 中低)
-
-**原因**: 需要先完成方向 1（真实 AI 环境），才能有效串联 AI 销售助手全链路。
+完成后再进行:
+- PostgreSQL + pgvector 真实环境验收
+- Playwright E2E 测试
+- AI Sales Agent 全链路串联
 
 ---
 

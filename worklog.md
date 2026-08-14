@@ -702,3 +702,32 @@ Stage Summary:
 - 新审计基于代码实际运行验证，所有结论均有测试结果支撑
 - project-status.md 确立为唯一事实来源，后续每 Phase 必须更新
 - 下一阶段建议: PostgreSQL + pgvector 真实环境验收 (P1-1)
+
+---
+Task ID: 20
+Agent: main
+Task: Production 路径深度审计 + PostgreSQL 验证脚本 + P1-3 修复
+
+Work Log:
+- 修复 P1-3: ScriptService.generate_scripts 生产路径注释澄清
+- 创建 PostgreSQL 验证脚本 (backend/scripts/phase7_pg_verify.py):
+  - PG/Redis 连接预检
+  - Alembic upgrade head 迁移验证
+  - 30 张表存在性检查
+  - 列/外键/索引完整性验证
+  - 种子数据验证
+  - Production 模式 API 冒烟测试
+  - pgvector 扩展 + 向量列验证
+- Production 路径深度审计结果:
+  - PRODUCTION_READY: 17 方法 (customer_service 8 + community_service 9)
+  - NEEDS_WORK: 8 方法 (notification 4 + growth 2 + dashboard 1 + community.ai_summary 1)
+  - DEMO_ONLY: 13 方法 (training_service 8 + script_service 6)
+- 更新 project-status.md: 新增 E2 Service Production 路径审计结果 + 调整 P1 风险
+- 更新 project-status.md 下一阶段建议: 最高优先级为补全 21 个 Service Production 路径
+
+Stage Summary:
+- 关键发现: 38 个 public 方法中仅 17 个 (45%) 有完整的 Production 路径
+- training_service (8) 和 script_service CRUD (6) 的生产路径为空桩
+- notification_service 使用 hardcoded user_id，需要从 current_user 获取
+- 此发现改变了优先级判断: 先补全 Production 路径，再验证 PG 环境
+- 下一阶段: 补全 21 个 Service 方法的 Production 路径

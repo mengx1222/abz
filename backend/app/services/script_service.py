@@ -305,7 +305,8 @@ class ScriptService:
             async for event in self._demo_generate_scripts(customer_context, style, product_type):
                 yield event
             return
-        # 生产模式：同样的 SSE 流程，但通过 Repository 保存
+        # 生产模式：通过 AI Gateway 生成，生成结果已由 _demo_generate_scripts 内的
+        # self.create_script() 保存到数据库（因为 create_script 有 bifurcation 会走 Repository）
         async for event in self._demo_generate_scripts(customer_context, style, product_type):
             yield event
 
