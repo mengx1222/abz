@@ -15,7 +15,7 @@ from app.core.config import settings
 from app.models.user import User
 from app.services.compliance_service import check_compliance, build_script_prompt, STYLE_NAMES
 from app.rag.pipeline import RAGPipeline
-from app.repositories.script_repo import ScriptRepository
+from app.repositories.script_repo import ScriptRepository, ScriptFavoriteRepository
 
 logger = get_logger()
 
@@ -157,6 +157,37 @@ def _ensure_demo_scripts():
     _demo_initialized = True
 
 
+def _iso_from_datetime(dt) -> str:
+    """序列化时区感知时间为 ISO 字符串。"""
+    return dt.isoformat()
+
+
+def _serialize_script(script) -> dict:
+    """序列化话术为列表项 dict（生产路径）。"""
+    return {
+        "id": str(script.id),
+        "title": script.title,
+        "customer_context": script.customer_context,
+        "style": script.style,
+        "product_type": script.product_type,
+        "compliance_status": script.compliance_status,
+        "status": script.status,
+        "favorited_count": script.favorited_count,
+        "usage_count": script.usage_count,
+        "created_at": _iso_from_datetime(script.created_at),
+        "updated_at": _iso_from_datetime(script.updated_at),
+    }
+
+
+def _serialize_script_detail(script) -> dict:
+    """序列化话术详情。"""
+    data = _serialize_script(script)
+    data["content"] = script.content
+    data["compliance_issues"] = script.compliance_issues
+    data["version"] = script.version
+    return data
+
+
 class ScriptService:
     """话术服务 —— Demo模式使用内存列表，生产模式使用数据库。"""
 
@@ -164,6 +195,8 @@ class ScriptService:
         self.session = session
         self.gateway = get_ai_gateway()
         self._rag_pipeline: RAGPipeline | None = None
+        self.script_repo = ScriptRepository(session)
+        self.favorite_repo = ScriptFavoriteRepository(session)
 
     async def _get_rag_pipeline(self) -> RAGPipeline | None:
         """获取RAG Pipeline（懒加载）。"""
@@ -180,12 +213,29 @@ class ScriptService:
     # CRUD
     # ============================================================
 
-    def get_scripts(self, filters: dict | None = None) -> list[dict]:
-        """获取话术列表。"""
+    async def get_scripts(
+        self, filters: dict | None = None, user_id: str | None = None
+    ) -> list[dict]:
+        """获取话术列表（生产模式按创建者隔离）。"""
         if settings.DEMO_MODE:
             return self._demo_get_scripts(filters)
-        # 生产模式：暂返回空列表，后续切换到 Repository
-        return []
+        f = filters or {}
+        records, _total = await self.script_repo.list_by_user(
+            uuid.UUID(user_id),
+            page=1,
+            page_size=100,
+            product_type=f.get("product_type"),
+            style=f.get("style"),
+            search=f.get("search"),
+        )
+        result = []
+        for r in records:
+            if f.get("compliance_status") and r.compliance_status != f["compliance_status"]:
+                continue
+            if f.get("status") and r.status != f["status"]:
+                continue
+            result.append(_serialize_script(r))
+        return result
 
     def _demo_get_scripts(self, filters: dict | None = None) -> list[dict]:
         _ensure_demo_scripts()
@@ -205,21 +255,54 @@ class ScriptService:
         scripts.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
         return scripts
 
-    def get_script(self, script_id: str) -> dict | None:
-        """获取话术详情。"""
+    async def get_script(self, script_id: str, user_id: str | None = None) -> dict | None:
+        """获取话术详情（生产模式校验归属）。"""
         if settings.DEMO_MODE:
             return self._demo_get_script(script_id)
-        return None
+        try:
+            script_uuid = uuid.UUID(script_id)
+        except (ValueError, TypeError):
+            return None
+        script = await self.script_repo.get_by_id_active(script_uuid)
+        if script is None or (user_id and str(script.created_by) != user_id):
+            return None
+        return _serialize_script_detail(script)
 
     def _demo_get_script(self, script_id: str) -> dict | None:
         _ensure_demo_scripts()
         return next((s for s in _DEMO_SCRIPTS if s["id"] == script_id), None)
 
-    def create_script(self, data: dict) -> dict:
-        """创建话术。"""
+    async def create_script(self, data: dict, user_id: str | None = None) -> dict:
+        """创建话术（生产模式持久化到数据库，自动合规检查）。"""
         if settings.DEMO_MODE:
             return self._demo_create_script(data)
-        return {}
+        content = data.get("content")
+        compliance_status = data.get("compliance_status", "green")
+        compliance_issues = data.get("compliance_issues")
+        if content and not compliance_issues:
+            result = check_compliance(content)
+            compliance_status = result["status"]
+            compliance_issues = result
+        script = await self.script_repo.create(
+            title=data.get("title", "AI生成话术"),
+            customer_context=data.get("customer_context"),
+            style=data.get("style", "professional"),
+            content=content,
+            product_type=data.get("product_type"),
+            compliance_status=compliance_status,
+            compliance_issues=compliance_issues,
+            status=data.get("status", "draft"),
+            version=data.get("version", 1),
+            favorited_count=0,
+            usage_count=0,
+            created_by=uuid.UUID(user_id) if user_id else None,
+        )
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+        return _serialize_script_detail(script)
 
     def _demo_create_script(self, data: dict) -> dict:
         _ensure_demo_scripts()
@@ -245,11 +328,36 @@ class ScriptService:
         _DEMO_SCRIPTS.append(script)
         return script
 
-    def update_script(self, script_id: str, data: dict) -> dict | None:
-        """更新话术。"""
+    async def update_script(
+        self, script_id: str, data: dict, user_id: str | None = None
+    ) -> dict | None:
+        """更新话术（生产模式持久化 + 内容变更时重新合规检查）。"""
         if settings.DEMO_MODE:
             return self._demo_update_script(script_id, data)
-        return None
+        try:
+            script_uuid = uuid.UUID(script_id)
+        except (ValueError, TypeError):
+            return None
+        script = await self.script_repo.get_by_id_active(script_uuid)
+        if script is None or (user_id and str(script.created_by) != user_id):
+            return None
+        update_fields: dict = {}
+        for key in ("title", "customer_context", "style", "content", "product_type", "status"):
+            if key in data:
+                update_fields[key] = data[key]
+        if "content" in update_fields and update_fields["content"]:
+            result = check_compliance(update_fields["content"])
+            update_fields["compliance_status"] = result["status"]
+            update_fields["compliance_issues"] = result
+        if update_fields:
+            await self.script_repo.update(script_uuid, **update_fields)
+            try:
+                await self.session.commit()
+            except Exception:
+                await self.session.rollback()
+                raise
+            await self.session.refresh(script)
+        return _serialize_script_detail(script)
 
     def _demo_update_script(self, script_id: str, data: dict) -> dict | None:
         script = self._demo_get_script(script_id)
@@ -265,11 +373,24 @@ class ScriptService:
         script["updated_at"] = datetime.now(timezone.utc).isoformat()
         return script
 
-    def delete_script(self, script_id: str) -> bool:
-        """删除话术。"""
+    async def delete_script(self, script_id: str, user_id: str | None = None) -> bool:
+        """删除话术（生产模式软删除，校验归属）。"""
         if settings.DEMO_MODE:
             return self._demo_delete_script(script_id)
-        return False
+        try:
+            script_uuid = uuid.UUID(script_id)
+        except (ValueError, TypeError):
+            return False
+        script = await self.script_repo.get_by_id_active(script_uuid)
+        if script is None or (user_id and str(script.created_by) != user_id):
+            return False
+        await self.script_repo.soft_delete(script_uuid)
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+        return True
 
     def _demo_delete_script(self, script_id: str) -> bool:
         global _DEMO_SCRIPTS
@@ -277,11 +398,31 @@ class ScriptService:
         _DEMO_SCRIPTS = [s for s in _DEMO_SCRIPTS if s["id"] != script_id]
         return len(_DEMO_SCRIPTS) < original_len
 
-    def toggle_favorite(self, script_id: str) -> dict | None:
-        """切换收藏。"""
+    async def toggle_favorite(
+        self, script_id: str, user_id: str | None = None
+    ) -> dict | None:
+        """切换收藏（生产模式维护 ScriptFavorite 行 + 收藏计数）。"""
         if settings.DEMO_MODE:
             return self._demo_toggle_favorite(script_id)
-        return None
+        try:
+            script_uuid = uuid.UUID(script_id)
+        except (ValueError, TypeError):
+            return None
+        script = await self.script_repo.get_by_id_active(script_uuid)
+        if script is None:
+            return None
+        favorited = await self.favorite_repo.toggle(uuid.UUID(user_id), script_uuid)
+        if favorited:
+            script.favorited_count = (script.favorited_count or 0) + 1
+        else:
+            script.favorited_count = max((script.favorited_count or 0) - 1, 0)
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
+        await self.session.refresh(script)
+        return _serialize_script(script)
 
     def _demo_toggle_favorite(self, script_id: str) -> dict | None:
         script = self._demo_get_script(script_id)
@@ -299,15 +440,19 @@ class ScriptService:
         customer_context: dict,
         style: str | None = None,
         product_type: str | None = None,
+        user_id: str | None = None,
     ) -> AsyncGenerator[str, None]:
         """AI生成话术（SSE流式，带RAG知识增强）。"""
         if settings.DEMO_MODE:
-            async for event in self._demo_generate_scripts(customer_context, style, product_type):
+            async for event in self._demo_generate_scripts(
+                customer_context, style, product_type, user_id
+            ):
                 yield event
             return
-        # 生产模式：通过 AI Gateway 生成，生成结果已由 _demo_generate_scripts 内的
-        # self.create_script() 保存到数据库（因为 create_script 有 bifurcation 会走 Repository）
-        async for event in self._demo_generate_scripts(customer_context, style, product_type):
+        # 生产模式：通过 AI Gateway 生成，生成结果由 create_script 保存到数据库
+        async for event in self._demo_generate_scripts(
+            customer_context, style, product_type, user_id
+        ):
             yield event
 
     async def _demo_generate_scripts(
@@ -315,8 +460,9 @@ class ScriptService:
         customer_context: dict,
         style: str | None = None,
         product_type: str | None = None,
+        user_id: str | None = None,
     ) -> AsyncGenerator[str, None]:
-        """Demo 模式的 SSE 话术生成。"""
+        """SSE 话术生成（Demo/生产共用生成逻辑，结果经 create_script 持久化）。"""
         styles = [style] if style else ["affinity", "professional", "data_driven", "concise"]
         request_id = str(uuid.uuid4())
 
@@ -373,7 +519,7 @@ class ScriptService:
 
             ctx_name = customer_context.get("name", "客户")
             pt_display = product_type or "通用"
-            self.create_script({
+            await self.create_script({
                 "title": f"{ctx_name}{pt_display}-{style_name}",
                 "customer_context": customer_context,
                 "style": s,
@@ -382,7 +528,7 @@ class ScriptService:
                 "compliance_status": compliance["status"],
                 "compliance_issues": compliance,
                 "status": "draft",
-            })
+            }, user_id=user_id)
 
         yield _sse_event("generation_complete", {
             "request_id": request_id,
