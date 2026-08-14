@@ -1,31 +1,53 @@
-node_modules/\n__pycache__/\n*.pyc\n.env\n.DS_Store\n*.egg-info/\ndist/\nbuild/\n.cache/\n.pytest_cache/\n.vite/\nfrontend/dist/\nbackend/.venv/\n*.db\npgdata/\nredisdata/\nuploads/\n
-
 # Python
-.venv/
-*.egg-info/
 __pycache__/
 *.pyc
+*.pyo
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+.Python
+*.whl
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
 
 # Node
 node_modules/
 frontend/dist/
+frontend/node_modules/
 
 # Environment
 .env
-*.db
+.env.local
+.env.*.local
+backend/.env
 
-# Docker volumes
+# Database
+*.db
 pgdata/
 redisdata/
+
+# Uploads
+uploads/
 
 # IDE
 .idea/
 .vscode/
 *.swp
+*.swo
 
-.venv/
-frontend/dist/
-frontend/node_modules/
-backend/.env
-node_modules/
-__pycache__/
+# OS
+.DS_Store
+Thumbs.db
+
+# Docker
+pgdata/
+redisdata/
+
+# Tool results (local only)
+tool-results/
+
+# Logs
+*.log
