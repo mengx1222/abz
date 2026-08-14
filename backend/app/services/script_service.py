@@ -1,4 +1,4 @@
-"""话术生成服务 —— AI多风格话术生成 + 合规检查。"""
+"""话术生成服务 —— AI多风格话术生成 + RAG知识增强 + 合规检查。"""
 import json
 import uuid
 from collections.abc import AsyncGenerator
@@ -9,11 +9,12 @@ from structlog import get_logger
 from app.ai.gateway import get_ai_gateway
 from app.core.config import settings
 from app.models.user import User
-from app.services.compliance_service import check_compliance, build_script_prompt, STYLE_PROMPTS
+from app.services.compliance_service import check_compliance, build_script_prompt, STYLE_NAMES
+from app.rag.pipeline import RAGPipeline
 
 logger = get_logger()
 
-# ---- Demo 话术数据 ----
+# ---- Demo 话术数据（8条高质量示例话术） ----
 
 _DEMO_SCRIPTS: list[dict] = [
     {
@@ -96,10 +97,10 @@ _DEMO_SCRIPTS: list[dict] = [
         "title": "刘先生寿险-专业型",
         "customer_context": {"name": "刘建国", "age": 55, "objection": "身体挺好的不需要", "stage": "proposal", "product_type": "寿险"},
         "style": "professional",
-        "content": "刘先生，我理解您目前身体状态良好。但寿险的本质不是保障自己，而是保障家人的生活质量。您今年55岁，正是家庭责任最重的时期——可能有房贷、有子女教育支出、有父母赡养。根据LIMRA数据，中国家庭寿险覆盖率仅约20%，意味着80%的家庭在主要经济支柱意外丧失后面临严重的财务困境。华安定期寿险，55岁男性保至70岁，100万保额年保费仅2,200元。建议寿险保额=房贷余额+子女教育费用+5年家庭开支。这是对家人最负责任的保障安排。",
+        "content": "刘先生，我理解您目前身体状态良好。但寿险的本质不是保障自己，而是保障家人的生活质量。您今年55岁，正是家庭责任最重的时期——可能有房贷、有子女教育支出、有父母赡养。根据LIMRA数据，中国家庭寿险覆盖率仅约20%，意味着80%的家庭在主要经济支柱意外丧失后面临严重的财务困境。华安定期寿险，55岁男性保至70岁，100万保额年保费仅2,200元。建议寿险保额=房贷余额+子女教育费用+5年家庭开支。这是对家人重要的保障安排。",
         "product_type": "寿险",
         "compliance_status": "yellow",
-        "compliance_issues": {"score": 80, "issues": [{"rule": "绝对化表达", "matched_text": "最负责任", "suggestion": "可改为'重要的保障安排'"}]},
+        "compliance_issues": {"status": "yellow", "score": 90, "issues": [{"rule": "绝对化表达", "severity": "YELLOW", "matched_text": "最重的时期——可能有房贷", "suggestion": "修改为'重要的保障安排'"}]},
         "status": "published",
         "favorited_count": 9,
         "usage_count": 45,
@@ -121,20 +122,19 @@ _DEMO_SCRIPTS: list[dict] = [
         "created_at": "2025-01-15T00:00:00Z",
         "updated_at": "2025-01-18T00:00:00Z",
     },
-    # --- 合规问题示例 ---
     {
         "id": "demo-scr-008",
-        "title": "张先生医疗险-合规违规示例",
+        "title": "张先生医疗险-合规风险示例",
         "customer_context": {"name": "张美玲", "age": 28, "objection": "有必要买吗", "stage": "initial_contact", "product_type": "医疗险"},
         "style": "professional",
         "content": "张先生，我们的百万医疗险保证您100%赔付，什么病都能报，肯定能通过核保，不用担心。不买就太亏了，最后机会，今天就下单吧！",
         "product_type": "医疗险",
         "compliance_status": "red",
-        "compliance_issues": {"score": 40, "issues": [
-            {"rule": "不当核保结论", "matched_text": "肯定能通过核保", "suggestion": "核保结论需由核保部门审核"},
-            {"rule": "不当理赔承诺", "matched_text": "保证您100%赔付", "suggestion": "具体以合同条款为准"},
-            {"rule": "夸大保障", "matched_text": "什么病都能报", "suggestion": "需明确保障范围"},
-            {"rule": "诱导销售", "matched_text": "不买就太亏了，最后机会", "suggestion": "避免施压式销售"},
+        "compliance_issues": {"status": "red", "score": 40, "issues": [
+            {"rule": "不当核保结论", "severity": "RED", "matched_text": "肯定能通过核保，不用担心", "suggestion": "核保结论需由核保部门审核"},
+            {"rule": "不当理赔承诺", "severity": "RED", "matched_text": "保证您100%赔付", "suggestion": "具体以合同条款为准"},
+            {"rule": "夸大保障", "severity": "RED", "matched_text": "什么病都能报", "suggestion": "需明确保障范围"},
+            {"rule": "诱导销售", "severity": "YELLOW", "matched_text": "不买就太亏了，最后机会", "suggestion": "避免施压式销售"},
         ]},
         "status": "draft",
         "favorited_count": 0,
@@ -153,11 +153,26 @@ def _ensure_demo_scripts():
 
 
 class ScriptService:
-    """话术服务。"""
+    """话术服务 —— Demo模式使用内存列表，生产模式使用数据库。"""
 
     def __init__(self, db=None):
         self.db = db
         self.gateway = get_ai_gateway()
+        self._rag_pipeline: RAGPipeline | None = None
+
+    async def _get_rag_pipeline(self) -> RAGPipeline | None:
+        """获取RAG Pipeline（懒加载）。"""
+        if self._rag_pipeline is None and settings.DEMO_MODE:
+            try:
+                self._rag_pipeline = RAGPipeline(db=None)
+                # 触发 Demo 索引初始化
+                await self._rag_pipeline._get_retriever()
+            except Exception as e:
+                logger.warning("script_rag_init_failed", error=str(e))
+                self._rag_pipeline = None
+        return self._rag_pipeline
+
+    # ---- CRUD（Demo模式） ----
 
     def get_scripts(self, filters: dict | None = None) -> list[dict]:
         """获取话术列表。"""
@@ -175,6 +190,8 @@ class ScriptService:
             if filters.get("search"):
                 q = filters["search"].lower()
                 scripts = [s for s in scripts if q in s["title"].lower() or q in (s.get("content") or "").lower()]
+        # 按更新时间倒序
+        scripts.sort(key=lambda x: x.get("updated_at", ""), reverse=True)
         return scripts
 
     def get_script(self, script_id: str) -> dict | None:
@@ -187,23 +204,24 @@ class ScriptService:
         _ensure_demo_scripts()
         script = {
             "id": f"demo-scr-{uuid.uuid4().hex[:8]}",
-            "title": data["title"],
+            "title": data.get("title", "AI生成话术"),
             "customer_context": data.get("customer_context"),
             "style": data.get("style", "professional"),
             "content": data.get("content"),
             "product_type": data.get("product_type"),
             "compliance_status": data.get("compliance_status", "green"),
-            "compliance_issues": None,
+            "compliance_issues": data.get("compliance_issues"),
             "status": data.get("status", "draft"),
             "favorited_count": 0,
             "usage_count": 0,
             "created_at": datetime.now(timezone.utc).isoformat(),
             "updated_at": datetime.now(timezone.utc).isoformat(),
         }
-        # 合规检查
-        if script["content"]:
-            script["compliance_status"] = "green"
-            script["compliance_issues"] = check_compliance(script["content"])
+        # 自动合规检查
+        if script["content"] and not script["compliance_issues"]:
+            result = check_compliance(script["content"])
+            script["compliance_status"] = result["status"]
+            script["compliance_issues"] = result
         _DEMO_SCRIPTS.append(script)
         return script
 
@@ -238,15 +256,21 @@ class ScriptService:
         script["favorited_count"] = script.get("favorited_count", 0) + 1
         return script
 
+    # ---- AI话术生成（SSE流式） ----
+
     async def generate_scripts(
         self,
         customer_context: dict,
         style: str | None = None,
         product_type: str | None = None,
     ) -> AsyncGenerator[str, None]:
-        """AI生成话术（SSE流式）。
+        """AI生成话术（SSE流式，带RAG知识增强）。
 
-        如果指定style则只生成一种，否则同时生成4种风格。
+        流程：
+        1. 根据产品类型RAG检索相关知识
+        2. 遍历风格（单风格或全部4种）
+        3. 每种风格：构建prompt → LLM流式生成 → 合规检查 → 保存
+        4. 返回SSE事件流
         """
         styles = [style] if style else ["affinity", "professional", "data_driven", "concise"]
         request_id = str(uuid.uuid4())
@@ -254,22 +278,39 @@ class ScriptService:
         yield _sse_event("generation_start", {
             "request_id": request_id,
             "styles": styles,
+            "styles_display": [STYLE_NAMES.get(s, s) for s in styles],
         })
 
+        # RAG检索产品知识（仅在有产品类型时）
+        product_info = ""
+        if product_type:
+            try:
+                pipeline = await self._get_rag_pipeline()
+                if pipeline:
+                    query = f"{product_type} 产品特点 保障范围 保费 理赔"
+                    search_results, context_text = await pipeline.query(
+                        question=query, top_k=4,
+                    )
+                    if context_text:
+                        product_info = context_text
+                        yield _sse_event("rag_context", {
+                            "product_type": product_type,
+                            "context_length": len(context_text),
+                            "sources_count": len(search_results),
+                        })
+            except Exception as e:
+                logger.warning("script_rag_search_error", error=str(e))
+
         for s in styles:
-            style_name = {
-                "affinity": "亲和型",
-                "professional": "专业型",
-                "data_driven": "数据驱动型",
-                "concise": "简洁型",
-            }.get(s, s)
+            style_name = STYLE_NAMES.get(s, s)
 
             yield _sse_event("style_start", {
                 "style": s,
                 "style_name": style_name,
             })
 
-            prompt = build_script_prompt(s, customer_context)
+            # 构建Prompt（含RAG产品信息）
+            prompt = build_script_prompt(s, customer_context, product_info)
             messages = [{"role": "system", "content": prompt}]
 
             full_content = ""
@@ -290,11 +331,14 @@ class ScriptService:
                 "style_name": style_name,
                 "content": full_content,
                 "compliance": compliance,
+                "word_count": len(full_content),
             })
 
-            # 保存到demo
+            # 保存到demo列表
+            ctx_name = customer_context.get("name", "客户")
+            pt_display = product_type or "通用"
             self.create_script({
-                "title": f"AI生成-{style_name}",
+                "title": f"{ctx_name}{pt_display}-{style_name}",
                 "customer_context": customer_context,
                 "style": s,
                 "content": full_content,

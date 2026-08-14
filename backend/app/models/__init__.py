@@ -8,7 +8,7 @@ from app.models.knowledge import KnowledgeBase, Document, DocumentChunk
 from app.models.ai_log import AIRequestLog, AIFeedback
 from app.models.training import TrainingScenario, TrainingSession, TrainingMessage, TrainingScore
 from app.models.customer import Customer, CustomerTag, CustomerInteraction, CustomerFollowup
-from app.models.script import Script, ScriptVersion
+from app.models.script import Script, ScriptFavorite, ScriptVersion
 
 __all__ = [
     "Base",
@@ -33,5 +33,6 @@ __all__ = [
     "CustomerInteraction",
     "CustomerFollowup",
     "Script",
+    "ScriptFavorite",
     "ScriptVersion",
 ]

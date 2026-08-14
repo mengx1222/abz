@@ -1,6 +1,7 @@
 """话术相关数据模型。"""
 import uuid
 
+import sqlalchemy as sa
 from sqlalchemy import Boolean, ForeignKey, Integer, String, Text
 from sqlalchemy.dialects.postgresql import UUID, JSONB
 from sqlalchemy.orm import Mapped, mapped_column
@@ -36,7 +37,7 @@ class Script(Base):
         Integer, nullable=False, default=1, server_default="1", comment="版本号"
     )
     status: Mapped[str] = mapped_column(
-        String(20), nullable=False, default="draft", comment="状态：draft/published/archived"
+        String(20), nullable=False, default="draft", server_default="draft", comment="状态：draft/published/archived"
     )
     favorited_count: Mapped[int] = mapped_column(
         Integer, nullable=False, default=0, server_default="0", comment="收藏数"
@@ -50,8 +51,26 @@ class Script(Base):
         return f"<Script id={self.id} title={title_preview!r} style={self.style!r}>"
 
 
+class ScriptFavorite(Base):
+    """话术收藏关联表（用户-话术多对多）。"""
+
+    __tablename__ = "script_favorites"
+    __table_args__ = (
+        sa.UniqueConstraint("user_id", "script_id", name="uq_script_favorite_user_script"),
+    )
+
+    user_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("users.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+    script_id: Mapped[uuid.UUID] = mapped_column(
+        UUID(as_uuid=True), ForeignKey("scripts.id", ondelete="CASCADE"),
+        nullable=False, index=True,
+    )
+
+
 class ScriptVersion(Base):
-    """话术版本。"""
+    """话术版本历史。"""
 
     __tablename__ = "script_versions"
 
