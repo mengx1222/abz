@@ -166,6 +166,81 @@ _DEMO_PREFERENCES: list[dict] = [
     {"type": "achievement", "label": "成就通知", "enabled": True, "channel": ["in_app", "push"]},
 ]
 
+# ---- 生产模式偏好类型映射（与前端 5 类偏好一致） ----
+# 模型 notification_preferences 是单行多布尔列；community_enabled 对应前端/业务上的
+# "achievement（成就通知）" 偏好。
+_PREF_LABELS: dict[str, str] = {
+    "followup": "客户跟进提醒",
+    "system": "系统通知",
+    "training": "训练提醒",
+    "team": "团队动态",
+    "achievement": "成就通知",
+}
+_PREF_CHANNELS: dict[str, list[str]] = {
+    "followup": ["in_app", "push"],
+    "system": ["in_app"],
+    "training": ["in_app", "push"],
+    "team": ["in_app"],
+    "achievement": ["in_app", "push"],
+}
+_PREF_COLUMN: dict[str, str] = {
+    "followup": "followup_enabled",
+    "system": "system_enabled",
+    "training": "training_enabled",
+    "team": "team_enabled",
+    "achievement": "community_enabled",
+}
+
+
+def _build_preferences(
+    followup: bool,
+    system: bool,
+    training: bool,
+    team: bool,
+    achievement: bool,
+) -> list[NotificationPreference]:
+    """根据模型布尔列构建前端期望的 5 类偏好。"""
+    values = {
+        "followup": followup,
+        "system": system,
+        "training": training,
+        "team": team,
+        "achievement": achievement,
+    }
+    return [
+        NotificationPreference(
+            type=t,
+            label=_PREF_LABELS[t],
+            enabled=values[t],
+            channel=_PREF_CHANNELS[t],
+        )
+        for t in ("followup", "system", "training", "team", "achievement")
+    ]
+
+
+def _relative_time(dt) -> str:
+    """生成相对时间描述（如 刚刚 / 3分钟前 / 2小时前 / 昨天 / 3天前 / 1周前）。"""
+    if dt is None:
+        return ""
+    delta = datetime.now(timezone.utc) - dt
+    seconds = delta.total_seconds()
+    if seconds < 60:
+        return "刚刚"
+    minutes = int(seconds // 60)
+    if minutes < 60:
+        return f"{minutes}分钟前"
+    hours = int(minutes // 60)
+    if hours < 24:
+        return f"{hours}小时前"
+    days = int(hours // 24)
+    if days == 1:
+        return "昨天"
+    if days < 7:
+        return f"{days}天前"
+    if days < 30:
+        return f"{int(days // 7)}周前"
+    return f"{int(days // 30)}个月前"
+
 
 class NotificationService:
     """通知中心服务。"""
@@ -177,19 +252,19 @@ class NotificationService:
 
     async def list_notifications(
         self,
-        user_phone: str,
+        user_id: uuid.UUID,
         type_filter: str | None = None,
         page: int = 1,
         page_size: int = 20,
     ) -> NotificationListResponse:
-        """获取通知列表。"""
+        """获取通知列表（生产模式按用户 ID 查询数据库）。"""
         if settings.DEMO_MODE:
-            return self._demo_list_notifications(user_phone, type_filter, page, page_size)
+            return self._demo_list_notifications(user_id, type_filter, page, page_size)
 
-        # Production path
         repo = NotificationRepository(self.session)
-        user_id = uuid.UUID("00000000-0000-0000-0000-000000000000")  # TODO: resolve from user_phone
-        items, total = await repo.list_by_user(user_id, page=page, page_size=page_size, type_filter=type_filter)
+        items, total = await repo.list_by_user(
+            user_id, page=page, page_size=page_size, type_filter=type_filter
+        )
         unread = await repo.unread_count(user_id)
         return NotificationListResponse(
             notifications=[
@@ -198,11 +273,11 @@ class NotificationService:
                     type=n.type or "system",
                     title=n.title or "",
                     content=n.content or "",
-                    time=n.created_at.strftime("%Y-%m-%d %H:%M") if n.created_at else "",
+                    time=_relative_time(n.created_at),
                     created_at=n.created_at or datetime.now(timezone.utc),
                     read=bool(n.is_read),
-                    action_url=None,
-                    metadata={},
+                    action_url=n.action_url,
+                    metadata=n.metadata_ or {},
                 )
                 for n in items
             ],
@@ -214,75 +289,86 @@ class NotificationService:
 
     async def mark_read(
         self,
-        user_phone: str,
+        user_id: uuid.UUID,
         notification_ids: list[str] | None = None,
         read_all: bool = False,
     ) -> MarkReadResponse:
-        """标记通知已读。"""
+        """标记通知已读（生产模式按用户 ID 更新数据库）。"""
         if settings.DEMO_MODE:
-            return self._demo_mark_read(user_phone, notification_ids, read_all)
+            return self._demo_mark_read(user_id, notification_ids, read_all)
 
-        # Production path
         repo = NotificationRepository(self.session)
-        user_id = uuid.UUID("00000000-0000-0000-0000-000000000000")  # TODO: resolve from user_phone
         ids = [uuid.UUID(i) for i in notification_ids] if notification_ids and not read_all else None
-        if read_all:
-            count = await repo.mark_read(user_id)
-        elif ids:
-            count = await repo.mark_read(user_id, ids)
-        else:
-            count = 0
-        await self.session.commit()
+        try:
+            if read_all:
+                count = await repo.mark_read(user_id)
+            elif ids:
+                count = await repo.mark_read(user_id, ids)
+            else:
+                count = 0
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
         return MarkReadResponse(updated_count=count)
 
-    async def get_preferences(self, user_phone: str) -> NotificationPreferencesResponse:
-        """获取通知偏好设置。"""
+    async def get_preferences(self, user_id: uuid.UUID) -> NotificationPreferencesResponse:
+        """获取通知偏好设置（生产模式从数据库单行偏好读取）。"""
         if settings.DEMO_MODE:
-            return self._demo_get_preferences(user_phone)
+            return self._demo_get_preferences(user_id)
 
-        # Production path
         repo = NotificationPreferenceRepository(self.session)
-        user_id = uuid.UUID("00000000-0000-0000-0000-000000000000")  # TODO: resolve from user_phone
         pref = await repo.get_by_user(user_id)
         if pref is None:
-            return NotificationPreferencesResponse(preferences=[])
+            # 无偏好记录时返回默认（全部启用）
+            return NotificationPreferencesResponse(
+                preferences=_build_preferences(True, True, True, True, True)
+            )
         return NotificationPreferencesResponse(
-            preferences=[
-                NotificationPreference(
-                    type="followup",
-                    label="客户跟进提醒",
-                    enabled=True,
-                    channel=["in_app", "push"],
-                ),
-            ],
+            preferences=_build_preferences(
+                pref.followup_enabled,
+                pref.system_enabled,
+                pref.training_enabled,
+                pref.team_enabled,
+                pref.community_enabled,
+            )
         )
 
-    async def update_preference(self, user_phone: str, req: UpdatePreferenceRequest) -> NotificationPreference:
-        """更新通知偏好设置。"""
+    async def update_preference(
+        self, user_id: uuid.UUID, req: UpdatePreferenceRequest
+    ) -> NotificationPreference:
+        """更新通知偏好设置（生产模式写入对应布尔列）。"""
         if settings.DEMO_MODE:
-            return self._demo_update_preference(user_phone, req)
+            return self._demo_update_preference(user_id, req)
 
-        # Production path
+        column = _PREF_COLUMN.get(req.type)
+        if column is None:
+            raise ValueError(f"Unknown notification type: {req.type}")
+        enabled = req.enabled if req.enabled is not None else True
+
         repo = NotificationPreferenceRepository(self.session)
-        user_id = uuid.UUID("00000000-0000-0000-0000-000000000000")  # TODO: resolve from user_phone
-        await repo.upsert(
-            user_id,
-            type=req.type,
-            enabled=req.enabled if req.enabled is not None else True,
-        )
-        await self.session.commit()
+        pref = await repo.get_by_user(user_id)
+        if pref is None:
+            await repo.create(user_id=user_id, **{column: enabled})
+        else:
+            setattr(pref, column, enabled)
+        try:
+            await self.session.commit()
+        except Exception:
+            await self.session.rollback()
+            raise
         return NotificationPreference(
             type=req.type,
-            label=req.type,
-            enabled=req.enabled if req.enabled is not None else True,
-            channel=req.channel or ["in_app"],
+            label=_PREF_LABELS.get(req.type, req.type),
+            enabled=enabled,
+            channel=req.channel or _PREF_CHANNELS.get(req.type, ["in_app"]),
         )
 
     # ---- Demo methods ----
 
     def _demo_list_notifications(
         self,
-        user_phone: str,
+        user_id: uuid.UUID,
         type_filter: str | None = None,
         page: int = 1,
         page_size: int = 20,
@@ -306,7 +392,7 @@ class NotificationService:
 
     def _demo_mark_read(
         self,
-        user_phone: str,
+        user_id: uuid.UUID,
         notification_ids: list[str] | None = None,
         read_all: bool = False,
     ) -> MarkReadResponse:
@@ -325,13 +411,13 @@ class NotificationService:
                     count += 1
         return MarkReadResponse(updated_count=count)
 
-    def _demo_get_preferences(self, user_phone: str) -> NotificationPreferencesResponse:
+    def _demo_get_preferences(self, user_id: uuid.UUID) -> NotificationPreferencesResponse:
         """Demo：获取通知偏好设置。"""
         return NotificationPreferencesResponse(
             preferences=[NotificationPreference(**p) for p in _DEMO_PREFERENCES]
         )
 
-    def _demo_update_preference(self, user_phone: str, req: UpdatePreferenceRequest) -> NotificationPreference:
+    def _demo_update_preference(self, user_id: uuid.UUID, req: UpdatePreferenceRequest) -> NotificationPreference:
         """Demo：更新通知偏好设置。"""
         for p in _DEMO_PREFERENCES:
             if p["type"] == req.type:
