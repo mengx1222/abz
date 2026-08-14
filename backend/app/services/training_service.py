@@ -896,6 +896,26 @@ def _pick_random(lst: list) -> str:
     return random.choice(lst)
 
 
+# ---- 陪练系统提示词（用于AI客户角色扮演） ----
+
+_ROLEPLAY_SYSTEM_PROMPT = """你正在扮演一位保险潜在客户，参加销售模拟训练。你需要完全进入角色，像一个真实的客户一样回应代理人的话术。
+
+## 你的角色设定
+{persona_info}
+
+## 演练规则
+1. 始终保持角色人设，不要跳出角色
+2. 根据代理人的表现自然回应（做得好可以表现出兴趣，做得差要提出质疑）
+3. 如果代理人说了不专业的话，表现出怀疑或不信任
+4. 逐步展现你的异议和顾虑，不要一次性全部抛出
+5. 可以适当"刁难"代理人，提出常见的客户异议
+6. 如果代理人表现优秀，可以表现出购买意向
+7. 回复控制在50-150字，模拟真实对话节奏
+
+## 当前对话历史
+{conversation_history}"""
+
+
 class TrainingService:
     """AI 陪练服务。"""
 
@@ -1052,15 +1072,58 @@ class TrainingService:
         session["message_count"] += 1
         turn_index = session["message_count"] // 2  # 每2条=1轮 (agent+customer)
 
-        # 获取场景的预设客户回复
+        # 获取场景的预设客户回复（Demo模式优先使用预写回复）
         scenario_id = session.get("scenario_id", "")
         responses = _DEMO_CUSTOMER_RESPONSES.get(scenario_id, [])
-        # 根据消息数选回复，循环使用
+        customer_reply = ""
+        used_ai = False
+
         if responses:
             reply_index = min(turn_index, len(responses) - 1)
             customer_reply = responses[reply_index]
         else:
-            customer_reply = "嗯，你说的我考虑一下。"
+            # 使用AI Gateway动态生成客户回复
+            try:
+                scenario = await self.get_scenario(scenario_id)
+                persona = scenario.get("customer_persona", {}) if scenario else {}
+
+                persona_info = (
+                    f"姓名：{persona.get('name', '客户')}\n"
+                    f"年龄：{persona.get('age', 40)}岁\n"
+                    f"性格：{persona.get('personality', '理性')}\n"
+                    f"情绪：{persona.get('mood', '中性')}\n"
+                    f"背景：{persona.get('background', '')}\n"
+                    f"保险认知：{persona.get('insurance_knowledge', '一般')}\n"
+                    f"关键异议：{'、'.join(persona.get('key_objections', []))}"
+                )
+
+                # 构建对话历史
+                history_msgs = _demo_messages.get(session_id, [])
+                history_str = ""
+                for msg in history_msgs[-10:]:  # 最近10条
+                    role_label = "代理人" if msg["role"] == "agent" else "客户"
+                    history_str += f"{role_label}：{msg['content']}\n"
+
+                system_prompt = _ROLEPLAY_SYSTEM_PROMPT.format(
+                    persona_info=persona_info,
+                    conversation_history=history_str or "（这是对话开始）",
+                )
+
+                messages = [
+                    {"role": "system", "content": system_prompt},
+                    {"role": "user", "content": content},
+                ]
+
+                # 调用AI Gateway
+                full_reply = ""
+                stream = await self.gateway.chat(messages=messages, stream=True)
+                async for token in stream:
+                    full_reply += token
+                customer_reply = full_reply[:300]  # 限制回复长度
+                used_ai = True
+            except Exception as e:
+                logger.warning("training_ai_customer_failed", error=str(e))
+                customer_reply = "嗯，你说的我考虑一下。"
 
         # message_start
         yield _sse_event("message_start", {

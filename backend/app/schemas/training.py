@@ -32,6 +32,7 @@ class ScenarioList(BaseModel):
     sales_stage: str | None = None
     duration_minutes: int
     customer_persona: CustomerPersona
+    category: str = ""
 
 
 class ScenarioDetail(ScenarioList):

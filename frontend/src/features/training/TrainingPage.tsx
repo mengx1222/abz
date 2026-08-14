@@ -1,169 +1,276 @@
+import { useState, useEffect, useCallback } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { useAuthStore } from '../../stores/authStore';
 import { Card, CardTitle, CardDescription, CardHeader } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import {
+  getScenarios,
+  getSessions,
+  type Scenario,
+  type TrainingSession,
+} from '../../services/trainingService';
 
-interface TrainingScenario {
-  id: string;
-  title: string;
-  category: string;
-  description: string;
-  difficulty: '入门' | '进阶' | '高级';
-  duration: string;
-  completedCount: number;
-  score: number | null;
-}
+// ---- Constants ----
 
-const difficultyVariant: Record<string, 'success' | 'warning' | 'error'> = {
-  '入门': 'success',
-  '进阶': 'warning',
-  '高级': 'error',
+const DIFFICULTY_CONFIG: Record<string, { label: string; variant: 'success' | 'warning' | 'error' }> = {
+  easy: { label: '入门', variant: 'success' },
+  medium: { label: '进阶', variant: 'warning' },
+  hard: { label: '挑战', variant: 'error' },
 };
 
-const demoScenarios: TrainingScenario[] = [
-  {
-    id: '1',
-    title: '异议处理训练：保费太贵',
-    category: '异议处理',
-    description: '模拟客户提出"保费太贵了，我再考虑考虑"的对话场景。AI将扮演犹豫型客户，考验你的价值传递和成交推动能力。',
-    difficulty: '进阶',
-    duration: '8分钟',
-    completedCount: 156,
-    score: null,
-  },
-  {
-    id: '2',
-    title: '需求分析训练：家庭保障规划',
-    category: '需求分析',
-    description: '与AI客户进行深度需求沟通，通过提问挖掘家庭收入、负债、保障缺口等信息，制定合理的保险配置方案。',
-    difficulty: '进阶',
-    duration: '10分钟',
-    completedCount: 203,
-    score: 85,
-  },
-  {
-    id: '3',
-    title: '电销开场白训练',
-    category: '电销技巧',
-    description: '练习15秒黄金开场，在有限时间内引起客户兴趣并争取继续对话的机会。AI会模拟不同反应类型的客户。',
-    difficulty: '入门',
-    duration: '5分钟',
-    completedCount: 342,
-    score: 92,
-  },
-  {
-    id: '4',
-    title: '产品介绍训练：重疾险核心卖点',
-    category: '产品知识',
-    description: '在3分钟内清晰准确地介绍一款重疾险的核心卖点，包括保障范围、理赔条件、与竞品的差异化优势。',
-    difficulty: '入门',
-    duration: '6分钟',
-    completedCount: 278,
-    score: 78,
-  },
-  {
-    id: '5',
-    title: '促成签约训练：临门一脚',
-    category: '成交技巧',
-    description: '模拟客户已产生购买意向但仍在犹豫的场景。练习使用不同促成技巧（假设成交、限时优惠、对比法等）推动签约。',
-    difficulty: '高级',
-    duration: '8分钟',
-    completedCount: 89,
-    score: null,
-  },
-  {
-    id: '6',
-    title: '客诉处理训练：理赔纠纷',
-    category: '异议处理',
-    description: '模拟客户对理赔结果不满的投诉场景，考验你的共情能力、问题分析能力和解决方案提供能力。',
-    difficulty: '高级',
-    duration: '12分钟',
-    completedCount: 45,
-    score: null,
-  },
-];
+const CATEGORIES = ['全部', '价格异议类', '需求认知类', '慢病客户类', '老年客户类', '家庭客户类', '高净值客户类', '销售技巧类'];
+
+type TabView = 'scenarios' | 'history';
 
 export function TrainingPage() {
   const user = useAuthStore((s) => s.user);
+  const navigate = useNavigate();
 
-  const completedCount = demoScenarios.filter((s) => s.score !== null).length;
-  const avgScore =
-    demoScenarios.filter((s) => s.score !== null).reduce((sum, s) => sum + (s.score ?? 0), 0) /
-    completedCount;
+  const [activeTab, setActiveTab] = useState<TabView>('scenarios');
+  const [activeCategory, setActiveCategory] = useState('全部');
+  const [activeDifficulty, setActiveDifficulty] = useState<string | null>(null);
+
+  // Scenarios
+  const [scenarios, setScenarios] = useState<Scenario[]>([]);
+  const [loadingScenarios, setLoadingScenarios] = useState(false);
+
+  // History
+  const [sessions, setSessions] = useState<TrainingSession[]>([]);
+  const [loadingHistory, setLoadingHistory] = useState(false);
+
+  useEffect(() => {
+    if (activeTab === 'scenarios') {
+      setLoadingScenarios(true);
+      getScenarios({
+        difficulty: activeDifficulty,
+      }).then((data) => {
+        let filtered = data;
+        if (activeCategory !== '全部') {
+          filtered = data.filter((s) => s.category === activeCategory);
+        }
+        setScenarios(filtered);
+      }).catch(() => setScenarios([])).finally(() => setLoadingScenarios(false));
+    }
+  }, [activeTab, activeCategory, activeDifficulty]);
+
+  useEffect(() => {
+    if (activeTab === 'history') {
+      setLoadingHistory(true);
+      getSessions().then(setSessions).catch(() => setSessions([])).finally(() => setLoadingHistory(false));
+    }
+  }, [activeTab]);
+
+  const handleStartTraining = (scenarioId: string) => {
+    navigate(`/training/chat/${scenarioId}`);
+  };
+
+  const handleViewSession = (sessionId: string, score: number | null) => {
+    if (score !== null) {
+      navigate(`/training/chat/${sessionId}?mode=review`);
+    }
+  };
 
   return (
-    <div className="max-w-5xl mx-auto space-y-4">
+    <div className="max-w-5xl mx-auto">
       {/* Header */}
-      <div>
-        <div className="flex items-center gap-2">
-          <h1 className="text-2xl font-bold text-text">AI陪练</h1>
-          <Badge variant="warning">演示模式</Badge>
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <div className="flex items-center gap-2">
+            <h1 className="text-2xl font-bold text-text">AI陪练</h1>
+          </div>
+          <p className="text-muted text-sm mt-1">
+            {user?.name || '用户'}，AI模拟真实客户，练习销售话术并获取专业评分
+          </p>
         </div>
-        <p className="text-muted text-sm mt-1">
-          {user?.name || '用户'}，AI模拟真实销售场景，帮助您提升销售技能
-        </p>
-      </div>
-
-      {/* Progress Overview */}
-      <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-        <Card padding="md">
-          <p className="text-sm text-muted">已完成训练</p>
-          <p className="text-2xl font-bold text-text mt-1">
-            {completedCount}<span className="text-sm font-normal text-muted">/{demoScenarios.length}</span>
-          </p>
-        </Card>
-        <Card padding="md">
-          <p className="text-sm text-muted">平均得分</p>
-          <p className="text-2xl font-bold text-accent mt-1">
-            {completedCount > 0 ? avgScore.toFixed(0) : '--'}
-            <span className="text-sm font-normal text-muted"> 分</span>
-          </p>
-        </Card>
-        <Card padding="md">
-          <p className="text-sm text-muted">训练总时长</p>
-          <p className="text-2xl font-bold text-text mt-1">
-            2.4<span className="text-sm font-normal text-muted"> 小时</span>
-          </p>
-        </Card>
-        <Card padding="md">
-          <p className="text-sm text-muted">连续训练</p>
-          <p className="text-2xl font-bold text-text mt-1">
-            5<span className="text-sm font-normal text-muted"> 天</span>
-          </p>
-        </Card>
-      </div>
-
-      {/* Training Scenarios */}
-      <div>
-        <h2 className="text-base font-semibold text-text mb-3">训练场景</h2>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {demoScenarios.map((scenario) => (
-            <Card key={scenario.id} padding="md" hover>
-              <CardHeader>
-                <div className="flex items-start justify-between gap-2">
-                  <CardTitle className="text-sm leading-snug">{scenario.title}</CardTitle>
-                  <Badge variant={difficultyVariant[scenario.difficulty]}>{scenario.difficulty}</Badge>
-                </div>
-                <CardDescription>{scenario.description}</CardDescription>
-              </CardHeader>
-              <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
-                <div className="flex items-center gap-3 text-xs text-muted">
-                  <span>{scenario.duration}</span>
-                  <span>{scenario.completedCount} 人已练</span>
-                  {scenario.score !== null && (
-                    <span className="text-success font-medium">得分 {scenario.score}</span>
-                  )}
-                </div>
-                <Button variant="primary" size="sm" disabled>
-                  {scenario.score !== null ? '再次训练' : '开始训练'}
-                </Button>
-              </div>
-            </Card>
-          ))}
+        <div className="flex gap-1 bg-card rounded-lg p-0.5 border border-border">
+          <button
+            onClick={() => setActiveTab('scenarios')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
+              activeTab === 'scenarios'
+                ? 'bg-accent text-white shadow-sm'
+                : 'text-muted hover:text-text'
+            }`}
+          >
+            训练场景
+          </button>
+          <button
+            onClick={() => setActiveTab('history')}
+            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
+              activeTab === 'history'
+                ? 'bg-accent text-white shadow-sm'
+                : 'text-muted hover:text-text'
+            }`}
+          >
+            历史记录
+          </button>
         </div>
       </div>
 
-      <p className="text-xs text-muted text-center">演示模式 — 功能待开发 · 当前展示为示例数据</p>
+      {/* Tab: Scenarios */}
+      {activeTab === 'scenarios' && (
+        <div className="space-y-3">
+          {/* Filters */}
+          <div className="flex items-center gap-3 flex-wrap">
+            <div className="flex gap-1 flex-wrap">
+              {CATEGORIES.map((cat) => (
+                <button
+                  key={cat}
+                  onClick={() => setActiveCategory(cat)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer ${
+                    activeCategory === cat
+                      ? 'bg-accent text-white'
+                      : 'bg-card border border-border text-muted hover:text-text'
+                  }`}
+                >
+                  {cat}
+                </button>
+              ))}
+            </div>
+            <div className="flex gap-1">
+              {Object.entries(DIFFICULTY_CONFIG).map(([key, cfg]) => (
+                <button
+                  key={key}
+                  onClick={() => setActiveDifficulty(activeDifficulty === key ? null : key)}
+                  className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
+                    activeDifficulty === key
+                      ? `border-current ${cfg.variant === 'success' ? 'bg-emerald-50 text-emerald-600' : cfg.variant === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`
+                      : 'border-border text-muted hover:text-text'
+                  }`}
+                >
+                  {cfg.label}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Scenario Grid */}
+          {loadingScenarios ? (
+            <div className="flex justify-center py-12">
+              <LoadingSpinner size="lg" />
+            </div>
+          ) : scenarios.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-4 opacity-20">🎯</div>
+              <p className="text-muted text-sm">暂无匹配的训练场景</p>
+            </div>
+          ) : (
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
+              {scenarios.map((scenario) => {
+                const diffCfg = DIFFICULTY_CONFIG[scenario.difficulty] || DIFFICULTY_CONFIG.medium;
+                const persona = scenario.customer_persona;
+                return (
+                  <Card key={scenario.id} padding="md" hover className="flex flex-col">
+                    <CardHeader className="flex-1">
+                      <div className="flex items-start justify-between mb-1">
+                        <CardTitle className="text-sm">{scenario.title}</CardTitle>
+                        <Badge variant={diffCfg.variant}>{diffCfg.label}</Badge>
+                      </div>
+                      <CardDescription className="text-xs line-clamp-2 mb-2">
+                        {scenario.description}
+                      </CardDescription>
+                      {/* Customer Info */}
+                      <div className="flex items-center gap-2 text-xs text-muted mb-2">
+                        <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-500">
+                          {persona?.name || '客户'}
+                        </span>
+                        <span>{persona?.age}岁</span>
+                        {scenario.product_focus && (
+                          <Badge variant="default" className="text-[10px]">{scenario.product_focus}</Badge>
+                        )}
+                      </div>
+                      {/* Key Objections */}
+                      {persona?.key_objections && persona.key_objections.length > 0 && (
+                        <div className="flex flex-wrap gap-1">
+                          {persona.key_objections.map((obj) => (
+                            <span key={obj} className="px-1.5 py-0.5 rounded text-[10px] bg-bg text-muted border border-border">
+                              {obj}
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </CardHeader>
+                    <div className="flex items-center justify-between pt-2 border-t border-border">
+                      <span className="text-xs text-muted">{scenario.duration_minutes}分钟</span>
+                      <Button variant="primary" size="sm" onClick={() => handleStartTraining(scenario.id)}>
+                        开始训练
+                      </Button>
+                    </div>
+                  </Card>
+                );
+              })}
+            </div>
+          )}
+
+          <p className="text-xs text-muted text-center mt-2">
+            共 {scenarios.length} 个训练场景 · 点击开始进入模拟对话
+          </p>
+        </div>
+      )}
+
+      {/* Tab: History */}
+      {activeTab === 'history' && (
+        <div className="space-y-3">
+          {loadingHistory ? (
+            <div className="flex justify-center py-12">
+              <LoadingSpinner size="lg" />
+            </div>
+          ) : sessions.length === 0 ? (
+            <div className="text-center py-12">
+              <div className="text-4xl mb-4 opacity-20">📋</div>
+              <p className="text-muted text-sm">暂无训练记录</p>
+              <button
+                onClick={() => setActiveTab('scenarios')}
+                className="mt-2 text-sm text-accent hover:underline cursor-pointer"
+              >
+                去开始第一次训练
+              </button>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {sessions.map((sess) => (
+                <Card
+                  key={sess.id}
+                  padding="md"
+                  hover
+                  className={sess.total_score !== null ? 'cursor-pointer' : ''}
+                  onClick={() => handleViewSession(sess.id, sess.total_score)}
+                >
+                  <div className="flex items-center justify-between">
+                    <div className="flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-medium text-text">
+                          {sess.scenario_title || '训练会话'}
+                        </span>
+                        <Badge variant={sess.status === 'completed' ? 'success' : 'default'}>
+                          {sess.status === 'completed' ? '已完成' : '进行中'}
+                        </Badge>
+                      </div>
+                      <div className="flex items-center gap-3 mt-1 text-xs text-muted">
+                        <span>{sess.message_count} 条消息</span>
+                        <span>{sess.started_at}</span>
+                      </div>
+                    </div>
+                    {sess.total_score !== null && (
+                      <div className="text-right ml-4">
+                        <div className={`text-2xl font-bold ${
+                          sess.total_score >= 85 ? 'text-emerald-500' :
+                          sess.total_score >= 70 ? 'text-amber-500' : 'text-red-500'
+                        }`}>
+                          {sess.total_score}
+                        </div>
+                        <p className="text-[10px] text-muted">综合评分</p>
+                      </div>
+                    )}
+                  </div>
+                </Card>
+              ))}
+            </div>
+          )}
+        </div>
+      )}
     </div>
   );
 }

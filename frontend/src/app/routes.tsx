@@ -8,6 +8,7 @@ import { CustomersPage } from '../features/customers/CustomersPage';
 import { CustomerDetailPage } from '../features/customers/CustomerDetailPage';
 import { ScriptsPage } from '../features/scripts/ScriptsPage';
 import { TrainingPage } from '../features/training/TrainingPage';
+import { TrainingChatPage } from '../features/training/TrainingChatPage';
 import { CommunityPage } from '../features/community/CommunityPage';
 import { GrowthPage } from '../features/growth/GrowthPage';
 import { NotificationsPage } from '../features/notifications/NotificationsPage';
@@ -37,6 +38,7 @@ export const router = createBrowserRouter([
       { path: 'customers/:id', element: <CustomerDetailPage /> },
       { path: 'scripts', element: <ScriptsPage /> },
       { path: 'training', element: <TrainingPage /> },
+      { path: 'training/chat/:scenarioId', element: <TrainingChatPage /> },
       { path: 'community', element: <CommunityPage /> },
       { path: 'growth', element: <GrowthPage /> },
       { path: 'notifications', element: <NotificationsPage /> },
