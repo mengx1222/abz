@@ -222,6 +222,9 @@ def _relative_time(dt) -> str:
     """生成相对时间描述（如 刚刚 / 3分钟前 / 2小时前 / 昨天 / 3天前 / 1周前）。"""
     if dt is None:
         return ""
+    if dt.tzinfo is None:
+        # SQLite 不保留时区，按 UTC 处理（与 Postgres timestamptz 语义一致）
+        dt = dt.replace(tzinfo=timezone.utc)
     delta = datetime.now(timezone.utc) - dt
     seconds = delta.total_seconds()
     if seconds < 60:
