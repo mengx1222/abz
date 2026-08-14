@@ -6,6 +6,9 @@ from app.models.user import User
 from app.models.conversation import Conversation, Message
 from app.models.knowledge import KnowledgeBase, Document, DocumentChunk
 from app.models.ai_log import AIRequestLog, AIFeedback
+from app.models.training import TrainingScenario, TrainingSession, TrainingMessage, TrainingScore
+from app.models.customer import Customer, CustomerTag, CustomerInteraction, CustomerFollowup
+from app.models.script import Script, ScriptVersion
 
 __all__ = [
     "Base",
@@ -21,4 +24,14 @@ __all__ = [
     "DocumentChunk",
     "AIRequestLog",
     "AIFeedback",
+    "TrainingScenario",
+    "TrainingSession",
+    "TrainingMessage",
+    "TrainingScore",
+    "Customer",
+    "CustomerTag",
+    "CustomerInteraction",
+    "CustomerFollowup",
+    "Script",
+    "ScriptVersion",
 ]
