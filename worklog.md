@@ -468,3 +468,54 @@ Stage Summary:
 - Phase 1审计完成: 4 P0 + 7 P1 + 6 P2 风险清单
 - 修复1个P0: Community模型注册
 - 下一阶段: Phase 2 — Demo/Production架构分层
+
+---
+Task ID: 15
+Agent: main + sub-agents
+Task: Phase 2 — Demo/Production 架构分层
+
+Work Log:
+- 修复迁移链断裂: 创建 0001_initial.py (roles/permissions/role_permissions/organizations/users, 含org_type ENUM)
+- 创建 0005_remaining.py: 10张表 (customer_tags, customers, customer_interactions, customer_followups, training_scenarios/sessions/messages/scores, conversations, messages)
+- 创建 0006_notification_growth_audit.py: 4张表 (notifications, notification_preferences, user_achievements, audit_logs)
+- 迁移链完整: 0001_initial → 0002_knowledge_ai → 0003_scripts → 0004_community → 0005_remaining → 0006_notification_growth_audit
+- 新增3个数据模型: Notification, NotificationPreference (notification.py), UserAchievement (growth.py), AuditLog (audit_log.py)
+- 注册所有新模型到 models/__init__.py (共31张表)
+- 新增4个Repository模块 (17个Repository类):
+  - script_repo: ScriptRepository, ScriptVersionRepository, ScriptFavoriteRepository
+  - community_repo: PostRepository, PostCommentRepository, PostLikeRepository, PostFavoriteRepository
+  - training_repo: TrainingScenarioRepository, TrainingSessionRepository, TrainingMessageRepository, TrainingScoreRepository
+  - notification_repo: NotificationRepository, NotificationPreferenceRepository, UserAchievementRepository, AuditLogRepository, ConversationRepository, MessageRepository
+- 重构9个Service为 bifurcation 模式 (if settings.DEMO_MODE → _demo_*(), else → repository):
+  - notification_service: 4方法 bifurcation + API路由注入db
+  - growth_service: 4方法 bifurcation + API路由注入db
+  - dashboard_service: 1方法 bifurcation + API路由注入db
+  - community_service: 11方法 bifurcation (已有)
+  - script_service: 恢复空文件 + 6方法 bifurcation
+  - training_service: 7方法 bifurcation
+- 新增 /ready 就绪检查端点 (Readiness probe for K8s/Docker)
+- 修复 get_db: Demo模式下DB不可用时优雅返回None
+- 版本号升级: 0.1.0 → 0.2.0
+
+验证结果:
+  - 后端: App加载 ✅ | 31表完整 ✅ | 17 Repository ✅ | 9 Service bifurcation ✅
+  - /health → 200 healthy ✅
+  - /ready → 200 ready ✅
+  - /auth/login → 200 ✅
+  - /dashboard → 200 ✅ (含greeting+stats+AI建议)
+  - /growth/overview → 200 ✅
+  - /notifications → 200 ✅ (12条通知)
+  - /training/scenarios → 200 ✅ (23个场景)
+  - /community/posts → 200 ✅ (8个帖子)
+  - /scripts → 200 ✅ (8条话术)
+  - /customers → 200 ✅ (20个客户)
+  - 前端TSC 0 errors ✅
+  - 前端Vite build OK (568KB JS / 160KB gzip) ✅
+  - Pushed to GitHub ✅
+
+Stage Summary:
+- 迁移链完整: 6个迁移覆盖全部31张表
+- 架构分层完成: 所有Service支持Demo/Production双路径
+- Repository层完整: 17个Repository为生产模式做好准备
+- P0-2修复: Alembic迁移不完整 → 已修复
+- 下一阶段: Phase 3 — 数据库持久化与Seed集成
