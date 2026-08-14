@@ -16,7 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.ai.gateway import get_ai_gateway
 from app.core.config import settings
-from app.models.training import TrainingScenario
+from app.models.training import TrainingScenario, TrainingSession, TrainingScore
 from app.repositories.training_repo import (
     TrainingScenarioRepository,
     TrainingSessionRepository,
@@ -1166,6 +1166,8 @@ class TrainingService:
         """列出用户的训练会话。"""
         if settings.DEMO_MODE:
             return await self._demo_list_sessions(user_id)
+        # 强制从数据库重新加载，避免同会话 identity map 返回过期的关系集合
+        self.session.expire_all()
         records, _total = await self.session_repo.list_by_user(
             uuid.UUID(user_id), page=1, page_size=100,
         )
@@ -1200,6 +1202,8 @@ class TrainingService:
             session_uuid = uuid.UUID(session_id)
         except (ValueError, TypeError):
             return None
+        # 强制从数据库重新加载，避免 identity map 返回过期关系集合
+        self.session.expire_all()
         session = await self.session_repo.get_by_id_active(session_uuid)
         if session is None or str(session.user_id) != user_id:
             return None
