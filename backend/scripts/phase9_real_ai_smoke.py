@@ -183,6 +183,28 @@ class RealAiSmoke:
             except Exception as e:
                 self.check("script_generate", False, str(e))
 
+            # RAG Refusal（知识库无依据 → Confidence Gate 拒答，不得自由发挥）
+            try:
+                r = self._post(
+                    "/api/v1/scripts/generate",
+                    {
+                        "customer_context": {
+                            "name": "测试客户", "stage": "needs_analysis",
+                            "product_type": "极光量子保险",
+                        },
+                        "style": "professional",
+                        "product_type": "极光量子保险",
+                    },
+                    timeout=120,
+                )
+                body = r.text
+                has_refused = "style_refused" in body
+                has_refuse_status = '"status": "REFUSE"' in body or '"status":"REFUSE"' in body
+                self.check("rag_refusal", has_refused or has_refuse_status,
+                           f"bytes={len(body)} refused_event={has_refused} refuse_status={has_refuse_status}")
+            except Exception as e:
+                self.check("rag_refusal", False, str(e))
+
             # Community AI Summary
             try:
                 r = self._get("/api/v1/community/posts?page=1&page_size=3")
