@@ -5,17 +5,11 @@ Demo 模式使用内存数据，生产模式无缝切换到数据库。
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
 from app.core.config import settings
-from app.models.ai_log import AIRequestLog
-from app.models.conversation import Conversation
-from app.models.customer import Customer, CustomerFollowup, CustomerInteraction
-from app.models.notification import Notification
-from app.models.script import Script
-from app.models.training import TrainingSession
+from app.repositories.dashboard_repo import DashboardRepository
 from app.schemas.dashboard import (
     AiSuggestion,
     DashboardOverview,
@@ -201,6 +195,7 @@ class DashboardService:
 
     def __init__(self, session: AsyncSession | None = None):
         self.session = session
+        self.repo = DashboardRepository(session) if session is not None else None
 
     # ---- Public methods ----
 
@@ -219,71 +214,16 @@ class DashboardService:
         yesterday = (now - timedelta(days=1)).date()
 
         # 用户负责的客户 ID 集合
-        customer_ids = list(
-            (
-                await self.session.execute(
-                    select(Customer.id).where(
-                        Customer.assigned_to == user_id,
-                        Customer.is_deleted == False,
-                    )
-                )
-            ).scalars().all()
-        )
-
-        async def _count(q):
-            return (await self.session.execute(q)).scalar() or 0
+        customer_ids = await self.repo.list_customer_ids(user_id)
 
         # ---- today_stats ----
-        inter_today = 0
-        inter_yesterday = 0
-        closed_count = 0
-        high_intent = 0
-        pending_followups = 0
-        if customer_ids:
-            inter_today = await _count(
-                select(func.count()).select_from(CustomerInteraction).where(
-                    CustomerInteraction.customer_id.in_(customer_ids),
-                    func.date(CustomerInteraction.created_at) == today,
-                )
-            )
-            inter_yesterday = await _count(
-                select(func.count()).select_from(CustomerInteraction).where(
-                    CustomerInteraction.customer_id.in_(customer_ids),
-                    func.date(CustomerInteraction.created_at) == yesterday,
-                )
-            )
-            closed_count = await _count(
-                select(func.count()).select_from(Customer).where(
-                    Customer.id.in_(customer_ids),
-                    Customer.current_stage == "closed_won",
-                )
-            )
-            high_intent = await _count(
-                select(func.count()).select_from(Customer).where(
-                    Customer.id.in_(customer_ids),
-                    Customer.intention_level >= 4,
-                )
-            )
-            pending_followups = await _count(
-                select(func.count()).select_from(CustomerFollowup).where(
-                    CustomerFollowup.customer_id.in_(customer_ids),
-                    CustomerFollowup.status == "pending",
-                )
-            )
-
-        ai_today = await _count(
-            select(func.count()).select_from(AIRequestLog).where(
-                AIRequestLog.user_id == user_id,
-                func.date(AIRequestLog.created_at) == today,
-            )
-        )
-        unread = await _count(
-            select(func.count()).select_from(Notification).where(
-                Notification.user_id == user_id,
-                Notification.is_read == False,
-                Notification.is_deleted == False,
-            )
-        )
+        inter_today = await self.repo.count_interactions_on(customer_ids, today)
+        inter_yesterday = await self.repo.count_interactions_on(customer_ids, yesterday)
+        closed_count = await self.repo.count_closed_won(customer_ids)
+        high_intent = await self.repo.count_high_intent(customer_ids)
+        pending_followups = await self.repo.count_pending_followups(customer_ids)
+        ai_today = await self.repo.count_ai_usage_on(user_id, today)
+        unread = await self.repo.count_unread_notifications(user_id)
 
         inter_diff = inter_today - inter_yesterday
         inter_trend = "up" if inter_diff > 0 else ("down" if inter_diff < 0 else "neutral")
@@ -318,14 +258,7 @@ class DashboardService:
                 description=f"您有 {unread} 条未读通知待查看。",
                 tag="通知", tag_variant="default", action_url="/notifications", created_at=now,
             ))
-        recent_training = (
-            await self.session.execute(
-                select(TrainingSession).where(
-                    TrainingSession.user_id == user_id,
-                    TrainingSession.status == "completed",
-                ).order_by(TrainingSession.completed_at.desc()).limit(1)
-            )
-        ).scalars().first()
+        recent_training = await self.repo.get_recent_completed_training(user_id)
         if recent_training is not None:
             suggestions.append(AiSuggestion(
                 id=str(uuid.uuid4()), title="继续 AI 陪练",
@@ -335,33 +268,16 @@ class DashboardService:
 
         # ---- recent_activities（合并最近互动/陪练/话术/问答） ----
         activities: list[dict] = []
-        if customer_ids:
-            inter_rows = (
-                await self.session.execute(
-                    select(CustomerInteraction, Customer)
-                    .join(Customer, CustomerInteraction.customer_id == Customer.id)
-                    .where(CustomerInteraction.customer_id.in_(customer_ids))
-                    .order_by(CustomerInteraction.created_at.desc())
-                    .limit(5)
-                )
-            ).all()
-            for row, cust in inter_rows:
-                activities.append({
-                    "type": "followup",
-                    "title": f"互动：{cust.name}",
-                    "description": row.content or f"互动类型 {row.type}",
-                    "time": _relative_time(row.created_at),
-                    "icon": "📞",
-                    "ts": row.created_at,
-                })
-        for t in (
-            await self.session.execute(
-                select(TrainingSession).where(
-                    TrainingSession.user_id == user_id,
-                    TrainingSession.status == "completed",
-                ).order_by(TrainingSession.completed_at.desc()).limit(3)
-            )
-        ).scalars().all():
+        for row, cust in await self.repo.list_recent_interactions(customer_ids, limit=5):
+            activities.append({
+                "type": "followup",
+                "title": f"互动：{cust.name}",
+                "description": row.content or f"互动类型 {row.type}",
+                "time": _relative_time(row.created_at),
+                "icon": "📞",
+                "ts": row.created_at,
+            })
+        for t in await self.repo.list_recent_trainings(user_id, limit=3):
             activities.append({
                 "type": "training",
                 "title": "完成AI陪练",
@@ -370,12 +286,7 @@ class DashboardService:
                 "icon": "🎯",
                 "ts": t.completed_at,
             })
-        for s in (
-            await self.session.execute(
-                select(Script).where(Script.created_by == user_id)
-                .order_by(Script.created_at.desc()).limit(3)
-            )
-        ).scalars().all():
+        for s in await self.repo.list_recent_scripts(user_id, limit=3):
             activities.append({
                 "type": "ai_query",
                 "title": "AI话术生成",
@@ -384,12 +295,7 @@ class DashboardService:
                 "icon": "💬",
                 "ts": s.created_at,
             })
-        for c in (
-            await self.session.execute(
-                select(Conversation).where(Conversation.user_id == user_id)
-                .order_by(Conversation.created_at.desc()).limit(3)
-            )
-        ).scalars().all():
+        for c in await self.repo.list_recent_conversations(user_id, limit=3):
             activities.append({
                 "type": "ai_query",
                 "title": "AI产品问答",
@@ -446,3 +352,4 @@ class DashboardService:
             recent_activities=[RecentActivity(**a) for a in _DEMO_RECENT_ACTIVITIES],
             unread_notifications=3,
         )
+
