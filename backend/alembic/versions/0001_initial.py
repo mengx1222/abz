@@ -11,6 +11,7 @@ from typing import Sequence, Union
 
 from alembic import op
 import sqlalchemy as sa
+from sqlalchemy import text
 from sqlalchemy.dialects.postgresql import UUID
 
 revision: str = "0001_initial"
@@ -32,10 +33,16 @@ _BASE_COLS = lambda: [
 def upgrade() -> None:
     # ============================================================
     # 1. org_type 枚举（Organization.type 使用）
+    # PG 不支持 CREATE TYPE IF NOT EXISTS，这里做存在性保护保证迁移幂等。
     # ============================================================
-    op.execute("""
-        CREATE TYPE org_type AS ENUM ('HQ', 'BRANCH', 'TEAM')
-    """)
+    bind = op.get_bind()
+    has_org_type = bind.execute(
+        text("SELECT 1 FROM pg_type WHERE typname = 'org_type'")
+    ).fetchone()
+    if not has_org_type:
+        op.execute("""
+            CREATE TYPE org_type AS ENUM ('HQ', 'BRANCH', 'TEAM')
+        """)
 
     # ============================================================
     # 2. roles — 角色表
