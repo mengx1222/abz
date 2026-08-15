@@ -56,27 +56,26 @@ class AIGateway:
             return MockProvider()
 
         # 其他情况均视为 OpenAI 兼容 API（deepseek / qwen / openai 等）
+        # 生产模式（DEMO_MODE=false）配置了真实 Provider 但缺少凭据时，
+        # 必须抛出明确错误，绝不静默降级到 Mock —— 避免欺骗用户"已使用真实模型"。
         if not settings.AI_API_KEY:
-            logger.warning(
-                "ai_gateway_missing_api_key",
-                provider=name,
-                fallback="mock",
+            raise RuntimeError(
+                f"AI Provider '{name}' 已配置但缺少 AZB_AI_API_KEY，"
+                "无法初始化真实 Provider（生产模式禁止静默降级到 Mock）。"
             )
-            return MockProvider()
 
         if not settings.AI_BASE_URL:
-            logger.warning(
-                "ai_gateway_missing_base_url",
-                provider=name,
-                fallback="mock",
+            raise RuntimeError(
+                f"AI Provider '{name}' 已配置但缺少 AZB_AI_BASE_URL，"
+                "无法初始化真实 Provider（生产模式禁止静默降级到 Mock）。"
             )
-            return MockProvider()
 
         return OpenAIProvider(
             api_key=settings.AI_API_KEY,
             base_url=settings.AI_BASE_URL,
             model=settings.AI_MODEL,
             embedding_model=settings.AI_EMBEDDING_MODEL,
+            timeout=settings.AI_TIMEOUT,
         )
 
     # ------------------------------------------------------------------
@@ -209,3 +208,4 @@ class AIGateway:
         )
 
         return result
+
