@@ -76,6 +76,21 @@ export default async function globalSetup(): Promise<void> {
   const token = await login(api);
   console.log('[setup] login ok');
 
+  // 拉取完整用户信息（含 role_code 等字段，供前端 TopBar/Sidebar 渲染）
+  let fullUser: Record<string, unknown> = { phone: PHONE, name: '林思远' };
+  try {
+    const me = await api.get(`${API_BASE}/auth/me`, {
+      headers: { Authorization: `Bearer ${token}` },
+    });
+    if (me.status() === 200) {
+      const meBody = await me.json();
+      fullUser = meBody.data || fullUser;
+      console.log(`[setup] user fetched: ${fullUser.name} role=${fullUser.role_code}`);
+    }
+  } catch (e) {
+    console.log(`[setup] /auth/me failed, using fallback user: ${e}`);
+  }
+
   // 保存 storageState（storage 里存 token 供前端 authStore 读取）
   fs.mkdirSync(path.dirname(AUTH_FILE), { recursive: true });
   fs.writeFileSync(
@@ -87,7 +102,7 @@ export default async function globalSetup(): Promise<void> {
           origin: process.env.E2E_FRONTEND_ORIGIN || 'http://localhost:3000',
           localStorage: [
             { name: 'azb_token', value: token },
-            { name: 'azb_user', value: JSON.stringify({ phone: PHONE, name: '林思远' }) },
+            { name: 'azb_user', value: JSON.stringify(fullUser) },
           ],
         },
       ],
