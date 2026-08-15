@@ -2201,6 +2201,40 @@ GET /api/v1/community/posts/:id/comments
 
 ---
 
+### 9.10 AI 摘要（SSE）
+
+```
+GET /api/v1/community/posts/{post_id}/ai-summary
+```
+
+**说明**: 生产模式从数据库读取帖子（`PostRepository`），经 AI Gateway 流式生成摘要后持久化到 `post.ai_summary`。
+
+**SSE 响应流（成功）**:
+
+```
+event: summary_start
+data: {"post_id": "..."}
+
+event: token
+data: {"content": "本文介绍了", "index": 0}
+
+event: summary_complete
+data: {"summary": "本文介绍了……"}
+```
+
+**失败行为**:
+
+- AI 失败 / 超时 / 返回空内容 → 仅发送 `error` 事件（不发送 `summary_complete`），**不保存错误文本**，已有摘要保持不变。
+- 帖子不存在 / 已删除 → `error` 事件（`帖子不存在`）。
+
+```
+event: error
+data: {"message": "AI 摘要生成失败，请稍后重试。"}
+```
+
+**权限**: 社区帖子为公共内容，任意登录用户可触发摘要；`post_id` 不存在或已软删除时返回 `error`。
+
+
 ## 10. 我的成长 API
 
 > **权限**: 登录用户（JWT Bearer）。排行榜响应受组织可见范围限制（RBAC）。
