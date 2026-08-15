@@ -153,14 +153,15 @@ CRITICAL_TABLES = {
 
 # 关键列检查（表名 → 期望的列列表）
 EXPECTED_COLUMNS: dict[str, list[str]] = {
-    "users": ["id", "phone", "name", "hashed_password", "role_id", "organization_id", "is_active"],
+    "users": ["id", "phone", "name", "password_hash", "role_id", "organization_id", "is_deleted"],
     "roles": ["id", "code", "name", "description", "level"],
-    "organizations": ["id", "name", "type", "is_active"],
+    "organizations": ["id", "name", "type", "parent_id", "is_deleted"],
     "customers": ["id", "name", "phone", "customer_type", "current_stage",
                    "intention_level", "assigned_to", "organization_id", "is_deleted"],
-    "knowledge_bases": ["id", "name", "description", "is_active", "effective_date", "expiry_date"],
-    "documents": ["id", "knowledge_base_id", "title", "file_path", "status",
-                  "version_number", "effective_date", "expiry_date"],
+    "knowledge_bases": ["id", "name", "description", "category", "status",
+                        "is_public", "version", "effective_date", "expiry_date", "is_deleted"],
+    "documents": ["id", "knowledge_base_id", "title", "file_name", "file_type",
+                  "file_size", "status", "effective_date", "expiry_date", "is_deleted"],
     "document_chunks": ["id", "document_id", "content", "embedding", "chunk_index"],
     "community_posts": ["id", "title", "content", "category", "author_id", "is_deleted"],
     "training_sessions": ["id", "user_id", "scenario_id", "status", "started_at"],
@@ -859,3 +860,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
