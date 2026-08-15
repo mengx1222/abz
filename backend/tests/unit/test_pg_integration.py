@@ -19,7 +19,8 @@ from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 
 from app.core.config import settings
-from app.models import Base, Script, TrainingMessage, TrainingScenario, TrainingScore, TrainingSession, User
+from app.models import Base, Organization, Role, Script, TrainingMessage, TrainingScenario, TrainingScore, TrainingSession, User
+from app.models.organization import OrgType
 from app.rag.retriever import Retriever
 from app.services.growth_service import GrowthService
 from app.services.dashboard_service import DashboardService
@@ -55,12 +56,22 @@ async def session(engine):
 
 
 async def _create_user(session: AsyncSession, phone: str) -> uuid.UUID:
+    """创建用户。真实 PG 强制外键约束：role_id / organization_id 必须引用真实记录。"""
+    role = Role(
+        code=f"ROLE_{phone[-4:]}",
+        name=f"测试角色{phone[-4:]}",
+        description="PG 集成测试角色",
+        level=1,
+    )
+    org = Organization(name=f"测试组织{phone[-4:]}", type=OrgType.TEAM)
+    session.add_all([role, org])
+    await session.flush()
     user = User(
         phone=phone,
         name=f"PG用户{phone[-4:]}",
         password_hash=None,
-        role_id=uuid.uuid4(),
-        organization_id=uuid.uuid4(),
+        role_id=role.id,
+        organization_id=org.id,
         status="active",
         demo_mode=False,
     )
