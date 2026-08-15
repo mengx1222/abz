@@ -340,14 +340,13 @@ class GrowthService:
         weekly_trend = []
         for i in range(6, -1, -1):
             day_dt = now - timedelta(days=i)
-            day_str = day_dt.strftime("%Y-%m-%d")
             calls = 0
             if customer_ids:
                 calls = (
                     await self.session.execute(
                         select(func.count()).select_from(CustomerInteraction).where(
                             CustomerInteraction.customer_id.in_(customer_ids),
-                            func.date(CustomerInteraction.created_at) == day_str,
+                            func.date(CustomerInteraction.created_at) == day_dt.date(),
                         )
                     )
                 ).scalar() or 0
