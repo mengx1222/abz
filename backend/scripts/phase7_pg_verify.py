@@ -99,7 +99,7 @@ class _Results:
                 print(f"    {_C.RED}✗ {f}{_C.RESET}")
         print()
         if not self.failed:
-            print(f"  {_C.GREEN}{_C.BOLD}✓ 所有检查通过！{self.RESET}")
+            print(f"  {_C.GREEN}{_C.BOLD}✓ 所有检查通过！{_C.RESET}")
         else:
             print(f"  {_C.RED}{_C.BOLD}✗ 存在失败的检查项，请修复后重试。{_C.RESET}")
         print()
