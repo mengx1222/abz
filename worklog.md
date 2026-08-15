@@ -826,3 +826,42 @@ Stage Summary:
 - notification_service 从 NEEDS_WORK(4) → PRODUCTION_READY(4)
 - Service Production 路径总计: PRODUCTION_READY 31→35, NEEDS_WORK 9→5, DEMO_ONLY 2
 - 下一阶段: growth_service (2 方法) 生产化
+
+
+---
+Task ID: 24
+Agent: main
+Task: Task 4 — Growth Service Production 化
+
+Work Log:
+- 审计（以仓库真实代码为准，旧文档 HEAD 6910f21 已过时）:
+  - growth_service 4 个公共方法: get_overview / get_course_detail / get_leaderboard / get_achievements
+  - 真实代码中 overview/achievements 生产路径已基本闭环（旧文档写 "0 PRODUCTION_READY" 不准确）
+  - 关键缺口: ① 无 GrowthRepository —— overview/leaderboard 直接 self.session.execute(复杂 SQL)，违反 Repository 分层约定；② Leaderboard 无组织范围过滤（查全库用户），违反 RBAC 可见边界
+  - course_detail: DB 无课程表，生产返回 None（符合"不强建 LMS"原则，不伪造数据）
+- 新建 backend/app/repositories/growth_repo.py (GrowthRepository):
+  - 概览聚合: list_customer_ids / count_customer_interactions / count_closed_won / count_high_intent / count_pending_followups / count_ai_usage / count_interactions_on_day / list_training_scores / count_completed_trainings / count_unlocked_achievements
+  - 排行榜: get_leaderboard_rows(org_ids) 按真实活动聚合打分（成交×100 + 成就×50 + 训练×10）
+  - 组织范围: get_child_org_ids / get_org_scope(user, role_level)
+- 改造 growth_service.py:
+  - __init__ 注入 GrowthRepository（session 存在时）
+  - _production_get_overview 全部改为 repo 聚合调用，删除内联 SQL
+  - get_leaderboard 生产路径: 先解析当前用户角色 level → 组织可见范围（SYSTEM_ADMIN/HQ_ADMIN level≥90 全量；BRANCH_ADMIN level≥80 本组织+直接子组织；其他仅本组织优先 team_id）→ 传入 repo.get_leaderboard_rows(org_ids) 过滤
+  - 清理未使用模型导入
+- 测试更新 tests/unit/test_growth_service_production.py:
+  - helper 增加 _create_role / _create_org（真实 Role/Organization）
+  - 原有 5 个测试适配真实 org/role
+  - 新增 4 个权限边界测试: AGENT 仅本组织 / BRANCH_ADMIN 本组织+子组织 / SYSTEM_ADMIN 全量 / course_detail 生产返回 None
+  - 测试覆盖: overview / leaderboard / course / empty data / user scope / organization scope / permission boundary / not found
+
+验证结果:
+- 后端 pytest: 190 passed（含 Growth 9 个生产路径测试）
+- Growth Production 路径测试: 9/9 passed（overview 聚合/空库、leaderboard 排名/空榜、org scope 组织边界、BRANCH_ADMIN 子组织、SYSTEM_ADMIN 全量、course_detail 生产 None、成就用户隔离）
+- CI (GitHub Actions): backend + backend-pg (PostgreSQL+pgvector) + frontend 三 job 全部通过
+- 前端 TSC: 未恢复 tsc 门禁（CI 仍用 npx vite build 绕过，仓库存在既有 TS 错误，本次不触及前端未扩大战线）
+- Pushed to GitHub ✅ (3 commits: 69aa76e / a0851f6 / 3de889f)
+
+Stage Summary:
+- growth_service 从 NEEDS_WORK(2)+DEMO_ONLY(2) → PRODUCTION_READY(3)+DEMO_ONLY(1, course_detail 无课程表)
+- Service Production 路径总计: PRODUCTION_READY 35→38, NEEDS_WORK 5→3, DEMO_ONLY 2→1
+- 下一阶段: dashboard_service (1 方法) 生产化
