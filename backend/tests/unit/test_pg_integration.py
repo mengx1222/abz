@@ -195,8 +195,9 @@ class TestPgDashboardGrowth:
 
         lb = await growth.get_leaderboard("month", uid)
         assert isinstance(lb.leaderboard, list)
+        # 排行榜仅包含有活动得分(>0)的用户；新用户无活动时 my_rank 为 None 是正确行为
         if lb.leaderboard:
-            assert isinstance(lb.my_rank, type(lb.leaderboard[0]))
+            assert lb.my_rank is None or isinstance(lb.my_rank, type(lb.leaderboard[0]))
         else:
             assert lb.my_rank is None
 
