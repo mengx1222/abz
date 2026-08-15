@@ -21,10 +21,8 @@ env:
 jobs:
   real-ai-smoke:
     runs-on: ubuntu-latest
-    # 手动触发（workflow_dispatch）或开关开启时执行；且必须有真实 Key
-    if: >-
-      (github.event_name == 'workflow_dispatch' || vars.REAL_AI_SMOKE_TEST == 'true')
-      && secrets.AZB_AI_API_KEY != ''
+    # 手动触发（workflow_dispatch）或开关开启时执行（secret 存在性在 step 内检查）
+    if: github.event_name == 'workflow_dispatch' || vars.REAL_AI_SMOKE_TEST == 'true'
     services:
       postgres:
         image: pgvector/pgvector:pg16
@@ -63,25 +61,46 @@ jobs:
       AZB_AI_MODEL: ${{ secrets.AZB_AI_MODEL }}
 
     steps:
+      - name: Check real AI key configured
+        id: key_check
+        env:
+          AZB_AI_API_KEY: ${{ secrets.AZB_AI_API_KEY }}
+        run: |
+          if [ -z "$AZB_AI_API_KEY" ]; then
+            echo "REAL_AI_SMOKE_TEST=NOT RUN (AZB_AI_API_KEY secret not configured)"
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "skip=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Skip when no real key
+        if: steps.key_check.outputs.skip == 'true'
+        run: echo "Real AI smoke test skipped — configure AZB_AI_API_KEY/AZB_AI_BASE_URL/AZB_AI_MODEL secrets to enable."
+
       - uses: actions/checkout@v4
+        if: steps.key_check.outputs.skip != 'true'
 
       - uses: actions/setup-python@v5
+        if: steps.key_check.outputs.skip != 'true'
         with:
           python-version: "3.12"
 
       - name: Install backend dependencies
+        if: steps.key_check.outputs.skip != 'true'
         run: |
           cd backend
           pip install -e ".[dev]"
           pip install psycopg2-binary redis requests
 
       - name: Alembic migrate + seed
+        if: steps.key_check.outputs.skip != 'true'
         run: |
           cd backend
           alembic upgrade head
           python -m scripts.seed || python scripts/seed.py
 
       - name: Start backend (DEMO_MODE=false, real provider)
+        if: steps.key_check.outputs.skip != 'true'
         run: |
           cd backend
           nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/backend.log 2>&1 &
@@ -95,6 +114,7 @@ jobs:
           curl -s http://127.0.0.1:8000/api/v1/ready; echo
 
       - name: Phase 9 — Real AI Provider + SSE Smoke Test
+        if: steps.key_check.outputs.skip != 'true'
         env:
           AZB_BASE_URL: http://127.0.0.1:8000
           AZB_AI_PROVIDER: ${{ secrets.AZB_AI_PROVIDER || 'deepseek' }}
@@ -106,6 +126,6 @@ jobs:
           python scripts/phase9_real_ai_smoke.py
 
       - name: Show backend log tail on failure
-        if: failure()
+        if: failure() && steps.key_check.outputs.skip != 'true'
         run: |
           tail -100 /tmp/backend.log
