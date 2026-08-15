@@ -123,39 +123,10 @@ jobs:
       # ------------------------------------------------------------
       # 5. Phase 8 — production core business flow (real API + DB)
       # ------------------------------------------------------------
-      - name: Start production backend (host, DEMO_MODE=false) for phase8
+      - name: Phase 8 — core business flow smoke (compose backend, production)
         continue-on-error: true
         env:
-          AZB_APP_ENV: production
-          AZB_DEBUG: "false"
-          AZB_DEMO_MODE: "false"
-          AZB_DATABASE_URL: postgresql+asyncpg://abz_user:abz_dev_2026@localhost:5432/anzhenbao
-          AZB_REDIS_URL: redis://localhost:6379/0
-          AZB_JWT_SECRET_KEY: production-validation-secret
-          AZB_AI_PROVIDER: mock
-        run: |
-          cd backend
-          # 若 compose backend 已占用 8000，host 后端用 8100 避免冲突
-          PORT=8000
-          if curl -sf http://127.0.0.1:8000/api/v1/ready > /dev/null 2>&1; then
-            echo "compose backend already on 8000, using 8100 for host phase8 backend"
-            PORT=8100
-          fi
-          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port $PORT > /tmp/backend.log 2>&1 &
-          for i in $(seq 1 40); do
-            if curl -sf http://127.0.0.1:$PORT/api/v1/ready > /dev/null 2>&1; then
-              echo "HOST_BACKEND_READY on :$PORT after ${i}s"
-              echo "PHASE8_BASE_URL=http://127.0.0.1:$PORT" >> $GITHUB_ENV
-              break
-            fi
-            sleep 1
-          done
-          curl -s http://127.0.0.1:$PORT/api/v1/ready; echo
-
-      - name: Phase 8 — core business flow smoke (production)
-        continue-on-error: true
-        env:
-          AZB_BASE_URL: ${{ env.PHASE8_BASE_URL }}
+          AZB_BASE_URL: http://127.0.0.1:8000
         run: |
           cd backend
           python scripts/phase8_production_core_flow.py || echo "PHASE8_EXIT=$?"
