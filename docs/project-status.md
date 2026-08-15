@@ -374,7 +374,7 @@
 
 | CI (GitHub Actions) | **backend pytest + backend-pg (PostgreSQL+pgvector) + frontend 全部通过** | 2026-08-15 (Task 7) |
 | Task 8 真实环境验收 (Production Validation workflow) | **Docker Compose 全栈启动 15s / Phase7 65 PASS 0 FAIL / Phase8 14/14 / pytest 210 passed** | 2026-08-15 (Task 8) |
-| Task 9 AI Provider 验证 (Task 9) | **Gateway 禁静默降级 Mock（缺 Key 明确报错）/ AI_TIMEOUT 可配 / Provider 测试 14 项新增 / pytest 222 passed / Real AI Smoke Test = NOT RUN（未配置真实 Key，opt-in workflow 已就绪）** | 2026-08-15 (Task 9) |
+| Task 9 AI Provider 验证 (Task 9) | **Gateway 禁静默降级 Mock（缺 Key 明确报错）/ AI_TIMEOUT 可配 / Provider 测试 14 项新增 / pytest 221 passed / Real AI Smoke Test = NOT RUN（未配置真实 Key，opt-in workflow 已就绪）** | 2026-08-15 (Task 9) |
 
 
 
