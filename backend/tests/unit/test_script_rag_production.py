@@ -1,11 +1,18 @@
-"""Script Service RAG 生产路径测试。
+"""Script Service RAG + Production 生成路径测试。
 
 在 DEMO_MODE=false 下直接驱动 ScriptService，验证：
 - 生产模式 RAG Pipeline 使用数据库检索器（Retriever，而非 DemoRetriever）
-- 话术生成（SSE）在生产模式正常流式输出并持久化到数据库
+- RAG 命中（高置信度）→ 正常生成 + Citation 返回 + 持久化
+- RAG 未命中 / 低置信度 → 拒答（style_refused，不生成产品事实话术，不持久化）
+- AI Provider 失败 → style_error（不伪造结果）
+- Compliance GREEN/YELLOW/RED 进入生成链
+- 权限：生成的话术归属当前用户
 
-说明: SQLite 上生产检索器的 pgvector/tsvector 查询会优雅降级为空结果；
-真实的 RAG 知识库检索需 PostgreSQL + pgvector（见后续真实环境验收）。
+说明:
+- SQLite 上生产检索器的 pgvector/tsvector 查询会优雅降级为空结果，
+  因此 RAG 命中场景通过 mock 最底层检索器返回构造的 SearchResult；
+  真实 Service → AI Gateway → Compliance wiring 保持不变（任务允许 Mock 最底层）。
+- 真实 RAG 检索（pgvector + BM25）由 CI 的 PostgreSQL + pgvector 环境覆盖。
 """
 import uuid
 
@@ -33,7 +40,8 @@ def _compile_vector_sqlite(type_, compiler, **kw):
 
 from app.core.config import settings
 from app.models import Base, Script, User
-from app.rag.retriever import DemoRetriever, Retriever
+from app.rag.pipeline import RAGPipeline
+from app.rag.retriever import DemoRetriever, Retriever, SearchResult
 from app.services.script_service import ScriptService
 
 pytestmark = pytest.mark.integration
@@ -79,6 +87,63 @@ async def _make_production_service(session: AsyncSession, monkeypatch) -> Script
     return ScriptService(session=session)
 
 
+def _fake_result(content: str, score: float, title: str = "百万医疗险产品手册") -> SearchResult:
+    """构造一个高置信度检索结果。"""
+    return SearchResult(
+        chunk_id=str(uuid.uuid4()),
+        document_id=str(uuid.uuid4()),
+        document_title=title,
+        knowledge_base_id=str(uuid.uuid4()),
+        content=content,
+        score=score,
+        metadata={"heading": "保障范围", "document_title": title},
+    )
+
+
+class _FakePipeline:
+    """假 RAG Pipeline：可控返回检索结果，用于验证 ScriptService → RAG 调用链。"""
+
+    def __init__(self, results: list[SearchResult]):
+        self._results = results
+        self.query_called = False
+
+    async def query(self, question: str, top_k: int = 4):
+        self.query_called = True
+        context = "\n---\n".join(r.content for r in self._results)
+        return self._results, context
+
+
+async def _install_fake_pipeline(service: ScriptService, results: list[SearchResult]) -> _FakePipeline:
+    fake = _FakePipeline(results)
+    service._rag_pipeline = fake  # type: ignore[assignment]
+    return fake
+
+
+async def _collect_generation(service, *, customer_context=None, style="professional", product_type="医疗险", user_id=None):
+    """收集全部 SSE 事件并解析为列表。"""
+    events = []
+    async for raw in service.generate_scripts(
+        customer_context=customer_context or {"name": "张先生", "age": 35, "stage": "needs_analysis"},
+        style=style,
+        product_type=product_type,
+        user_id=user_id,
+    ):
+        events.append(_parse_event(raw))
+    return events
+
+
+def _parse_event(raw: str) -> dict:
+    import json
+    return json.loads(raw)
+
+
+def _events_by_type(events: list[dict]) -> dict[str, list[dict]]:
+    grouped: dict[str, list[dict]] = {}
+    for e in events:
+        grouped.setdefault(e["event"], []).append(e["data"])
+    return grouped
+
+
 class TestScriptRagProduction:
     async def test_production_pipeline_uses_db_retriever(self, session, monkeypatch):
         await _create_user(session, "13900550001")
@@ -87,27 +152,177 @@ class TestScriptRagProduction:
 
         pipeline = await service._get_rag_pipeline()
         assert pipeline is not None
+        assert isinstance(pipeline, RAGPipeline)
         retriever = await pipeline._get_retriever()
         assert isinstance(retriever, Retriever)
         assert not isinstance(retriever, DemoRetriever)
 
-    async def test_generate_scripts_production_persists(self, session, monkeypatch):
+    # ------------------------------------------------------------------
+    # RAG 命中 → 正常生成 + Citation + 持久化
+    # ------------------------------------------------------------------
+
+    async def test_rag_hit_generates_with_citation(self, session, monkeypatch):
         uid = await _create_user(session, "13900550002")
         await session.commit()
         service = await _make_production_service(session, monkeypatch)
+        fake = await _install_fake_pipeline(service, [
+            _fake_result("百万医疗险保障额度最高 600 万，免赔额 1 万元/年。", 0.85),
+            _fake_result("住院医疗、特殊门诊、门诊手术均在保障范围内。", 0.82),
+            _fake_result("0-65 周岁可投保，保费随年龄递增。", 0.78),
+        ])
 
-        events = [
-            e async for e in service.generate_scripts(
-                customer_context={"name": "张先生", "age": 35, "stage": "needs_analysis"},
-                style="professional",
-                product_type="医疗险",
-                user_id=str(uid),
-            )
-        ]
-        assert any("generation_complete" in e for e in events)
+        events = await _collect_generation(service, user_id=str(uid))
+        grouped = _events_by_type(events)
 
-        # 生成的脚本已持久化到数据库（归属当前用户）
+        assert fake.query_called, "ScriptService 必须调用 RAG Pipeline 检索"
+        # rag_context 带 citations + ALLOW
+        rag_ctx = grouped["rag_context"][0]
+        assert rag_ctx["status"] == "ALLOW"
+        assert rag_ctx["confidence"] == "HIGH"
+        assert len(rag_ctx["citations"]) == 3
+        assert rag_ctx["citations"][0]["document_title"] == "百万医疗险产品手册"
+        # style_complete 带 citations
+        complete = grouped["style_complete"][0]
+        assert len(complete["citations"]) == 3
+        assert "generation_complete" in grouped
+        assert grouped["generation_complete"][0]["refused_styles"] == 0
+
+        # 持久化到数据库（归属当前用户）
         rows = (await session.execute(select(Script))).scalars().all()
-        assert len(rows) >= 1
-        assert all(str(r.created_by) == str(uid) for r in rows)
-        assert all(r.compliance_status in ("green", "yellow", "red") for r in rows)
+        assert len(rows) == 1
+        assert str(rows[0].created_by) == str(uid)
+
+    # ------------------------------------------------------------------
+    # RAG 未命中 → 拒答，不生成产品事实话术
+    # ------------------------------------------------------------------
+
+    async def test_rag_no_result_refuses(self, session, monkeypatch):
+        uid = await _create_user(session, "13900550003")
+        await session.commit()
+        service = await _make_production_service(session, monkeypatch)
+        await _install_fake_pipeline(service, [])
+
+        events = await _collect_generation(service, user_id=str(uid))
+        grouped = _events_by_type(events)
+
+        rag_ctx = grouped["rag_context"][0]
+        assert rag_ctx["status"] == "REFUSE"
+        assert rag_ctx["citations"] == []
+        # 每个 style 拒答，不生成内容
+        assert len(grouped["style_refused"]) == 1
+        assert "style_complete" not in grouped
+        assert grouped["generation_complete"][0]["refused_styles"] == 1
+        # 不持久化伪造话术
+        rows = (await session.execute(select(Script))).scalars().all()
+        assert rows == []
+
+    async def test_rag_low_confidence_refuses(self, session, monkeypatch):
+        uid = await _create_user(session, "13900550004")
+        await session.commit()
+        service = await _make_production_service(session, monkeypatch)
+        await _install_fake_pipeline(service, [
+            _fake_result("低相关性的边缘内容。", 0.2),
+        ])
+
+        events = await _collect_generation(service, user_id=str(uid))
+        grouped = _events_by_type(events)
+        assert grouped["rag_context"][0]["status"] == "REFUSE"
+        assert "style_complete" not in grouped
+        assert "style_refused" in grouped
+
+    # ------------------------------------------------------------------
+    # RAG REVIEW（中等置信度）→ 仍生成但标记 REVIEW
+    # ------------------------------------------------------------------
+
+    async def test_rag_review_generates_with_flag(self, session, monkeypatch):
+        uid = await _create_user(session, "13900550005")
+        await session.commit()
+        service = await _make_production_service(session, monkeypatch)
+        await _install_fake_pipeline(service, [
+            _fake_result("医疗险保障范围相关内容。", 0.5),
+            _fake_result("保费与投保年龄相关。", 0.45),
+        ])
+
+        events = await _collect_generation(service, user_id=str(uid))
+        grouped = _events_by_type(events)
+        assert grouped["rag_context"][0]["status"] == "REVIEW"
+        complete = grouped["style_complete"][0]
+        assert complete["rag_status"] == "REVIEW"
+
+    # ------------------------------------------------------------------
+    # AI Provider 失败 → 明确错误，不伪造结果
+    # ------------------------------------------------------------------
+
+    async def test_ai_provider_failure_returns_error(self, session, monkeypatch):
+        uid = await _create_user(session, "13900550006")
+        await session.commit()
+        service = await _make_production_service(session, monkeypatch)
+        await _install_fake_pipeline(service, [_fake_result("医疗险保障内容。", 0.8)])
+
+        async def _boom(*args, **kwargs):
+            raise RuntimeError("AI provider timeout")
+
+        monkeypatch.setattr(service.gateway, "chat", _boom)
+
+        events = await _collect_generation(service, user_id=str(uid))
+        grouped = _events_by_type(events)
+        assert "style_error" in grouped
+        assert "style_complete" not in grouped
+        # 不持久化错误文本
+        rows = (await session.execute(select(Script))).scalars().all()
+        assert rows == []
+
+    # ------------------------------------------------------------------
+    # Compliance 进入生成链（GREEN/YELLOW/RED）
+    # ------------------------------------------------------------------
+
+    async def test_compliance_flows_into_generation(self, session, monkeypatch):
+        uid = await _create_user(session, "13900550007")
+        await session.commit()
+        service = await _make_production_service(session, monkeypatch)
+        await _install_fake_pipeline(service, [_fake_result("医疗险保障内容。", 0.8)])
+
+        async def _fake_chat(messages, stream=True, **kwargs):
+            async def _gen():
+                yield "这款产品绝对最好，保证收益稳赚不赔。"
+            return _gen()
+
+        monkeypatch.setattr(service.gateway, "chat", _fake_chat)
+
+        events = await _collect_generation(service, user_id=str(uid))
+        grouped = _events_by_type(events)
+        complete = grouped["style_complete"][0]
+        assert complete["compliance"]["status"] == "RED"  # 绝对化 + 收益承诺
+        assert complete["compliance"]["score"] <= 60
+
+    # ------------------------------------------------------------------
+    # 权限：生成话术归属当前用户（跨用户隔离）
+    # ------------------------------------------------------------------
+
+    async def test_generation_scoped_to_user(self, session, monkeypatch):
+        alice = await _create_user(session, "13900550008")
+        bob = await _create_user(session, "13900550009")
+        await session.commit()
+        service = await _make_production_service(session, monkeypatch)
+        await _install_fake_pipeline(service, [_fake_result("医疗险保障内容。", 0.8)])
+
+        await _collect_generation(service, user_id=str(alice))
+        rows = (await session.execute(select(Script))).scalars().all()
+        assert len(rows) == 1
+        assert str(rows[0].created_by) == str(alice)
+        assert str(rows[0].created_by) != str(bob)
+
+    # ------------------------------------------------------------------
+    # 无 product_type → 通用话术（不经过 RAG 依据判断，直接生成）
+    # ------------------------------------------------------------------
+
+    async def test_generate_without_product_type(self, session, monkeypatch):
+        uid = await _create_user(session, "13900550010")
+        await session.commit()
+        service = await _make_production_service(session, monkeypatch)
+
+        events = await _collect_generation(service, product_type=None, user_id=str(uid))
+        grouped = _events_by_type(events)
+        # 无 product_type 时不做 RAG 拒答，直接生成
+        assert "style_complete" in grouped
+        assert "generation_complete" in grouped
