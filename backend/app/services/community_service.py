@@ -924,7 +924,12 @@ class CommunityService:
     async def _production_generate_ai_summary(
         self, post_id: str
     ) -> AsyncGenerator[str, None]:
-        """Production: 从数据库读取帖子，调用 AI Gateway 生成摘要并持久化 ai_summary。"""
+        """Production: 从数据库读取帖子，调用 AI Gateway 生成摘要并持久化 ai_summary。
+
+        持久化规则：仅当 AI 正常生成且摘要非空时才保存；
+        AI 失败 / 超时 / 空结果时发送 error 事件，不保存错误文本，
+        不覆盖已有摘要，且不发 summary_complete（避免前端误判成功）。
+        """
         try:
             pid = uuid.UUID(post_id)
         except (ValueError, AttributeError):
@@ -935,7 +940,7 @@ class CommunityService:
 
         repo = PostRepository(self.session)  # type: ignore[arg-type]
         post = await repo.get_by_id(pid)
-        if post is None:
+        if post is None or post.is_deleted:
             yield json.dumps({"event": "error", "data": {"message": "帖子不存在"}}, ensure_ascii=False)
             return
 
@@ -953,6 +958,7 @@ class CommunityService:
         ]
 
         summary_text = ""
+        ai_failed = False
         try:
             stream = await self.gateway.chat(messages=messages, stream=True)
             async for token in stream:
@@ -963,21 +969,38 @@ class CommunityService:
                 )
         except Exception as e:
             logger.warning("community_ai_summary_error", error=str(e))
-            summary_text = "AI 摘要生成失败，请稍后重试。"
+            ai_failed = True
 
-        if not summary_text:
-            summary_text = "摘要生成失败，请稍后重试。"
+        # AI 失败或空结果：不持久化错误文本，不覆盖已有摘要，不发 summary_complete
+        if ai_failed:
+            yield json.dumps(
+                {"event": "error", "data": {"message": "AI 摘要生成失败，请稍后重试。"}},
+                ensure_ascii=False,
+            )
+            return
 
-        # 持久化 ai_summary
+        if not summary_text.strip():
+            yield json.dumps(
+                {"event": "error", "data": {"message": "AI 摘要生成失败（返回空内容），请稍后重试。"}},
+                ensure_ascii=False,
+            )
+            return
+
+        # 仅 AI 正常生成且摘要非空时才持久化
         try:
-            post.ai_summary = summary_text
+            post.ai_summary = summary_text.strip()
             await self.session.commit()
         except Exception as e:
             logger.warning("community_ai_summary_persist_error", error=str(e))
             await self.session.rollback()
+            yield json.dumps(
+                {"event": "error", "data": {"message": "摘要保存失败，请稍后重试。"}},
+                ensure_ascii=False,
+            )
+            return
 
         yield json.dumps(
-            {"event": "summary_complete", "data": {"summary": summary_text}},
+            {"event": "summary_complete", "data": {"summary": summary_text.strip()}},
             ensure_ascii=False,
         )
 
@@ -1042,3 +1065,4 @@ def get_community_service() -> CommunityService:
     if _community_service is None:
         _community_service = CommunityService(session=None)
     return _community_service
+
