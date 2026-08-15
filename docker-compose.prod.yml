@@ -5,6 +5,9 @@ services:
     image: pgvector/pgvector:pg16
     container_name: abz-postgres
     restart: always
+    ports:
+      # 仅回环地址暴露，便于本机运维/健康检查（不对外网开放）
+      - "127.0.0.1:5432:5432"
     environment:
       POSTGRES_USER: ${POSTGRES_USER:-abz_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD must be set}
@@ -26,6 +29,9 @@ services:
     image: redis:7-alpine
     container_name: abz-redis
     restart: always
+    ports:
+      # 仅回环地址暴露，便于本机运维/健康检查（不对外网开放）
+      - "127.0.0.1:6379:6379"
     command: redis-server --appendonly yes --maxmemory 256mb --maxmemory-policy allkeys-lru
     volumes:
       - redisdata:/data
@@ -84,3 +90,4 @@ services:
 volumes:
   pgdata:
   redisdata:
+
