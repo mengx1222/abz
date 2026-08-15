@@ -7,8 +7,9 @@
   2. Gateway → Real Provider 流式 Chat（验证 SSE token 连续性）
   3. HTTP Product QA（真实 RAG + 真实 PG + 真实 LLM，SSE 流式）
   4. HTTP Script Generate（真实生成 + Citation + Compliance）
-  5. HTTP Community AI Summary（真实摘要 + 持久化）
-  6. HTTP Training 场景列表（真实 DB）
+  5. HTTP RAG Refusal（知识库无依据 → Confidence Gate 拒答）
+  6. HTTP Community AI Summary（真实摘要 + 持久化）
+  7. HTTP Training 场景列表（真实 DB）
 
 安全约束：
   - 真实 API Key 只从环境变量读取（AZB_AI_API_KEY），绝不硬编码
