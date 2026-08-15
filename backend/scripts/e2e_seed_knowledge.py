@@ -110,7 +110,12 @@ async def main() -> None:
                 token_count=len(doc_spec["content"]) // 4,
                 search_text=doc_spec["content"],
                 embedding=embeddings[0] if embeddings else None,
-                metadata_={"heading": "产品保障", "section": "核心条款"},
+                metadata_={
+                    "heading": "产品保障",
+                    "section": "核心条款",
+                    "document_title": doc_spec["title"],
+                    "knowledge_base_id": str(kb.id),
+                },
             )
             session.add(chunk)
 
