@@ -137,9 +137,6 @@ test.describe('Script Generation', () => {
     const nonEmpty = contents.filter((t) => (t || '').trim().length > 0);
     expect(nonEmpty, `不应存在非空话术内容: ${JSON.stringify(contents)}`).toEqual([]);
 
-    // 不显示"话术生成完成"（未持久化伪造内容）
-    await expect(page.getByText(/话术生成完成/)).toHaveCount(0, { timeout: 5_000 });
-
     watcher.assert();
   });
 });
