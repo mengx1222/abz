@@ -13,8 +13,13 @@ from structlog import get_logger
 from app.ai.gateway import get_ai_gateway
 from app.core.config import settings
 from app.models.user import User
-from app.services.compliance_service import check_compliance, build_script_prompt, STYLE_NAMES
 from app.rag.pipeline import RAGPipeline
+from app.rag.safety import (
+    assess_confidence,
+    should_refuse_answer,
+    ConfidenceLevel,
+)
+from app.services.compliance_service import check_compliance, build_script_prompt, STYLE_NAMES
 from app.repositories.script_repo import ScriptRepository, ScriptFavoriteRepository
 
 logger = get_logger()
@@ -460,27 +465,31 @@ class ScriptService:
         product_type: str | None = None,
         user_id: str | None = None,
     ) -> AsyncGenerator[str, None]:
-        """AI生成话术（SSE流式，带RAG知识增强）。"""
+        """AI生成话术（SSE流式，带RAG知识增强 + 合规检查）。"""
         if settings.DEMO_MODE:
             async for event in self._demo_generate_scripts(
                 customer_context, style, product_type, user_id
             ):
                 yield event
             return
-        # 生产模式：通过 AI Gateway 生成，生成结果由 create_script 保存到数据库
-        async for event in self._demo_generate_scripts(
+        # 生产模式：RAG 检索 → Confidence Gate → AI Gateway → Compliance → 持久化
+        async for event in self._production_generate_scripts(
             customer_context, style, product_type, user_id
         ):
             yield event
 
-    async def _demo_generate_scripts(
+    async def _production_generate_scripts(
         self,
         customer_context: dict,
         style: str | None = None,
         product_type: str | None = None,
         user_id: str | None = None,
     ) -> AsyncGenerator[str, None]:
-        """SSE 话术生成（Demo/生产共用生成逻辑，结果经 create_script 持久化）。"""
+        """生产模式话术生成：真实 RAG 检索 + AI Gateway + Compliance。
+
+        RAG 未命中/低置信度时拒答（不生成涉及产品事实的内容），
+        AI 失败返回可重试错误，不伪造结果。
+        """
         styles = [style] if style else ["affinity", "professional", "data_driven", "concise"]
         request_id = str(uuid.uuid4())
 
@@ -490,7 +499,154 @@ class ScriptService:
             "styles_display": [STYLE_NAMES.get(s, s) for s in styles],
         })
 
-        # RAG检索产品知识
+        # ---- RAG 检索 + Confidence Gate ----
+        product_info = ""
+        citations: list[dict] = []
+        rag_status = "ALLOW"  # ALLOW / REVIEW / REFUSE
+        # 显式参数优先，其次回退到 customer_context（保持与既有输入结构兼容）
+        effective_product_type = product_type or customer_context.get("product_type")
+        if effective_product_type:
+            try:
+                pipeline = await self._get_rag_pipeline()
+                if pipeline:
+                    query = f"{effective_product_type} 产品特点 保障范围 保费 理赔"
+                    search_results, context_text = await pipeline.query(question=query, top_k=4)
+                    refuse, top_score, count = should_refuse_answer(search_results)
+                    confidence = assess_confidence(search_results)
+                    if refuse or confidence.level in (ConfidenceLevel.NONE, ConfidenceLevel.LOW):
+                        rag_status = "REFUSE"
+                        product_info = ""
+                        citations = []
+                    else:
+                        rag_status = "ALLOW" if confidence.level == ConfidenceLevel.HIGH else "REVIEW"
+                        product_info = context_text
+                        citations = [
+                            {
+                                "document_id": r.document_id,
+                                "document_title": r.document_title,
+                                "section": r.metadata.get("heading", ""),
+                                "source": r.content[:300],
+                                "score": round(r.score, 3),
+                            }
+                            for r in search_results[:3]
+                        ]
+                    yield _sse_event("rag_context", {
+                        "product_type": effective_product_type,
+                        "status": rag_status,
+                        "confidence": confidence.level.value,
+                        "top_score": round(top_score, 3),
+                        "context_length": len(product_info),
+                        "sources_count": count,
+                        "citations": citations,
+                    })
+            except Exception as e:
+                logger.warning("script_rag_search_error", error=str(e))
+                yield _sse_event("rag_context", {
+                    "product_type": effective_product_type,
+                    "status": "ERROR",
+                    "message": "知识库检索暂不可用，本次生成未使用产品知识依据。",
+                    "citations": [],
+                })
+
+        refused_styles = 0
+        for s in styles:
+            style_name = STYLE_NAMES.get(s, s)
+            yield _sse_event("style_start", {"style": s, "style_name": style_name})
+
+            # RAG 未命中：拒答，不生成涉及产品事实的话术
+            if rag_status == "REFUSE":
+                refused_styles += 1
+                yield _sse_event("style_refused", {
+                    "style": s,
+                    "style_name": style_name,
+                    "message": (
+                        f"当前知识库未找到「{effective_product_type}」的充分产品依据，"
+                        "为避免编造产品事实（承保/理赔/责任等），本次不生成该产品话术。"
+                        "请补充产品知识文档后重试。"
+                    ),
+                })
+                continue
+
+            # 合并产品类型到客户上下文（显式参数优先，确保 prompt 包含产品信息）
+            prompt_context = dict(customer_context)
+            if effective_product_type and not prompt_context.get("product_type"):
+                prompt_context["product_type"] = effective_product_type
+
+            prompt = build_script_prompt(s, prompt_context, product_info)
+            messages = [{"role": "system", "content": prompt}]
+
+            full_content = ""
+            try:
+                stream = await self.gateway.chat(messages=messages, stream=True)
+                async for token in stream:
+                    full_content += token
+                    yield _sse_event("token", {"style": s, "content": token})
+            except Exception as e:
+                logger.error("script_generation_error", style=s, error=str(e))
+                # AI 失败：返回明确可重试错误，不伪造话术
+                yield _sse_event("style_error", {
+                    "style": s,
+                    "style_name": style_name,
+                    "message": "话术生成失败（AI 服务不可用），请稍后重试。",
+                })
+                continue
+
+            if not full_content.strip():
+                yield _sse_event("style_error", {
+                    "style": s,
+                    "style_name": style_name,
+                    "message": "话术生成失败（AI 返回空内容），请稍后重试。",
+                })
+                continue
+
+            compliance = check_compliance(full_content)
+            yield _sse_event("style_complete", {
+                "style": s,
+                "style_name": style_name,
+                "content": full_content,
+                "compliance": compliance,
+                "rag_status": rag_status,
+                "citations": citations,
+                "word_count": len(full_content),
+            })
+
+            ctx_name = customer_context.get("name", "客户")
+            pt_display = effective_product_type or "通用"
+            await self.create_script({
+                "title": f"{ctx_name}{pt_display}-{style_name}",
+                "customer_context": customer_context,
+                "style": s,
+                "content": full_content,
+                "product_type": product_type,
+                "compliance_status": compliance["status"],
+                "compliance_issues": compliance,
+                "status": "draft",
+            }, user_id=user_id)
+
+        yield _sse_event("generation_complete", {
+            "request_id": request_id,
+            "total_styles": len(styles),
+            "refused_styles": refused_styles,
+        })
+
+    async def _demo_generate_scripts(
+        self,
+        customer_context: dict,
+        style: str | None = None,
+        product_type: str | None = None,
+        user_id: str | None = None,
+    ) -> AsyncGenerator[str, None]:
+        """Demo 模式话术生成（内存 Mock 检索 + Mock Provider + 合规检查）。"""
+        styles = [style] if style else ["affinity", "professional", "data_driven", "concise"]
+        request_id = str(uuid.uuid4())
+
+        yield _sse_event("generation_start", {
+            "request_id": request_id,
+            "styles": styles,
+            "styles_display": [STYLE_NAMES.get(s, s) for s in styles],
+        })
+
+        # RAG检索产品知识（Demo：内存索引或空）
         product_info = ""
         if product_type:
             try:
@@ -556,3 +712,4 @@ class ScriptService:
 
 def _sse_event(event_type: str, data: dict) -> str:
     return json.dumps({"event": event_type, "data": data}, ensure_ascii=False)
+
