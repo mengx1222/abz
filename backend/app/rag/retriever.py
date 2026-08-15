@@ -233,6 +233,10 @@ class Retriever:
         if embedding is None:
             return []
 
+        # pgvector 的 cosine_distance 需要字符串形式的向量字面量（'[1,2,...]'），
+        # SQLAlchemy 直接传 list 会被 asyncpg 拒绝（expected str, got list）。
+        embedding_literal = "[" + ",".join(str(x) for x in embedding) + "]"
+
         # 构建基础查询
         stmt = (
             select(
@@ -241,7 +245,7 @@ class Retriever:
                 DocumentChunk.__table__.c.content,
                 DocumentChunk.__table__.c["metadata"],
                 # 1 - cosine_distance 作为相似度分数
-                (1 - func.cosine_distance(DocumentChunk.embedding, embedding)).label("score"),
+                (1 - func.cosine_distance(DocumentChunk.embedding, embedding_literal)).label("score"),
             )
             .where(DocumentChunk.embedding.isnot(None))
             .where(~Document.is_deleted)
