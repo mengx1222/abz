@@ -236,7 +236,8 @@ class Retriever:
         # pgvector 的 cosine_distance 需要 vector 类型参数。
         # SQLAlchemy 直接传 list 会被 asyncpg 拒绝（expected str, got list）；
         # 传字符串字面量会被当作 VARCHAR —— 需显式 cast 为 vector。
-        embedding_literal = text("'[' || :vec || ']'::vector").bindparams(vec=",".join(str(x) for x in embedding))
+        # 直接传完整 vector 字面量 "[1,2,...]" 并 ::vector cast（避免 ']'::vector 只 cast 右括号的问题）
+        embedding_literal = text(":vec::vector").bindparams(vec="[" + ",".join(str(x) for x in embedding) + "]")
 
         # 构建基础查询
         stmt = (
