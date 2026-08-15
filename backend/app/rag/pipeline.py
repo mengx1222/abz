@@ -192,9 +192,20 @@ class RAGPipeline:
         """
         retriever = await self._get_retriever()
 
+        # 生产模式：生成查询向量（真实 embedding 才有语义检索；异常时退回纯 BM25）
+        query_embedding = None
+        if isinstance(retriever, Retriever):
+            try:
+                embed_resp = await self.gateway.embed(texts=[question])
+                if embed_resp.embeddings:
+                    query_embedding = embed_resp.embeddings[0]
+            except Exception as e:
+                logger.warning("rag_query_embed_error", error=str(e), question=question[:60])
+
         # 检索
         results = await retriever.search(
             query=question,
+            query_embedding=query_embedding,
             top_k=top_k,
             knowledge_base_ids=knowledge_base_ids,
             user_roles=user_roles,
@@ -332,3 +343,4 @@ async def init_demo_index() -> DemoRetriever:
     )
 
     return _demo_retriever
+
