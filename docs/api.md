@@ -2341,7 +2341,7 @@ GET /api/v1/community/posts/:id/comments
 
 ## 10. 我的成长 API
 
-> **权限**: `agent`、`supervisor`
+> **权限**: 登录用户（JWT Bearer）。排行榜响应受组织可见范围限制（RBAC）。
 
 ### 10.1 成长概览
 
@@ -2349,208 +2349,118 @@ GET /api/v1/community/posts/:id/comments
 GET /api/v1/growth/overview
 ```
 
-**查询参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `period` | string | `month` | 统计周期：`week`、`month`、`quarter` |
+**说明**: 生产模式从数据库真实聚合：月度统计（本月互动/成交保单/待跟进客户/AI 使用次数）、最近 7 天互动趋势、能力评分（由陪练评分映射）、成长等级与经验值（由完成陪练 + 解锁成就推导）。
 
 **成功响应** `200`:
 
 ```json
 {
-  "success": true,
-  "data": {
-    "period": "month",
-    "summary": {
-      "ai_usage_total": 156,
-      "ai_usage_change": "+23%",
-      "training_sessions": 12,
-      "training_score_avg": 78.5,
-      "training_score_change": "+5.2",
-      "community_contributions": 3,
-      "customer_conversions": 4,
-      "conversion_rate": 12.5
-    },
-    "level_info": {
-      "current_level": 3,
-      "level_name": "业务能手",
-      "next_level": 4,
-      "next_level_name": "销售精英",
-      "progress_percent": 68,
-      "exp_current": 1360,
-      "exp_required": 2000
-    },
-    "milestones": [
-      {
-        "id": "mile_001",
-        "title": "首次完成陪练",
-        "status": "achieved",
-        "achieved_at": "2024-12-01T10:00:00+08:00"
-      },
-      {
-        "id": "mile_002",
-        "title": "累计使用 AI 100 次",
-        "status": "achieved",
-        "achieved_at": "2025-01-10T15:00:00+08:00"
-      },
-      {
-        "id": "mile_003",
-        "title": "连续 7 天使用 AI 陪练",
-        "status": "in_progress",
-        "progress": 5,
-        "target": 7
-      }
-    ]
-  },
-  "message": "",
-  "request_id": "req_xxx"
+  "monthly_stats": [
+    {"label": "本月互动", "value": "12", "unit": "次", "change": "+3 较上月", "up": true},
+    {"label": "成交保单", "value": "2", "unit": "件", "change": "1个高意向", "up": true},
+    {"label": "待跟进客户", "value": "5", "unit": "个", "change": "待处理", "up": true},
+    {"label": "AI 使用次数", "value": "34", "unit": "次", "change": "本月累计", "up": true}
+  ],
+  "weekly_trend": [
+    {"day": "周一", "calls": 3, "deals": 0}
+  ],
+  "ability_scores": [
+    {"label": "产品知识", "score": 85},
+    {"label": "沟通技巧", "score": 78}
+  ],
+  "learning_courses": [],
+  "level": 1,
+  "level_name": "新人代理人",
+  "exp_current": 60,
+  "exp_next": 500,
+  "total_exp": 60
 }
 ```
 
 ---
 
-### 10.2 AI 使用统计
+### 10.2 课程详情
 
 ```
-GET /api/v1/growth/ai-usage-stats
+GET /api/v1/growth/courses/{course_id}
 ```
 
-**查询参数**:
+**说明**: Demo 模式返回静态课程；生产模式数据库暂无课程表，返回 `null`（不伪造数据，待课程体系落库）。
 
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `period` | string | `month` | 统计周期 |
-
-**成功响应** `200`:
+**成功响应** `200`（Demo）:
 
 ```json
 {
-  "success": true,
-  "data": {
-    "period": "month",
-    "total_usage": 156,
-    "breakdown": [
-      {"feature": "product_qa", "label": "产品问答", "count": 65},
-      {"feature": "script_generate", "label": "话术生成", "count": 38},
-      {"feature": "customer_analysis", "label": "客户分析", "count": 28},
-      {"feature": "training", "label": "AI陪练", "count": 25}
-    ],
-    "daily_trend": [
-      {"date": "2025-01-01", "count": 5},
-      {"date": "2025-01-02", "count": 8},
-      {"date": "2025-01-15", "count": 12}
-    ],
-    "avg_session_duration_seconds": 180,
-    "feedback_summary": {
-      "total_feedbacks": 45,
-      "like_count": 38,
-      "dislike_count": 7,
-      "satisfaction_rate": 84.4
-    }
-  },
-  "message": "",
-  "request_id": "req_xxx"
+  "id": "course-001",
+  "title": "重疾险产品知识进阶",
+  "description": "深入学习重疾险产品条款、保障范围、理赔条件，掌握核心卖点。",
+  "category": "产品知识",
+  "progress": 85,
+  "total_lessons": 14,
+  "completed_lessons": 12,
+  "status": "进行中",
+  "lessons": []
 }
 ```
 
+**生产模式**: `200` + `null`。
+
 ---
 
-### 10.3 训练趋势
+### 10.3 排行榜
 
 ```
-GET /api/v1/growth/training-trends
+GET /api/v1/growth/leaderboard?period=month
 ```
 
 **查询参数**:
 
 | 参数 | 类型 | 默认值 | 说明 |
 |------|------|--------|------|
-| `period` | string | `month` | 统计周期 |
+| `period` | string | `month` | 排行榜周期：`week` / `month` / `quarter` |
+
+**组织可见范围（RBAC）**: 生产模式按当前用户角色 level 限制排行数据可见范围，不扩大数据暴露：
+
+| 角色 | level | 可见范围 |
+|------|:---:|---------|
+| SYSTEM_ADMIN / HQ_ADMIN | ≥90 | 全部组织 |
+| BRANCH_ADMIN | ≥80 | 本组织 + 直接子组织 |
+| TEAM_LEADER / AGENT / 其他 | <80 | 仅本组织（优先 team_id） |
+
+**打分规则**: 真实活动聚合 —— 成交客户 ×100 + 解锁成就 ×50 + 完成陪练 ×10（仅统计 >0 的用户）。
 
 **成功响应** `200`:
 
 ```json
 {
-  "success": true,
-  "data": {
-    "period": "month",
-    "total_sessions": 12,
-    "total_duration_minutes": 180,
-    "avg_score": 78.5,
-    "score_trend": [
-      {"date": "2025-01-01", "avg_score": 72.0},
-      {"date": "2025-01-08", "avg_score": 75.3},
-      {"date": "2025-01-15", "avg_score": 78.5}
-    ],
-    "skill_improvements": [
-      {"skill": "异议处理", "before": 65, "after": 72, "change": "+7"},
-      {"skill": "沟通技巧", "before": 70, "after": 78, "change": "+8"},
-      {"skill": "促单能力", "before": 60, "after": 65, "change": "+5"}
-    ],
-    "category_distribution": [
-      {"category": "objection_handling", "count": 5, "avg_score": 80},
-      {"category": "product_introduction", "count": 4, "avg_score": 77},
-      {"category": "needs_discovery", "count": 2, "avg_score": 75},
-      {"category": "closing", "count": 1, "avg_score": 82}
-    ]
-  },
-  "message": "",
-  "request_id": "req_xxx"
+  "period": "month",
+  "leaderboard": [
+    {"rank": 1, "user_name": "林思远", "org_name": "华东区第一营业部", "score": 150, "avatar": ""}
+  ],
+  "my_rank": {"rank": 1, "user_name": "林思远", "org_name": "华东区第一营业部", "score": 150, "avatar": ""}
 }
 ```
 
 ---
 
-### 10.4 能力雷达
+### 10.4 成就列表
 
 ```
-GET /api/v1/growth/ability-radar
+GET /api/v1/growth/achievements
 ```
+
+**说明**: 生产模式按当前用户 ID 查询成就（已解锁 + 未解锁），用户数据隔离。
 
 **成功响应** `200`:
 
-> 结构同 [8.9 能力雷达图](#89-能力雷达图)，可额外包含历史对比数据。
-
 ```json
 {
-  "success": true,
-  "data": {
-    "current": {
-      "dimensions": [
-        {"skill": "产品知识", "score": 85},
-        {"skill": "沟通技巧", "score": 78},
-        {"skill": "异议处理", "score": 72},
-        {"skill": "需求挖掘", "score": 68},
-        {"skill": "促单能力", "score": 65},
-        {"skill": "合规意识", "score": 90}
-      ]
-    },
-    "previous_period": {
-      "dimensions": [
-        {"skill": "产品知识", "score": 82},
-        {"skill": "沟通技巧", "score": 73},
-        {"skill": "异议处理", "score": 64},
-        {"skill": "需求挖掘", "score": 66},
-        {"skill": "促单能力", "score": 66},
-        {"skill": "合规意识", "score": 88}
-      ]
-    },
-    "improvements": [
-      {"skill": "异议处理", "change": "+8"},
-      {"skill": "沟通技巧", "change": "+5"}
-    ],
-    "recommendations": [
-      "建议加强「需求挖掘」和「促单能力」的训练",
-      "推荐场景：需求挖掘实战训练（scn_008）"
-    ]
-  },
-  "message": "",
-  "request_id": "req_xxx"
+  "unlocked": [
+    {"id": "...", "name": "首次完成陪练", "description": "...", "icon": "🏅", "unlocked_at": "2026-08-01T10:00:00+08:00", "is_unlocked": true, "category": "sales"}
+  ],
+  "locked": []
 }
 ```
-
----
 
 ## 11. 消息中心 API
 
@@ -3787,3 +3697,4 @@ while (true) {
 ---
 
 > **文档维护说明**: 本文档由产品研发团队维护，每次 API 变更需同步更新。变更记录通过 Git 版本管理追踪。
+
