@@ -215,8 +215,8 @@ class DashboardService:
     ) -> DashboardOverview:
         """生产模式：从数据库聚合 Dashboard 概览（按用户负责的客户 + 用户自身活动）。"""
         now = datetime.now(timezone.utc)
-        today_str = now.strftime("%Y-%m-%d")
-        yesterday_str = (now - timedelta(days=1)).strftime("%Y-%m-%d")
+        today = now.date()
+        yesterday = (now - timedelta(days=1)).date()
 
         # 用户负责的客户 ID 集合
         customer_ids = list(
@@ -243,13 +243,13 @@ class DashboardService:
             inter_today = await _count(
                 select(func.count()).select_from(CustomerInteraction).where(
                     CustomerInteraction.customer_id.in_(customer_ids),
-                    func.date(CustomerInteraction.created_at) == today_str,
+                    func.date(CustomerInteraction.created_at) == today,
                 )
             )
             inter_yesterday = await _count(
                 select(func.count()).select_from(CustomerInteraction).where(
                     CustomerInteraction.customer_id.in_(customer_ids),
-                    func.date(CustomerInteraction.created_at) == yesterday_str,
+                    func.date(CustomerInteraction.created_at) == yesterday,
                 )
             )
             closed_count = await _count(
@@ -274,7 +274,7 @@ class DashboardService:
         ai_today = await _count(
             select(func.count()).select_from(AIRequestLog).where(
                 AIRequestLog.user_id == user_id,
-                func.date(AIRequestLog.created_at) == today_str,
+                func.date(AIRequestLog.created_at) == today,
             )
         )
         unread = await _count(
