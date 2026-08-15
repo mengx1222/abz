@@ -137,10 +137,11 @@ async def test_mock_provider_chat_success():
 
 async def test_mock_provider_stream_success():
     provider = MockProvider()
-    chunks = []
-    async for token in provider.chat(
+    stream = await provider.chat(
         messages=[{"role": "user", "content": "介绍一下重疾险"}], stream=True
-    ):
+    )
+    chunks = []
+    async for token in stream:
         chunks.append(token)
     assert chunks
     assert "".join(chunks)
@@ -198,20 +199,22 @@ async def test_openai_provider_stream_success():
         "data: [DONE]",
     ]
     provider = _make_openai_provider(_FakeClient(stream_lines=lines))
-    chunks = []
-    async for token in provider.chat(
+    stream = await provider.chat(
         messages=[{"role": "user", "content": "hi"}], stream=True
-    ):
+    )
+    chunks = []
+    async for token in stream:
         chunks.append(token)
     assert chunks == ["你", "好"]
 
 
 async def test_openai_provider_stream_http_error_raises():
     provider = _make_openai_provider(_FakeClient(stream_status=401))
+    stream = await provider.chat(
+        messages=[{"role": "user", "content": "hi"}], stream=True
+    )
     with pytest.raises(RuntimeError, match="401"):
-        async for _ in provider.chat(
-            messages=[{"role": "user", "content": "hi"}], stream=True
-        ):
+        async for _ in stream:
             pass
 
 
