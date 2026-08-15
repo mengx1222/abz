@@ -127,22 +127,24 @@ class RealAiSmoke:
         print("═══ Phase 9 — Real AI Provider + SSE Smoke Test ═══")
         print(f"Provider: {AI_PROVIDER} | Model: {AI_MODEL or '(env AZB_AI_MODEL)'} | BaseURL: {AI_BASE_URL or '(env)'}")
 
-        # ---- Gateway 直接调用（不依赖 HTTP backend） ----
-        try:
-            info = asyncio.run(self._gateway_chat())
-            ok = bool(info["content"].strip())
-            detail = (f"model={info['model']} tokens={info['prompt_tokens']}+{info['completion_tokens']} "
-                      f"latency={info['latency_ms']}ms content={info['content'][:40]!r}")
-            self.check("gateway_real_chat", ok, detail)
-        except Exception as e:
-            self.check("gateway_real_chat", False, f"{type(e).__name__}: {e}")
+        # ---- Gateway 直接调用（在同一事件循环里跑 chat + stream，httpx 连接池共用） ----
+        async def _run_gateway() -> tuple[dict, dict]:
+            chat_info = await self._gateway_chat()
+            stream_info = await self._gateway_stream()
+            return chat_info, stream_info
 
         try:
-            info = asyncio.run(self._gateway_stream())
-            ok = bool(info["joined"].strip()) and info["chunk_count"] > 0
-            detail = f"chunks={info['chunk_count']} latency={info['latency_ms']}ms content={info['joined'][:40]!r}"
-            self.check("gateway_real_stream", ok, detail)
+            chat_info, stream_info = asyncio.run(_run_gateway())
+            ok = bool(chat_info["content"].strip())
+            detail = (f"model={chat_info['model']} tokens={chat_info['prompt_tokens']}+{chat_info['completion_tokens']} "
+                      f"latency={chat_info['latency_ms']}ms content={chat_info['content'][:40]!r}")
+            self.check("gateway_real_chat", ok, detail)
+            sok = bool(stream_info["joined"].strip()) and stream_info["chunk_count"] > 0
+            sdetail = f"chunks={stream_info['chunk_count']} latency={stream_info['latency_ms']}ms content={stream_info['joined'][:40]!r}"
+            self.check("gateway_real_stream", sok, sdetail)
         except Exception as e:
+            # 任一失败时回填另一项为 FAIL
+            self.check("gateway_real_chat", False, f"{type(e).__name__}: {e}")
             self.check("gateway_real_stream", False, f"{type(e).__name__}: {e}")
 
         # ---- HTTP 层（需要 backend + 真实 PG） ----
