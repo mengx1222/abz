@@ -257,7 +257,11 @@ class TestScriptRagProduction:
         uid = await _create_user(session, "13900550006")
         await session.commit()
         service = await _make_production_service(session, monkeypatch)
-        await _install_fake_pipeline(service, [_fake_result("医疗险保障内容。", 0.8)])
+        await _install_fake_pipeline(service, [
+            _fake_result("医疗险保障额度最高 600 万。", 0.85),
+            _fake_result("住院医疗在保障范围内。", 0.82),
+            _fake_result("0-65 周岁可投保。", 0.78),
+        ])
 
         async def _boom(*args, **kwargs):
             raise RuntimeError("AI provider timeout")
@@ -280,7 +284,11 @@ class TestScriptRagProduction:
         uid = await _create_user(session, "13900550007")
         await session.commit()
         service = await _make_production_service(session, monkeypatch)
-        await _install_fake_pipeline(service, [_fake_result("医疗险保障内容。", 0.8)])
+        await _install_fake_pipeline(service, [
+            _fake_result("医疗险保障额度最高 600 万。", 0.85),
+            _fake_result("住院医疗在保障范围内。", 0.82),
+            _fake_result("0-65 周岁可投保。", 0.78),
+        ])
 
         async def _fake_chat(messages, stream=True, **kwargs):
             async def _gen():
@@ -304,7 +312,11 @@ class TestScriptRagProduction:
         bob = await _create_user(session, "13900550009")
         await session.commit()
         service = await _make_production_service(session, monkeypatch)
-        await _install_fake_pipeline(service, [_fake_result("医疗险保障内容。", 0.8)])
+        await _install_fake_pipeline(service, [
+            _fake_result("医疗险保障额度最高 600 万。", 0.85),
+            _fake_result("住院医疗在保障范围内。", 0.82),
+            _fake_result("0-65 周岁可投保。", 0.78),
+        ])
 
         await _collect_generation(service, user_id=str(alice))
         rows = (await session.execute(select(Script))).scalars().all()
