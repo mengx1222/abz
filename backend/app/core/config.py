@@ -48,6 +48,7 @@ class Settings(BaseSettings):
     AI_MODEL: str = ""
     AI_EMBEDDING_MODEL: str = ""
     AI_RERANK_MODEL: str = ""
+    AI_TIMEOUT: float = 30.0  # 真实 Provider 请求超时（秒）
 
     # --- RAG Pipeline ---
     RAG_CHUNK_TARGET_TOKENS: int = 512
@@ -71,3 +72,4 @@ class Settings(BaseSettings):
 
 
 settings = Settings()
+
