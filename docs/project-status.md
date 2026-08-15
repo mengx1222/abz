@@ -6,7 +6,7 @@
 
 > 最后更新: 2026-08-15
 
-> Git HEAD: `dbe70e6c`
+> Git HEAD: `729baedc`
 
 > 后端版本: `1.0.0-rc.1`
 
@@ -90,6 +90,7 @@
 
 | Prod-11 | Task 7: Community AI Summary Production Hardening (失败不持久化/SSE 完整性/软删除边界) | `73cbba5` `f214d2d` | ✅ 完成 |
 | Prod-12 | Task 8: 真实 PG16+pgvector+Redis 全链路环境验收 (compose 全栈 + Phase7/Phase8 + 修复 5 个环境 bug) | `43ad7b0`…`dbe70e6` (13 commits) | ✅ 完成 |
+| Prod-13 | Task 9: 真实 AI Provider + SSE 验证 (Gateway 禁静默降级 Mock + AI_TIMEOUT + phase9 smoke + opt-in workflow) | `b21cc35`…`729baed` (6 commits) | ✅ 完成（Real Smoke 待配 Secret） |
 
 
 
@@ -191,7 +192,7 @@
 
 | P1-1 | ~~PostgreSQL + pgvector 真实环境未验证~~ | ✅ Task 8 已验收：真实 PG16+pgvector+Redis compose 全栈启动，Phase7 65 PASS/0 FAIL，pytest 210 passed（详见 G 记录） |
 
-| P1-2 | AI Provider 未接入真实模型 | 需配置 API Key 并验证 SSE 流式 |
+| P1-2 | ~~AI Provider 未接入真实模型~~ | ✅ Task 9 已建立真实 Provider 验证链路：Gateway 支持 OpenAI 兼容 Provider（DeepSeek/Qwen/OpenAI），新增 REAL_AI_SMOKE_TEST opt-in workflow + phase9 脚本；生产模式缺 Key 时明确报错不静默降级 Mock。当前仓库未配置真实 API Key → Real Smoke Test = NOT RUN（可随时配 Secret 触发） |
 
 | P1-3 | **1 个 Service 方法 Production 路径仍为 Demo Only** | growth_service(course_detail — DB 无课程表，生产返回 None 待课程体系落库) |
 
@@ -373,6 +374,8 @@
 
 | CI (GitHub Actions) | **backend pytest + backend-pg (PostgreSQL+pgvector) + frontend 全部通过** | 2026-08-15 (Task 7) |
 | Task 8 真实环境验收 (Production Validation workflow) | **Docker Compose 全栈启动 15s / Phase7 65 PASS 0 FAIL / Phase8 14/14 / pytest 210 passed** | 2026-08-15 (Task 8) |
+| Task 9 AI Provider 验证 (Task 9) | **Gateway 禁静默降级 Mock（缺 Key 明确报错）/ AI_TIMEOUT 可配 / Provider 测试 14 项新增 / pytest 222 passed / Real AI Smoke Test = NOT RUN（未配置真实 Key，opt-in workflow 已就绪）** | 2026-08-15 (Task 9) |
+
 
 
 
