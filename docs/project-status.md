@@ -6,7 +6,19 @@
 
 
 
+
+
+
+
+
+
+
+
 > **本文件是项目状态的唯一事实来源。每完成一个 Phase 必须更新。**
+
+
+
+
 
 
 
@@ -14,7 +26,15 @@
 
 
 
-> Git HEAD: `dae833c4`
+
+
+
+
+> Git HEAD: `bf81a4ea`
+
+
+
+
 
 
 
@@ -26,7 +46,23 @@
 
 
 
+
+
+
+
+
+
+
+
 ---
+
+
+
+
+
+
+
+
 
 
 
@@ -42,6 +78,14 @@
 
 
 
+
+
+
+
+
+
+
+
 **当前: Phase 6 — 内部试点发布准备（部分完成）**
 
 
@@ -50,7 +94,23 @@
 
 
 
+
+
+
+
+
+
+
+
 ---
+
+
+
+
+
+
+
+
 
 
 
@@ -66,7 +126,23 @@
 
 
 
+
+
+
+
+
+
+
+
 ### Legacy MVP Phases（旧编号体系 — 功能开发）
+
+
+
+
+
+
+
+
 
 
 
@@ -78,7 +154,15 @@
 
 
 
+
+
+
+
 |-------|------|-----------|------|
+
+
+
+
 
 
 
@@ -86,7 +170,15 @@
 
 
 
+
+
+
+
 | MVP-2 | 用户认证 + RBAC + JWT | 早期 commit | ✅ 完成 |
+
+
+
+
 
 
 
@@ -94,7 +186,15 @@
 
 
 
+
+
+
+
 | MVP-4 | AI 话术模块 + SSE 流式 + 合规引擎 | `e4d225c` Phase 6(旧) | ✅ 完成 |
+
+
+
+
 
 
 
@@ -102,7 +202,15 @@
 
 
 
+
+
+
+
 | MVP-6 | AI 陪练 (场景 + SSE 对话 + 评分) | `b42da9a` Phase 7(旧) | ✅ 完成 |
+
+
+
+
 
 
 
@@ -110,11 +218,27 @@
 
 
 
+
+
+
+
 | MVP-8 | 管理后台 (用户/看板/审计/合规/设置) | `146afa2` Phase 9(旧) | ✅ 完成 |
 
 
 
+
+
+
+
 | MVP-9 | 成长体系 + 通知中心 + Dashboard | `72c367f` Phase 10(旧) | ✅ 完成 |
+
+
+
+
+
+
+
+
 
 
 
@@ -130,7 +254,19 @@
 
 
 
+
+
+
+
+
+
+
+
 | Phase | 内容 | Git Commit | 状态 |
+
+
+
+
 
 
 
@@ -138,7 +274,15 @@
 
 
 
+
+
+
+
 | Prod-1 | 当前状态审计 + 文档校准 | `4441b38` + 本次更新 | ✅ 完成 |
+
+
+
+
 
 
 
@@ -146,7 +290,15 @@
 
 
 
+
+
+
+
 | Prod-3 | 数据库持久化 (迁移链修复 + 30 表 + Seed) | `1dbf948` | ✅ 完成 |
+
+
+
+
 
 
 
@@ -154,7 +306,15 @@
 
 
 
+
+
+
+
 | Prod-5 | 权限安全强化 (IDOR + Rate Limit + 审计 + 脱敏 + 安全头 + 前端 RoleGuard) | `a68511c` | ✅ 完成 |
+
+
+
+
 
 
 
@@ -162,7 +322,15 @@
 
 
 
+
+
+
+
 | Prod-7 | 内部试点发布准备 (监控 + 健康检查 + UAT) | Phase 6 本次 + 未提交 | 🔄 进行中 |
+
+
+
+
 
 
 
@@ -170,7 +338,15 @@
 
 
 
+
+
+
+
 | Prod-9 | Task 5: Dashboard Service Production 化 (DashboardRepository 聚合) | `7cd28bf` `943324a` | ✅ 完成 |
+
+
+
+
 
 
 
@@ -178,14 +354,34 @@
 
 
 
+
+
+
+
 | Prod-11 | Task 7: Community AI Summary Production Hardening (失败不持久化/SSE 完整性/软删除边界) | `73cbba5` `f214d2d` | ✅ 完成 |
+
+
 
 | Prod-12 | Task 8: 真实 PG16+pgvector+Redis 全链路环境验收 (compose 全栈 + Phase7/Phase8 + 修复 5 个环境 bug) | `43ad7b0`…`dbe70e6` (13 commits) | ✅ 完成 |
 
+
+
 | Prod-13 | Task 9: 真实 AI Provider + SSE 验证 (Gateway 禁静默降级 Mock + AI_TIMEOUT + phase9 smoke + opt-in workflow) | `b21cc35`…`729baed` (6 commits) | ✅ 完成 |
 
+
+
 | Prod-14 | Task 10: Real AI Smoke Test 最终验收（真实百炼 DashScope 端到端 8/8 PASS） | `289a04f`…`94ce52f` (3 commits) | ✅ 完成 |
+
 | Prod-15 | Task 11: Playwright E2E 基础设施 + 黄金路径第一阶段 (Login/Dashboard/Customer List/Detail 4 项 E2E 全绿) | `de1573c`…`dae833c` (9 commits) | ✅ 完成 |
+| Prod-16 | Task 12: Playwright E2E 第二阶段 (Product QA 4 + Script 3 = 7 项新 E2E，真实 AI RAG 链路修复闭环) | `1b9cf10`…`bf81a4e` (18 commits) | ✅ 完成 |
+
+
+
+
+
+
+
+
 
 
 
@@ -194,6 +390,14 @@
 
 
 ---
+
+
+
+
+
+
+
+
 
 
 
@@ -209,7 +413,23 @@
 
 
 
+
+
+
+
+
+
+
+
 以下模块代码已就绪，Demo/Production 双路径均已实现：
+
+
+
+
+
+
+
+
 
 
 
@@ -221,7 +441,15 @@
 
 
 
+
+
+
+
 |------|------|-----------|------|
+
+
+
+
 
 
 
@@ -229,7 +457,15 @@
 
 
 
+
+
+
+
 | JWT 认证 | ✅ | ✅ | |
+
+
+
+
 
 
 
@@ -237,7 +473,15 @@
 
 
 
+
+
+
+
 | 数据库 30 表 | N/A | ✅ | 7 迁移链完整 |
+
+
+
+
 
 
 
@@ -245,7 +489,15 @@
 
 
 
+
+
+
+
 | Service Bifurcation 8 个 | ✅ | ✅ | |
+
+
+
+
 
 
 
@@ -253,7 +505,15 @@
 
 
 
+
+
+
+
 | RAG Safety (拒答/置信度/注入检测) | ✅ | ✅ | |
+
+
+
+
 
 
 
@@ -261,7 +521,15 @@
 
 
 
+
+
+
+
 | Rate Limiting | ✅ | ✅ | |
+
+
+
+
 
 
 
@@ -269,7 +537,15 @@
 
 
 
+
+
+
+
 | 数据脱敏 | ✅ | ✅ | |
+
+
+
+
 
 
 
@@ -277,7 +553,15 @@
 
 
 
+
+
+
+
 | 前端角色路由守卫 | ✅ | ✅ | |
+
+
+
+
 
 
 
@@ -285,7 +569,15 @@
 
 
 
+
+
+
+
 | 健康检查 3 端点 | ✅ | ✅ | Liveness + Readiness + Detail |
+
+
+
+
 
 
 
@@ -297,7 +589,23 @@
 
 
 
+
+
+
+
+
+
+
+
 ---
+
+
+
+
+
+
+
+
 
 
 
@@ -313,7 +621,23 @@
 
 
 
+
+
+
+
+
+
+
+
 以下模块在 Demo 模式使用内存数据，Production 模式需真实 DB/AI：
+
+
+
+
+
+
+
+
 
 
 
@@ -325,7 +649,15 @@
 
 
 
+
+
+
+
 |------|------|
+
+
+
+
 
 
 
@@ -333,7 +665,15 @@
 
 
 
+
+
+
+
 | AI Embedding | pgvector 向量嵌入需真实 OpenAI/DeepSeek Embedding API |
+
+
+
+
 
 
 
@@ -345,7 +685,23 @@
 
 
 
+
+
+
+
+
+
+
+
 ---
+
+
+
+
+
+
+
+
 
 
 
@@ -361,7 +717,23 @@
 
 
 
+
+
+
+
+
+
+
+
 ### P0 — 无
+
+
+
+
+
+
+
+
 
 
 
@@ -377,7 +749,19 @@
 
 
 
+
+
+
+
+
+
+
+
 | # | 风险 | 说明 |
+
+
+
+
 
 
 
@@ -385,7 +769,15 @@
 
 
 
+
+
+
+
 | P1-1 | ~~PostgreSQL + pgvector 真实环境未验证~~ | ✅ Task 8 已验收：真实 PG16+pgvector+Redis compose 全栈启动，Phase7 65 PASS/0 FAIL，pytest 210 passed（详见 G 记录） |
+
+
+
+
 
 
 
@@ -393,7 +785,15 @@
 
 
 
+
+
+
+
 | P1-3 | **1 个 Service 方法 Production 路径仍为 Demo Only** | growth_service(course_detail — DB 无课程表，生产返回 None 待课程体系落库) |
+
+
+
+
 
 
 
@@ -401,11 +801,27 @@
 
 
 
+
+
+
+
 | P1-5 | ~~无 Playwright E2E 测试~~ | ✅ Task 11 已建立：Playwright 基础设施 + 黄金路径第一阶段（Login/Dashboard/Customer List/Customer Detail 4 项 E2E 全绿），失败自动截图+trace；后续阶段（Product QA/Script/Training 等）待 Task 12 |
 
 
 
+
+
+
+
 | P1-6 | **前端存在大量既有 TypeScript 类型错误** | `npm run build`(tsc) 报 TS6133/TS2322 等错误（分布在多个页面，与 Task 1-3 无关），CI 暂用 `vite build` 绕过 tsc 门禁 |
+
+
+
+
+
+
+
+
 
 
 
@@ -421,7 +837,19 @@
 
 
 
+
+
+
+
+
+
+
+
 | # | 风险 | 说明 |
+
+
+
+
 
 
 
@@ -429,7 +857,15 @@
 
 
 
+
+
+
+
 | P2-1 | 无 CSRF 显式防护 | JWT Bearer 下风险较低 |
+
+
+
+
 
 
 
@@ -437,7 +873,15 @@
 
 
 
+
+
+
+
 | P2-3 | 前端页面组件无测试 | 仅 3 个工具文件有 vitest |
+
+
+
+
 
 
 
@@ -449,7 +893,23 @@
 
 
 
+
+
+
+
+
+
+
+
 ---
+
+
+
+
+
+
+
+
 
 
 
@@ -465,7 +925,19 @@
 
 
 
+
+
+
+
+
+
+
+
 | Service | PRODUCTION_READY | NEEDS_WORK | DEMO_ONLY |
+
+
+
+
 
 
 
@@ -473,7 +945,15 @@
 
 
 
+
+
+
+
 | customer_service | **8** | 0 | 0 |
+
+
+
+
 
 
 
@@ -481,7 +961,15 @@
 
 
 
+
+
+
+
 | notification_service | **4** | 0 | 0 |
+
+
+
+
 
 
 
@@ -489,7 +977,15 @@
 
 
 
+
+
+
+
 | dashboard_service | **1** | 0 | 0 |
+
+
+
+
 
 
 
@@ -497,7 +993,15 @@
 
 
 
+
+
+
+
 | script_service | **7** | 0 | 0 |
+
+
+
+
 
 
 
@@ -509,7 +1013,23 @@
 
 
 
+
+
+
+
+
+
+
+
 ---
+
+
+
+
+
+
+
+
 
 
 
@@ -525,7 +1045,23 @@
 
 
 
+
+
+
+
+
+
+
+
 **Service Production 路径: 全部闭环（41 方法 PRODUCTION_READY）**
+
+
+
+
+
+
+
+
 
 
 
@@ -537,7 +1073,15 @@
 
 
 
+
+
+
+
 2. ✅ **script_service** (6 CRUD + generate 持久化) — Task 2 完成（CRUD 部分）
+
+
+
+
 
 
 
@@ -545,7 +1089,15 @@
 
 
 
+
+
+
+
 4. ✅ **growth_service** (3 方法) — Task 4 完成（GrowthRepository 聚合 + Leaderboard 组织范围权限过滤；course_detail 无课程表返回 None 不强建 LMS）
+
+
+
+
 
 
 
@@ -553,7 +1105,15 @@
 
 
 
+
+
+
+
 6. ✅ **script_service.generate_scripts** (1 方法) — Task 6 完成（RAG 检索 + Confidence Gate 拒答 + Citation + Compliance 全链路）
+
+
+
+
 
 
 
@@ -565,7 +1125,19 @@
 
 
 
+
+
+
+
+
+
+
+
 完成后再进行:
+
+
+
+
 
 
 
@@ -573,7 +1145,15 @@
 
 
 
+
+
+
+
 - Playwright E2E 测试
+
+
+
+
 
 
 
@@ -581,7 +1161,19 @@
 
 
 
+
+
+
+
 - AI Sales Agent 全链路串联
+
+
+
+
+
+
+
+
 
 
 
@@ -597,7 +1189,23 @@
 
 
 
+
+
+
+
+
+
+
+
 ## G. 最后验证记录
+
+
+
+
+
+
+
+
 
 
 
@@ -609,7 +1217,15 @@
 
 
 
+
+
+
+
 |------|------|------|
+
+
+
+
 
 
 
@@ -617,7 +1233,15 @@
 
 
 
+
+
+
+
 | 前端 vitest | **27 passed** (2.52s) | 2026-08-14 |
+
+
+
+
 
 
 
@@ -625,7 +1249,15 @@
 
 
 
+
+
+
+
 | 前端 TSC 核实 (Task 4) | **未恢复 tsc 门禁** — CI frontend job 仍用 `npx vite build` 绕过 tsc（仓库存在既有 TS6133/TS2322 错误，见 P1-6；本次 Growth 改动不触及前端，未扩大战线） | 2026-08-15 (Task 4) |
+
+
+
+
 
 
 
@@ -633,7 +1265,15 @@
 
 
 
+
+
+
+
 | UAT 冒烟测试 | **23/23 passed** (7.83s) | 2026-08-14 |
+
+
+
+
 
 
 
@@ -641,7 +1281,15 @@
 
 
 
+
+
+
+
 | RAG Safety 拒答 | **OK** (空结果→refuse=True) | 2026-08-14 |
+
+
+
+
 
 
 
@@ -649,7 +1297,15 @@
 
 
 
+
+
+
+
 | Rate Limiter | **OK** (10 granted, 5 rejected on 15 requests) | 2026-08-14 |
+
+
+
+
 
 
 
@@ -657,7 +1313,15 @@
 
 
 
+
+
+
+
 | Bifurcation | **38/38 methods** 全部正确 | 2026-08-14 (Phase 6 Task 6-1) |
+
+
+
+
 
 
 
@@ -665,7 +1329,15 @@
 
 
 
+
+
+
+
 | 迁移链 | **7 migrations** (0001→0007) | 2026-08-14 |
+
+
+
+
 
 
 
@@ -673,7 +1345,15 @@
 
 
 
+
+
+
+
 | Training Production 路径测试 | **18/18 passed**（session/message/score 持久化、权限隔离、资源不存在、非法状态、事务回滚、统计聚合） | 2026-08-14 (Task 1) |
+
+
+
+
 
 
 
@@ -681,7 +1361,15 @@
 
 
 
+
+
+
+
 | 后端 pytest (含 Task 2 新增 12 个话术生产路径测试) | **163 passed** (49.40s) | 2026-08-14 (Task 2) |
+
+
+
+
 
 
 
@@ -689,7 +1377,15 @@
 
 
 
+
+
+
+
 | CI (GitHub Actions) | **backend pytest + frontend vitest + vite build 全部通过** | 2026-08-14 (Task 2) |
+
+
+
+
 
 
 
@@ -697,7 +1393,15 @@
 
 
 
+
+
+
+
 | Notification Production 路径测试 | **11/11 passed**（列表隔离/筛选/分页、标记已读、偏好默认/更新/未知类型、回滚） | 2026-08-14 (Task 3) |
+
+
+
+
 
 
 
@@ -705,7 +1409,15 @@
 
 
 
+
+
+
+
 | 后端 pytest (含 Task 4 Growth 生产路径测试) | **190 passed** | 2026-08-15 (Task 4) |
+
+
+
+
 
 
 
@@ -713,7 +1425,15 @@
 
 
 
+
+
+
+
 | CI (GitHub Actions) | **backend pytest + backend-pg (PostgreSQL+pgvector) + frontend 全部通过** | 2026-08-15 (Task 4) |
+
+
+
+
 
 
 
@@ -721,7 +1441,15 @@
 
 
 
+
+
+
+
 | Dashboard Production 路径测试 | **5/5 passed**（空库合法结构、今日统计聚合、AI 建议推导、最近活动合并、用户隔离） | 2026-08-15 (Task 5) |
+
+
+
+
 
 
 
@@ -729,7 +1457,15 @@
 
 
 
+
+
+
+
 | 后端 pytest (含 Task 6 Script Generate+RAG 生产路径测试) | **197 passed** | 2026-08-15 (Task 6) |
+
+
+
+
 
 
 
@@ -737,7 +1473,15 @@
 
 
 
+
+
+
+
 | CI (GitHub Actions) | **backend pytest + backend-pg (PostgreSQL+pgvector) + frontend 全部通过** | 2026-08-15 (Task 6) |
+
+
+
+
 
 
 
@@ -745,18 +1489,50 @@
 
 
 
+
+
+
+
 | Community AI Summary 生产测试 | **9/9 passed**（正常生成+token+持久化、post not found、软删除拒答、AI 失败不写库、超时、空结果、旧摘要不被覆盖、error 后无 summary_complete、真实 wiring+敏感字段检查） | 2026-08-15 (Task 7) |
+
+
+
+
 
 
 
 | CI (GitHub Actions) | **backend pytest + backend-pg (PostgreSQL+pgvector) + frontend 全部通过** | 2026-08-15 (Task 7) |
 
+
+
 | Task 8 真实环境验收 (Production Validation workflow) | **Docker Compose 全栈启动 15s / Phase7 65 PASS 0 FAIL / Phase8 14/14 / pytest 210 passed** | 2026-08-15 (Task 8) |
+
+
 
 | Task 9 AI Provider 验证 (Task 9) | **Gateway 禁静默降级 Mock（缺 Key 明确报错）/ AI_TIMEOUT 可配 / Provider 测试 14 项新增 / pytest 221 passed / Real AI Smoke Test = NOT RUN（未配置真实 Key，opt-in workflow 已就绪）** | 2026-08-15 (Task 9) |
 
+
+
 | Task 10 Real AI Smoke Test 最终验收（Provider=qwen DashScope 真实） | **8/8 PASS：chat 1271ms tokens=44+9 / stream 568ms chunks=3 / product_qa 9013 bytes 真实 RAG+LLM / script_generate 821 bytes citation=True / rag_refusal refused_event=True 真实拒答 / community_ai_summary / training_scenarios 23 / http_login** | 2026-08-15 (Task 10) |
+
 | Task 11 Playwright E2E (e2e-playwright.yml) | **4/4 passed：Login 表单登录 / Dashboard 渲染统计卡片 / Customer List 确定性客户+搜索 / Customer Detail 基本信息+AI 入口；console/pageerror/API 4xx 监控 + 失败截图/trace；CI+Prod Validation 无回归** | 2026-08-15 (Task 11) |
+| Task 12 Playwright E2E 第二阶段 | **11/11 passed（42.2s）：Product QA 页面/问答/Citation(参考来源+文档名)/Refusal + Script 页面/真实生成+Compliance 徽章/Refusal 不编造；修复 4 个真实 RAG 生产 bug（query embedding 缺失 / embedding 维度 / cosine_distance vector 字面量 / RRF 分数量级）** | 2026-08-15 (Task 12) |
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
