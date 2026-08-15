@@ -55,9 +55,12 @@ async def _check_database() -> str:
 
     try:
         # Build a minimal connection string for a quick SELECT 1
-        # asyncpg expects postgresql://user:pass@host:port/db
+        # asyncpg expects postgresql://user:pass@host:port/db (no driver suffix)
+        asyncpg_url = url
+        if "+asyncpg" in asyncpg_url:
+            asyncpg_url = asyncpg_url.replace("+asyncpg", "", 1)
         conn = await asyncio.wait_for(
-            asyncpg.connect(url),
+            asyncpg.connect(asyncpg_url),
             timeout=2.0,
         )
         try:
@@ -202,3 +205,4 @@ async def health_detail(request: Request) -> SuccessResponse:
         },
         request_id=request_id,
     )
+
