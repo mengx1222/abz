@@ -15,7 +15,7 @@ import uuid
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select, text
+from sqlalchemy import func, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -91,9 +91,13 @@ def _prod(monkeypatch, cls, session):
 
 class TestPgTraining:
     async def test_full_training_flow_persists(self, session, monkeypatch):
-        created = await seed_training_scenarios(session)
+        # CI 已先执行 scripts.seed，幂等 seed 可能返回 0（场景已存在）
+        await seed_training_scenarios(session)
         await session.commit()
-        assert created >= 1
+        scenario_count = (
+            await session.execute(select(func.count()).select_from(TrainingScenario))
+        ).scalar_one()
+        assert scenario_count >= 1
 
         uid = await _create_user(session, "13800660001")
         await session.commit()
