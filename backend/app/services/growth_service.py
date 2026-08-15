@@ -5,17 +5,12 @@ Demo 模式使用内存数据，生产模式无缝切换到数据库。
 import uuid
 from datetime import datetime, timedelta, timezone
 
-from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
 from app.core.config import settings
-from app.models.ai_log import AIRequestLog
-from app.models.customer import Customer, CustomerFollowup, CustomerInteraction
-from app.models.growth import UserAchievement
-from app.models.organization import Organization
-from app.models.training import TrainingSession, TrainingScore
 from app.models.user import User
+from app.repositories.growth_repo import GrowthRepository
 from app.repositories.notification_repo import UserAchievementRepository
 from app.schemas.growth import (
     AchievementItem,
@@ -242,6 +237,7 @@ class GrowthService:
 
     def __init__(self, session: AsyncSession | None = None):
         self.session = session
+        self.repo = GrowthRepository(session) if session is not None else None
 
     # ---- Public methods ----
 
@@ -256,73 +252,15 @@ class GrowthService:
         year, month = now.year, now.month
         last_year, last_month = (year - 1, 12) if month == 1 else (year, month - 1)
 
-        customer_ids = list(
-            (
-                await self.session.execute(
-                    select(Customer.id).where(
-                        Customer.assigned_to == user_id,
-                        Customer.is_deleted == False,
-                    )
-                )
-            ).scalars().all()
-        )
+        customer_ids = await self.repo.list_customer_ids(user_id)
 
         # ---- monthly_stats ----
-        inter_month = inter_last = 0
-        closed = high_intent = pending = 0
-        if customer_ids:
-            inter_month = (
-                await self.session.execute(
-                    select(func.count()).select_from(CustomerInteraction).where(
-                        CustomerInteraction.customer_id.in_(customer_ids),
-                        func.extract("year", CustomerInteraction.created_at) == year,
-                        func.extract("month", CustomerInteraction.created_at) == month,
-                    )
-                )
-            ).scalar() or 0
-            inter_last = (
-                await self.session.execute(
-                    select(func.count()).select_from(CustomerInteraction).where(
-                        CustomerInteraction.customer_id.in_(customer_ids),
-                        func.extract("year", CustomerInteraction.created_at) == last_year,
-                        func.extract("month", CustomerInteraction.created_at) == last_month,
-                    )
-                )
-            ).scalar() or 0
-            closed = (
-                await self.session.execute(
-                    select(func.count()).select_from(Customer).where(
-                        Customer.id.in_(customer_ids),
-                        Customer.current_stage == "closed_won",
-                    )
-                )
-            ).scalar() or 0
-            high_intent = (
-                await self.session.execute(
-                    select(func.count()).select_from(Customer).where(
-                        Customer.id.in_(customer_ids),
-                        Customer.intention_level >= 4,
-                    )
-                )
-            ).scalar() or 0
-            pending = (
-                await self.session.execute(
-                    select(func.count()).select_from(CustomerFollowup).where(
-                        CustomerFollowup.customer_id.in_(customer_ids),
-                        CustomerFollowup.status == "pending",
-                    )
-                )
-            ).scalar() or 0
-
-        ai_month = (
-            await self.session.execute(
-                select(func.count()).select_from(AIRequestLog).where(
-                    AIRequestLog.user_id == user_id,
-                    func.extract("year", AIRequestLog.created_at) == year,
-                    func.extract("month", AIRequestLog.created_at) == month,
-                )
-            )
-        ).scalar() or 0
+        inter_month = await self.repo.count_customer_interactions(customer_ids, year, month)
+        inter_last = await self.repo.count_customer_interactions(customer_ids, last_year, last_month)
+        closed = await self.repo.count_closed_won(customer_ids)
+        high_intent = await self.repo.count_high_intent(customer_ids)
+        pending = await self.repo.count_pending_followups(customer_ids)
+        ai_month = await self.repo.count_ai_usage(user_id, year, month)
 
         inter_diff = inter_month - inter_last
         monthly_stats = [
@@ -340,29 +278,12 @@ class GrowthService:
         weekly_trend = []
         for i in range(6, -1, -1):
             day_dt = now - timedelta(days=i)
-            calls = 0
-            if customer_ids:
-                calls = (
-                    await self.session.execute(
-                        select(func.count()).select_from(CustomerInteraction).where(
-                            CustomerInteraction.customer_id.in_(customer_ids),
-                            func.date(CustomerInteraction.created_at) == day_dt.date(),
-                        )
-                    )
-                ).scalar() or 0
+            calls = await self.repo.count_interactions_on_day(customer_ids, day_dt.date())
             weekly_trend.append(WeeklyTrendItem(day=_day_name(day_dt), calls=calls, deals=0))
 
         # ---- ability_scores（由陪练评分映射） ----
         ability_scores: list[AbilityScore] = []
-        score_rows = list(
-            (
-                await self.session.execute(
-                    select(TrainingScore)
-                    .join(TrainingSession, TrainingScore.session_id == TrainingSession.id)
-                    .where(TrainingSession.user_id == user_id, TrainingSession.is_deleted == False)
-                )
-            ).scalars().all()
-        )
+        score_rows = await self.repo.list_training_scores(user_id)
         if score_rows:
             n = len(score_rows)
             ability_scores = [
@@ -376,23 +297,8 @@ class GrowthService:
         learning_courses: list[LearningCourse] = []
 
         # ---- level / exp（由真实活动推导的简单等级体系） ----
-        training_count = (
-            await self.session.execute(
-                select(func.count()).select_from(TrainingSession).where(
-                    TrainingSession.user_id == user_id,
-                    TrainingSession.status == "completed",
-                    TrainingSession.is_deleted == False,
-                )
-            )
-        ).scalar() or 0
-        achievement_count = (
-            await self.session.execute(
-                select(func.count()).select_from(UserAchievement).where(
-                    UserAchievement.user_id == user_id,
-                    UserAchievement.is_unlocked == True,
-                )
-            )
-        ).scalar() or 0
+        training_count = await self.repo.count_completed_trainings(user_id)
+        achievement_count = await self.repo.count_unlocked_achievements(user_id)
 
         total_exp = training_count * 10 + achievement_count * 50
         level = total_exp // 500 + 1
@@ -429,56 +335,19 @@ class GrowthService:
     async def get_leaderboard(
         self, period: str = "month", user_id: uuid.UUID | None = None
     ) -> LeaderboardResponse:
-        """获取排行榜（生产模式按真实活动聚合打分）。"""
+        """获取排行榜（生产模式按真实活动聚合打分，并遵守组织可见范围）。"""
         if settings.DEMO_MODE:
             return self._demo_get_leaderboard(period, user_id)
 
-        # 各用户的活动统计
-        user_rows = list(
-            (
-                await self.session.execute(
-                    select(User.id, User.name, Organization.name)
-                    .outerjoin(Organization, User.organization_id == Organization.id)
-                    .where(User.is_deleted == False)
-                )
-            ).all()
-        )
-        closed_counts = dict(
-            (
-                await self.session.execute(
-                    select(Customer.assigned_to, func.count()).where(
-                        Customer.current_stage == "closed_won",
-                        Customer.is_deleted == False,
-                    ).group_by(Customer.assigned_to)
-                )
-            ).all()
-        )
-        ach_counts = dict(
-            (
-                await self.session.execute(
-                    select(UserAchievement.user_id, func.count()).where(
-                        UserAchievement.is_unlocked == True,
-                    ).group_by(UserAchievement.user_id)
-                )
-            ).all()
-        )
-        train_counts = dict(
-            (
-                await self.session.execute(
-                    select(TrainingSession.user_id, func.count()).where(
-                        TrainingSession.status == "completed",
-                        TrainingSession.is_deleted == False,
-                    ).group_by(TrainingSession.user_id)
-                )
-            ).all()
-        )
+        # 解析当前用户可见组织范围（RBAC）：None=全部，列表=限定组织
+        org_scope: list[uuid.UUID] | None = None
+        if user_id is not None:
+            current_user = await self.session.get(User, user_id)
+            if current_user is not None:
+                role_level = current_user.role.level if current_user.role else 0
+                org_scope = await self.repo.get_org_scope(current_user, role_level)
 
-        scored = []
-        for uid, name, org_name in user_rows:
-            s = closed_counts.get(uid, 0) * 100 + ach_counts.get(uid, 0) * 50 + train_counts.get(uid, 0) * 10
-            if s > 0:
-                scored.append((uid, name, org_name or "", s))
-        scored.sort(key=lambda e: e[3], reverse=True)
+        scored = await self.repo.get_leaderboard_rows(org_ids=org_scope)
 
         leaderboard = [
             LeaderboardItem(rank=i, user_name=name, org_name=org_name, score=s, avatar="")
@@ -561,3 +430,4 @@ class GrowthService:
             else:
                 locked.append(item)
         return AchievementList(unlocked=unlocked, locked=locked)
+
