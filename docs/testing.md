@@ -518,3 +518,39 @@ test-all: test test-e2e
 2. **合并触发**：合并到 main 分支时运行全量测试（含 E2E）
 3. **覆盖率门禁**：整体覆盖率低于 80% 时阻止合并
 4. **P0 测试门禁**：任何 P0 测试失败时阻止合并
+
+
+---
+
+## 13. Playwright E2E（Task 11，2026-08-15）
+
+**基础设施**：
+
+- 框架：`@playwright/test`（frontend 依赖，`npm run test:e2e`）
+- 配置：`frontend/playwright.config.ts`
+  - 双项目：`login-flow`（真实表单登录，空白 session）+ `chromium`（storageState 预登录）
+  - `workers: 1` 串行（共享后端/DB，确定性数据）
+  - 失败自动：screenshot / trace / video（`retain-on-failure`）
+  - 确定性等待：locator + expect + waitForURL，无 `sleep(5000)`
+- Global Setup：`frontend/e2e/global-setup.ts`
+  - 确定性 AGENT 账号 `13800138000/888888` 登录 → 保存 storageState（localStorage `abz_token`/`abz_user`）
+  - 幂等创建确定性测试客户 `E2E-张先生 / 13900001111`
+- CI：`.github/workflows/e2e-playwright.yml`（独立 job，PG+Redis services + backend host + frontend vite dev；不影响现有 CI）
+
+**黄金路径第一阶段（4/4 passed）**：
+
+```
+✅ Login          e2e/auth/login.spec.ts          — 真实表单登录 → /dashboard → 用户名可见
+✅ Dashboard      e2e/dashboard/dashboard.spec.ts — h1 + 今日工作/AI今日建议卡片渲染 + 无 JS error
+✅ Customer List  e2e/customers/customers.spec.ts — 客户360 + E2E-张先生 + 手机号搜索 + API 4xx 监控
+✅ Customer Detail e2e/customers/customer-detail.spec.ts — 点击客户 → 详情 + 基本信息 tab + AI 分析入口
+```
+
+**浏览器错误监控（任务十二）**：每个 spec 监听 `page.on('console')`（error 级）与 `page.on('pageerror')`，出现真实错误即失败；监听 `response` 对 `/api/v1/*` 的 4xx/5xx 也判失败。
+
+**已知修复记录**：
+1. ESM `__dirname` → `import.meta.url`（frontend `"type": "module"`）
+2. storageState 用户需完整字段（`/auth/me` 拉取含 role_code）→ TopBar/Sidebar 正常渲染
+3. **localStorage key 拼写**：`azb_token`（正确）≠ `azb_token`（错误）—— authStore 读 `abz_*` 前缀，E2E 注入必须一致
+
+**范围**：本阶段仅 Login → Dashboard → Customer List → Customer Detail。Product QA / Script / Training / Growth E2E 属后续 Task 12。
