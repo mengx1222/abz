@@ -17,6 +17,7 @@ import pytest
 import pytest_asyncio
 from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.models import Base, Organization, Role, Script, TrainingMessage, TrainingScenario, TrainingScore, TrainingSession, User
@@ -39,7 +40,10 @@ pytestmark = [
 
 @pytest_asyncio.fixture(scope="module")
 async def engine():
-    eng = create_async_engine(PG_URL)
+    # NullPool: 每个连接用完即关闭，避免 asyncpg 连接跨 pytest-asyncio
+    # 事件循环复用（pytest-asyncio 默认每测试函数一个 loop，module 级
+    # fixture 的连接池复用会触发 "attached to a different loop"）。
+    eng = create_async_engine(PG_URL, poolclass=NullPool)
     async with eng.begin() as conn:
         await conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         # CI 已先执行 alembic upgrade head；create_all(checkfirst) 作为兜底
@@ -195,3 +199,4 @@ class TestPgDashboardGrowth:
         ach = await growth.get_achievements(uid)
         assert isinstance(ach.unlocked, list)
         assert isinstance(ach.locked, list)
+
