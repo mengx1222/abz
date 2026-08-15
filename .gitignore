@@ -23,6 +23,8 @@ frontend/node_modules/
 .env.local
 .env.*.local
 backend/.env
+# 运行时生成的含真实密钥配置（backend/.env.production 为占位模板，保留）
+.env.production
 
 # Database
 *.db
@@ -51,3 +53,4 @@ tool-results/
 
 # Logs
 *.log
+
