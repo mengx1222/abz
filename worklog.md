@@ -865,3 +865,34 @@ Stage Summary:
 - growth_service 从 NEEDS_WORK(2)+DEMO_ONLY(2) → PRODUCTION_READY(3)+DEMO_ONLY(1, course_detail 无课程表)
 - Service Production 路径总计: PRODUCTION_READY 35→38, NEEDS_WORK 5→3, DEMO_ONLY 2→1
 - 下一阶段: dashboard_service (1 方法) 生产化
+
+---
+Task ID: 25
+Agent: main
+Task: Task 5 — Dashboard Service Production 化
+
+Work Log:
+- 审计（以仓库真实代码为准）:
+  - dashboard_service 生产路径 `_production_get_overview` 已闭环（commit 0bb93c6 + 测试 82097cd），
+    project-status E2 表 "dashboard 0 READY / 1 NEEDS_WORK 空zeros" 为过时信息
+  - 真实缺口: Service 直接 self.session.execute(复杂 SQL)（10+ 处内联查询），违反 Repository 分层约定
+- 新建 backend/app/repositories/dashboard_repo.py (DashboardRepository):
+  - 今日统计: list_customer_ids / count_interactions_on / count_closed_won / count_high_intent / count_pending_followups / count_ai_usage_on / count_unread_notifications
+  - 最近活动: get_recent_completed_training / list_recent_interactions / list_recent_trainings / list_recent_scripts / list_recent_conversations
+- 改造 dashboard_service.py:
+  - __init__ 注入 DashboardRepository
+  - _production_get_overview 全部改为 repo 调用，删除全部内联 SQL
+  - 清理未使用模型/查询导入
+- 测试: 既有 5 个生产路径测试（空库/聚合/AI建议/活动合并/用户隔离）行为不变，验证通过
+
+验证结果:
+- 后端 pytest: 通过（含 Dashboard 5 个生产路径测试）
+- Dashboard Production 路径测试: 5/5 passed
+- CI (GitHub Actions): backend + backend-pg (PostgreSQL+pgvector) + frontend 三 job 全部通过
+- 前端 TSC: 未触及前端，无变化
+- Pushed to GitHub ✅ (2 commits: 7cd28bf / 943324a)
+
+Stage Summary:
+- dashboard_service 从 NEEDS_WORK(1) → PRODUCTION_READY(1)
+- Service Production 路径总计: PRODUCTION_READY 38→39, NEEDS_WORK 3→2, DEMO_ONLY 1
+- 下一阶段: community_service.ai_summary 生产化（Task 6）
