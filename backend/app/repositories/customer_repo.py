@@ -23,9 +23,9 @@ class CustomerRepository(BaseRepository[Customer]):
         intention_level: int | None = None,
         tag: str | None = None,
         search: str | None = None,
-        organization_id: uuid.UUID | None = None,
+        organization_id: uuid.UUID | list[uuid.UUID] | None = None,
     ) -> tuple[list[Customer], int]:
-        """带筛选的客户列表查询。"""
+        """带筛选的客户列表查询。organization_id 支持单个 UUID 或 UUID 列表。"""
         query = select(Customer).where(Customer.is_deleted == False)
         count_query = select(Customer.id).where(Customer.is_deleted == False)
 
@@ -39,8 +39,12 @@ class CustomerRepository(BaseRepository[Customer]):
             query = query.where(Customer.intention_level == intention_level)
             count_query = count_query.where(Customer.intention_level == intention_level)
         if organization_id:
-            query = query.where(Customer.organization_id == organization_id)
-            count_query = count_query.where(Customer.organization_id == organization_id)
+            if isinstance(organization_id, list):
+                query = query.where(Customer.organization_id.in_(organization_id))
+                count_query = count_query.where(Customer.organization_id.in_(organization_id))
+            else:
+                query = query.where(Customer.organization_id == organization_id)
+                count_query = count_query.where(Customer.organization_id == organization_id)
         if tag:
             # JSONB 包含匹配
             query = query.where(Customer.tags.contains([tag]))
@@ -82,3 +86,4 @@ class CustomerFollowupRepository(BaseRepository[CustomerFollowup]):
 
     def __init__(self, session: AsyncSession):
         super().__init__(CustomerFollowup, session)
+
