@@ -83,6 +83,11 @@ jobs:
           # E2E 确定性知识库（Product QA / Script Generation 检索与拒答测试依赖）
           python scripts/e2e_seed_knowledge.py
 
+      - name: RAG diagnostic (real AI retrieval sanity check)
+        run: |
+          cd backend
+          python scripts/rag_diag.py 2>&1 | tail -20 || true
+
       - name: Start backend (DEMO_MODE=false, real AI provider)
         run: |
           cd backend
@@ -129,4 +134,5 @@ jobs:
           name: playwright-traces
           path: frontend/test-results/
           retention-days: 7
+
 
