@@ -207,10 +207,14 @@ class ScriptService:
         self.favorite_repo = ScriptFavoriteRepository(session)
 
     async def _get_rag_pipeline(self) -> RAGPipeline | None:
-        """获取RAG Pipeline（懒加载）。"""
-        if self._rag_pipeline is None and settings.DEMO_MODE:
+        """获取RAG Pipeline（懒加载）。
+
+        Demo 模式使用内存检索器；生产模式传入数据库会话，走
+        pgvector + BM25 + RRF 混合检索（知识库依据）。
+        """
+        if self._rag_pipeline is None:
             try:
-                self._rag_pipeline = RAGPipeline(db=None)
+                self._rag_pipeline = RAGPipeline(db=self.session)
                 await self._rag_pipeline._get_retriever()
             except Exception as e:
                 logger.warning("script_rag_init_failed", error=str(e))
