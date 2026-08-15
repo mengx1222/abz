@@ -40,7 +40,7 @@ test.describe('Product QA', () => {
     const watcher = watchPage(page);
     await page.goto('/product-qa');
 
-    await expect(page.getByRole('heading', { name: 'AI 产品专家' })).toBeVisible({ timeout: 15_000 });
+    await expect(page.locator('h1', { hasText: 'AI 产品专家' })).toBeVisible({ timeout: 15_000 });
     await expect(page.getByPlaceholder('输入你的保险问题...')).toBeVisible();
     await expect(page.getByRole('button', { name: '发送' })).toBeVisible();
     // 初始引导文案
