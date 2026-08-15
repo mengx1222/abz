@@ -6,6 +6,7 @@ import { test, expect } from '@playwright/test';
  * 环境：真实 PG + Redis + 真实 AI provider（DashScope；RAG 语义检索命中确定性知识库）
  * 注：RAG 检索依赖 pipeline.query 的 query_embedding（真实 embedding 语义命中）
  * 已修复：cosine_distance 需 vector 字面量字符串（asyncpg 拒绝 list）
+ * 二次修复：::vector cast（cosine_distance(vector, varchar) 不存在）
  *
  * 覆盖：
  *   - 页面加载（输入框/提交按钮/无错误）
