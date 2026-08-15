@@ -3,7 +3,7 @@ import { test, expect } from '@playwright/test';
 /**
  * E2E 第二阶段 — Product QA（AI 产品专家）
  *
- * 环境：真实 PG + Redis + mock AI provider（E2E CI 已 seed 确定性知识库）
+ * 环境：真实 PG + Redis + 真实 AI provider（DashScope；RAG 语义检索命中确定性知识库）
  *
  * 覆盖：
  *   - 页面加载（输入框/提交按钮/无错误）
