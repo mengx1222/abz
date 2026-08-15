@@ -101,8 +101,8 @@ export default async function globalSetup(): Promise<void> {
         {
           origin: process.env.E2E_FRONTEND_ORIGIN || 'http://localhost:3000',
           localStorage: [
-            { name: 'azb_token', value: token },
-            { name: 'azb_user', value: JSON.stringify(fullUser) },
+            { name: 'abz_token', value: token },
+            { name: 'abz_user', value: JSON.stringify(fullUser) },
           ],
         },
       ],
