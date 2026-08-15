@@ -416,7 +416,10 @@ class Retriever:
         # 计算最终分数并排序
         final: list[SearchResult] = []
         for cid, info in scores.items():
-            rrf_score = info.get("rrf_vector", 0) + info.get("rrf_bm25", 0)
+            # RRF 原始分 1/(k+rank) 量级过小（k=60 单命中约 0.016），
+            # 而 pipeline.MIN_CONTEXT_SCORE=0.3 是给原始向量/BM25 分数的阈值。
+            # 统一放大 100 倍，使 RRF 分数与原始分数同量级，保持拒答门控语义。
+            rrf_score = (info.get("rrf_vector", 0) + info.get("rrf_bm25", 0)) * 100.0
             metadata = info["data"].get("metadata", {})
             final.append(SearchResult(
                 chunk_id=cid,
