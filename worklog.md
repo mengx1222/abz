@@ -929,3 +929,33 @@ Stage Summary:
 - script_service.generate_scripts 从 NEEDS_WORK(1) → PRODUCTION_READY(1)，script_service 总计 7 方法 PRODUCTION_READY
 - Service Production 路径总计: PRODUCTION_READY 39→40, NEEDS_WORK 2→1, DEMO_ONLY 1
 - 剩余: community_service.ai_summary 生产路径（注: 已在更早阶段实现并推送 af53ea9，剩余为验收确认）
+
+---
+Task ID: 27
+Agent: main
+Task: Task 7 — Community AI Summary Production Hardening
+
+Work Log:
+- 审计（以仓库真实代码为准）:
+  - community_service._production_generate_ai_summary 生产路径此前已存在（af53ea9）：PostRepository → AI Gateway → SSE → DB 持久化
+  - 真实缺陷（与任务文件描述一致）: ① AI 失败/空结果时把错误文本（"AI 摘要生成失败，请稍后重试。"）照常持久化到 post.ai_summary ② 失败后仍发 summary_complete（前端误判成功）③ 未检查帖子软删除（与其它社区方法不一致）
+- 修复 community_service.py:
+  - AI 异常 → 发 error 事件 → return（不保存、不发 summary_complete）
+  - 空结果 → 发 error 事件（"返回空内容"）→ return
+  - 仅 AI 正常生成且摘要非空才持久化 post.ai_summary = summary_text.strip() + commit
+  - 持久化异常 → rollback → error 事件
+  - 帖子软删除（is_deleted）→ error "帖子不存在"（与现有社区规则一致）
+- 新增 tests/unit/test_community_service_production.py（9 个测试）:
+  - 正常生成+流式 token+持久化 / post not found / 软删除拒答 / AI 失败不写库 / AI 超时 / 空结果 / 旧摘要不被失败覆盖 / error 后无 summary_complete / 真实 wiring（Service→PostRepository→AI Gateway，仅 Mock 最底层 chat）+ 敏感字段检查（只传 title+content）
+- 文档: project-status（E2 表 community 9→10 READY、NEEDS_WORK 1→0、P1-4 清空、F 段全部闭环、Prod-11、G 记录）、api.md（新增 9.10 AI 摘要小节，含失败行为）、worklog（本记录）
+
+验证结果:
+- 后端 pytest: 206 passed（含 Community AI Summary 9 个生产测试）
+- CI (GitHub Actions): backend + backend-pg (PostgreSQL+pgvector) + frontend 三 job 全部通过
+- 前端: 未修改（SSE 事件结构兼容）
+- Pushed to GitHub ✅ (2 commits: 73cbba5 / f214d2d)
+
+Stage Summary:
+- community_service.ai_summary 从 NEEDS_WORK(1) → PRODUCTION_READY，community_service 总计 10 方法 PRODUCTION_READY
+- Service Production 路径总计: PRODUCTION_READY 40→41, NEEDS_WORK 1→0, DEMO_ONLY 1（growth.course_detail 无课程表，保持不动）
+- 所有 8 个 Service 生产路径已全部闭环
