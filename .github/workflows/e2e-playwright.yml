@@ -1,0 +1,117 @@
+name: E2E Playwright
+
+# Task 11 — Playwright E2E 基础设施 + 核心黄金路径第一阶段
+# 独立于现有 backend/frontend/production-validation CI，不互相阻塞。
+# 环境：PostgreSQL + Redis（services 容器）+ backend（host, DEMO_MODE=false, mock AI）+ frontend（vite dev）
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "frontend/e2e/**"
+      - "frontend/playwright.config.ts"
+      - "frontend/package.json"
+      - ".github/workflows/e2e-playwright.yml"
+  workflow_dispatch:
+
+jobs:
+  e2e:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: abz_user
+          POSTGRES_PASSWORD: abz_dev_2026
+          POSTGRES_DB: anzhenbao
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U abz_user -d anzhenbao"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      AZB_APP_ENV: production
+      AZB_DEBUG: "false"
+      AZB_DEMO_MODE: "false"
+      AZB_DATABASE_URL: postgresql+asyncpg://abz_user:abz_dev_2026@localhost:5432/anzhenbao
+      AZB_REDIS_URL: redis://localhost:6379/0
+      AZB_JWT_SECRET_KEY: e2e-playwright-secret
+      # E2E 不调用真实 AI（任务十八）：mock provider 即可
+      AZB_AI_PROVIDER: mock
+      E2E_API_BASE: http://localhost:8000/api/v1
+      E2E_BASE_URL: http://localhost:3000
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+
+      - name: Install backend deps
+        run: |
+          cd backend
+          pip install -e ".[dev]"
+          pip install psycopg2-binary redis requests
+
+      - name: Alembic migrate + seed
+        run: |
+          cd backend
+          alembic upgrade head
+          python -m scripts.seed || python scripts/seed.py
+
+      - name: Start backend (DEMO_MODE=false, mock AI)
+        run: |
+          cd backend
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8000/api/v1/ready > /dev/null 2>&1; then
+              echo "BACKEND_READY after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -s http://127.0.0.1:8000/api/v1/ready; echo
+
+      - name: Install frontend deps + Playwright browsers
+        run: |
+          cd frontend
+          npm install
+          npx playwright install --with-deps chromium
+
+      - name: Run Playwright E2E
+        run: |
+          cd frontend
+          npx playwright test
+
+      - name: Upload Playwright report on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: frontend/playwright-report/
+          retention-days: 7
+
+      - name: Upload test traces on failure
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-traces
+          path: frontend/test-results/
+          retention-days: 7
