@@ -21,15 +21,13 @@ depends_on: Union[str, Sequence[str], None] = None
 def upgrade() -> None:
     # ============================================================
     # 1. knowledge_bases 表增强
+    # 注意: created_by 已由 0002 迁移的 _BASE_COLS 创建，此处不再重复添加
     # ============================================================
     op.add_column("knowledge_bases",
         sa.Column("effective_date", sa.DateTime(timezone=True), nullable=True, comment="生效日期"),
     )
     op.add_column("knowledge_bases",
         sa.Column("expiry_date", sa.DateTime(timezone=True), nullable=True, comment="失效日期"),
-    )
-    op.add_column("knowledge_bases",
-        sa.Column("created_by", UUID(as_uuid=True), nullable=True, comment="创建人"),
     )
 
     # ============================================================
@@ -68,6 +66,5 @@ def downgrade() -> None:
     op.drop_column("documents", "effective_date")
 
     # 移除 knowledge_bases 增强字段
-    op.drop_column("knowledge_bases", "created_by")
     op.drop_column("knowledge_bases", "expiry_date")
     op.drop_column("knowledge_bases", "effective_date")
