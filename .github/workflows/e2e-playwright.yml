@@ -75,6 +75,8 @@ jobs:
           cd backend
           alembic upgrade head
           python -m scripts.seed || python scripts/seed.py
+          # E2E 确定性知识库（Product QA / Script Generation 检索与拒答测试依赖）
+          python scripts/e2e_seed_knowledge.py
 
       - name: Start backend (DEMO_MODE=false, mock AI)
         run: |
@@ -115,3 +117,4 @@ jobs:
           name: playwright-traces
           path: frontend/test-results/
           retention-days: 7
+
