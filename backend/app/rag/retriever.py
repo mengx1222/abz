@@ -304,6 +304,8 @@ class Retriever:
         """PostgreSQL 全文检索 (tsvector + GIN)。"""
         # 使用 plainto_tsquery 进行简单查询
         search_text = func.plainto_tsquery("simple", query)
+        # search_text 列是纯文本（Text），@@ / ts_rank 需要 tsvector —— 查询时转换
+        search_col = func.to_tsvector("simple", DocumentChunk.search_text)
 
         stmt = (
             select(
@@ -311,9 +313,9 @@ class Retriever:
                 DocumentChunk.__table__.c.document_id,
                 DocumentChunk.__table__.c.content,
                 DocumentChunk.__table__.c["metadata"],
-                func.ts_rank(DocumentChunk.search_text, search_text).label("score"),
+                func.ts_rank(search_col, search_text).label("score"),
             )
-            .where(DocumentChunk.search_text.op("@@")(search_text))
+            .where(search_col.op("@@")(search_text))
             .where(~Document.is_deleted)
             .where(Document.status == "published")
             .join(Document, DocumentChunk.document_id == Document.id)
