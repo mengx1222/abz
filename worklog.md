@@ -896,3 +896,36 @@ Stage Summary:
 - dashboard_service 从 NEEDS_WORK(1) → PRODUCTION_READY(1)
 - Service Production 路径总计: PRODUCTION_READY 38→39, NEEDS_WORK 3→2, DEMO_ONLY 1
 - 下一阶段: community_service.ai_summary 生产化（Task 6）
+
+---
+Task ID: 26
+Agent: main
+Task: Task 6 — Script Generate + RAG Production 化
+
+Work Log:
+- 审计（以仓库真实代码为准）:
+  - script_service.generate_scripts 生产模式此前已走"共用生成逻辑"（RAG 检索 → AI Gateway → Compliance → create_script 持久化），比文档声称的"RAG 仍仅 Demo"更完整
+  - 真实缺口: ① 无 Citation 返回（RAG 结果只拼进 prompt，不透传 citations）② 无 Confidence Gate（RAG 未命中/低置信度时仍继续生成，违反"不得编造产品事实"）③ 生产路径复用 _demo_generate_scripts 方法名，Demo/Production 未清晰分离 ④ AI 失败 fallback 成固定错误文本并照常持久化（违反"失败不伪造结果"）
+- 改造 script_service.py:
+  - 拆出独立 _production_generate_scripts（生产路径），_demo_generate_scripts 保持纯 Demo
+  - 生产路径加入 Confidence Gate: should_refuse_answer + assess_confidence → rag_status = ALLOW / REVIEW / REFUSE
+    - REFUSE（未命中/低置信度）: 逐风格发 style_refused 事件，不生成产品事实话术、不持久化
+    - ALLOW/REVIEW: 正常生成，rag_status 透传给前端（REVIEW 提示人工确认）
+  - rag_context / style_complete 事件携带 citations（document_id/document_title/section/source/score）
+  - AI 失败: 发 style_error 事件（可重试错误），不伪造话术、不持久化
+  - product_type 支持回退到 customer_context.product_type
+- 测试重写 tests/unit/test_script_rag_production.py（9 个测试）:
+  - 生产检索器用 Retriever 非 DemoRetriever / RAG 命中+Citation / 未命中拒答 / 低置信度拒答 / REVIEW 标记 / AI 失败 / Compliance 进链(RED) / 权限归属 / 无产品类型通用生成
+  - RAG 命中场景通过 mock 最底层检索器返回构造 SearchResult；真实 Service → AI Gateway → Compliance wiring 不变
+- 文档: project-status（E2 表 script 6→7 READY、P1-4 剩 1、F 段、Prod-10、G 记录）、api.md（7.1 校准为真实端点 + Confidence Gate/Citation 说明）、worklog（本记录）
+
+验证结果:
+- 后端 pytest: 197 passed（含 Script RAG 9 个测试）
+- CI (GitHub Actions): backend + backend-pg (PostgreSQL+pgvector) + frontend 三 job 全部通过
+- 前端: 未改前端（SSE 事件为通用 {event,data} 结构，citations/rag_status 为新增字段不破坏解析）
+- Pushed to GitHub ✅ (3 commits: 575775f / 60a3c19 / 7b527b9)
+
+Stage Summary:
+- script_service.generate_scripts 从 NEEDS_WORK(1) → PRODUCTION_READY(1)，script_service 总计 7 方法 PRODUCTION_READY
+- Service Production 路径总计: PRODUCTION_READY 39→40, NEEDS_WORK 2→1, DEMO_ONLY 1
+- 剩余: community_service.ai_summary 生产路径（注: 已在更早阶段实现并推送 af53ea9，剩余为验收确认）
