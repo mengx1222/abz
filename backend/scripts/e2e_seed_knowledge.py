@@ -56,6 +56,11 @@ async def main() -> None:
     engine = create_async_engine(DB_URL, pool_pre_ping=True)
     Session = async_sessionmaker(engine, expire_on_commit=False)
 
+    # 通过 AI Gateway 生成确定性 embedding（真实 provider 或 mock 均可用）
+    from app.ai.gateway import get_ai_gateway
+
+    gateway = get_ai_gateway()
+
     async with Session() as session:
         # 幂等：已存在则跳过
         existing = (
@@ -90,12 +95,21 @@ async def main() -> None:
             await session.flush()
 
             # 每个文档 1 个 chunk（E2E 足够；检索按全文匹配）
+            # embedding 用 AI Gateway 生成（真实 provider 语义向量 / mock 确定性向量）
+            embeddings = []
+            try:
+                resp = await gateway.embed(texts=[doc_spec["content"]])
+                embeddings = resp.embeddings
+            except Exception as e:
+                print(f"e2e_seed_knowledge: embed failed for '{doc_spec['title']}': {e}")
+
             chunk = DocumentChunk(
                 document_id=doc.id,
                 chunk_index=0,
                 content=doc_spec["content"],
                 token_count=len(doc_spec["content"]) // 4,
                 search_text=doc_spec["content"],
+                embedding=embeddings[0] if embeddings else None,
                 metadata_={"heading": "产品保障", "section": "核心条款"},
             )
             session.add(chunk)
