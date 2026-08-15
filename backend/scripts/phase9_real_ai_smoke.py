@@ -83,13 +83,14 @@ class RealAiSmoke:
         gw = get_ai_gateway()
         tokens: list[str] = []
         t0 = time.perf_counter()
-        async for token in gw.chat(
+        stream = await gw.chat(
             messages=[
                 {"role": "system", "content": "你是安诊保 AI 副驾的测试助手。"},
                 {"role": "user", "content": "请用中文输出一句话：流式传输正常。"},
             ],
             stream=True,
-        ):
+        )
+        async for token in stream:
             tokens.append(token)
         latency_ms = int((time.perf_counter() - t0) * 1000)
         return {"joined": "".join(tokens), "chunk_count": len(tokens), "latency_ms": latency_ms}
