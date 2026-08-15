@@ -381,7 +381,7 @@ Authorization: Bearer <access_token>
 
 ## 4. 工作台 API
 
-> **权限**: `agent`、`supervisor`、`admin`
+> **权限**: 登录用户（JWT Bearer）。数据按当前用户隔离（负责的客户 + 自身活动）。
 
 ### 4.1 工作台概览
 
@@ -389,158 +389,40 @@ Authorization: Bearer <access_token>
 GET /api/v1/dashboard
 ```
 
+**说明**: 生产模式从数据库真实聚合：今日统计（今日互动/成交保单/待跟进客户/AI 问答次数）、AI 建议（由待跟进/高意向/未读通知/最近陪练推导）、最近活动（互动/陪练/话术/问答合并）、未读通知数。
+
 **成功响应** `200`:
 
 ```json
 {
-  "success": true,
-  "data": {
-    "today_summary": {
-      "customer_count": 128,
-      "new_customers_today": 3,
-      "follow_ups_today": 5,
-      "follow_ups_completed": 2,
-      "ai_interactions_today": 12
-    },
-    "ai_suggestions": [
-      {
-        "id": "sug_001",
-        "type": "follow_up",
-        "priority": "high",
-        "title": "客户李伟已 7 天未跟进",
-        "description": "客户李伟在咨询重疾险后已 7 天未联系，建议尽快回访。",
-        "customer_id": "cus_001",
-        "customer_name": "李伟",
-        "action_url": "/customers/cus_001",
-        "created_at": "2025-01-15T09:00:00+08:00"
-      },
-      {
-        "id": "sug_002",
-        "type": "training",
-        "priority": "medium",
-        "title": "建议完成异议处理专项训练",
-        "description": "根据近期话术使用情况，建议加强「保费异议」场景的陪练训练。",
-        "action_url": "/training/scenarios/scn_003",
-        "created_at": "2025-01-15T08:00:00+08:00"
-      }
-    ],
-    "recent_activities": [
-      {
-        "id": "act_001",
-        "type": "customer_interaction",
-        "title": "与客户王芳的沟通记录",
-        "time": "2025-01-15T14:30:00+08:00"
-      },
-      {
-        "id": "act_002",
-        "type": "script_generated",
-        "title": "生成了健康险话术",
-        "time": "2025-01-15T11:20:00+08:00"
-      }
-    ],
-    "quick_stats": {
-      "total_customers": 128,
-      "high_intent_customers": 15,
-      "pending_follow_ups": 8,
-      "training_score_avg": 78.5
+  "greeting": "上午好",
+  "user_name": "林思远",
+  "today_stats": [
+    {"label": "今日互动", "value": "5", "sub": "+2 较昨日", "trend": "up"},
+    {"label": "成交保单", "value": "1", "sub": "2个高意向", "trend": "neutral"},
+    {"label": "待跟进客户", "value": "3", "sub": "待处理跟进", "trend": "neutral"},
+    {"label": "AI 问答次数", "value": "8", "sub": "今日累计", "trend": "neutral"}
+  ],
+  "ai_suggestions": [
+    {
+      "id": "...",
+      "title": "有客户待跟进",
+      "description": "您有 3 个待跟进客户，建议尽快安排回访。",
+      "tag": "紧急跟进",
+      "tag_variant": "error",
+      "action_url": "/customers",
+      "created_at": "2026-08-15T01:00:00+00:00"
     }
-  },
-  "message": "",
-  "request_id": "req_xxx"
+  ],
+  "quick_actions": [
+    {"label": "新建客户", "icon": "👤", "path": "/customers/new", "color": "bg-primary/10 text-primary"}
+  ],
+  "recent_activities": [
+    {"id": "...", "type": "followup", "title": "互动：王女士", "description": "通话记录", "time": "5分钟前", "icon": "📞"}
+  ],
+  "unread_notifications": 2
 }
 ```
-
----
-
-### 4.2 统计数据
-
-```
-GET /api/v1/dashboard/stats
-```
-
-**查询参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `period` | string | `today` | 统计周期：`today`、`week`、`month`、`quarter` |
-
-**成功响应** `200`:
-
-```json
-{
-  "success": true,
-  "data": {
-    "period": "week",
-    "customer_funnel": {
-      "new_leads": 12,
-      "initial_contact": 8,
-      "needs_analysis": 6,
-      "proposal_presented": 3,
-      "closed_won": 1
-    },
-    "ai_usage": {
-      "product_qa_count": 45,
-      "script_generated_count": 18,
-      "customer_analysis_count": 12,
-      "training_sessions": 5,
-      "total_ai_interactions": 80
-    },
-    "performance": {
-      "conversion_rate": 8.3,
-      "avg_response_time_hours": 2.5,
-      "follow_up_rate": 85.0
-    }
-  },
-  "message": "",
-  "request_id": "req_xxx"
-}
-```
-
----
-
-### 4.3 AI 今日建议
-
-```
-GET /api/v1/dashboard/ai-suggestions
-```
-
-**查询参数**:
-
-| 参数 | 类型 | 默认值 | 说明 |
-|------|------|--------|------|
-| `type` | string | — | 筛选建议类型：`follow_up`、`training`、`cross_sell`、`retention` |
-| `priority` | string | — | 筛选优先级：`high`、`medium`、`low` |
-
-**成功响应** `200`:
-
-```json
-{
-  "success": true,
-  "data": {
-    "items": [
-      {
-        "id": "sug_001",
-        "type": "follow_up",
-        "priority": "high",
-        "title": "客户李伟已 7 天未跟进",
-        "description": "客户李伟在咨询重疾险后已 7 天未联系，建议尽快回访。可参考近期沟通记录中的需求痛点。",
-        "customer_id": "cus_001",
-        "customer_name": "李伟",
-        "suggested_action": "建议通过电话回访，强调产品保障范围和理赔便捷性。",
-        "action_url": "/customers/cus_001",
-        "created_at": "2025-01-15T09:00:00+08:00",
-        "is_read": false
-      }
-    ],
-    "total": 5,
-    "unread_count": 3
-  },
-  "message": "",
-  "request_id": "req_xxx"
-}
-```
-
----
 
 ## 5. AI 产品专家 API
 
