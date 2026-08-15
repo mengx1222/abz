@@ -118,10 +118,11 @@ test.describe('Script Generation', () => {
     const watcher = watchPage(page);
     await page.goto('/scripts');
 
-    // "极光量子保险" 不在 E2E 确定性知识库 → Confidence Gate REFUSE
+    // "车险" 在 PRODUCT_TYPES 下拉中可选，但 E2E 知识库只有医疗险/重疾险文档
+    // → RAG 检索无命中 → Confidence Gate REFUSE → 不生成产品事实性话术
     await fillGenerateForm(page, {
       name: 'E2E-张先生',
-      product: '极光量子保险',
+      product: '车险',
       style: '专业型',
     });
 
