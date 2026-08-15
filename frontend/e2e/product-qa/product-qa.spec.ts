@@ -8,6 +8,7 @@ import { test, expect } from '@playwright/test';
  * 已修复：cosine_distance 需 vector 字面量字符串（asyncpg 拒绝 list）
  * 二次修复：::vector cast（cosine_distance(vector, varchar) 不存在）
  * 三次修复：inline vector literal（bindparam :vec::vector 无法解析）→ CI 全绿
+ * 四次修复：RRF score x100（对齐 MIN_CONTEXT_SCORE=0.3）
  *
  * 覆盖：
  *   - 页面加载（输入框/提交按钮/无错误）
