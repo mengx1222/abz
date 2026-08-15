@@ -242,6 +242,10 @@ REDIS_URL=redis://redis:6379/0
 
 # -------------------- AI 配置 --------------------
 # Provider: mock | openai | deepseek | qwen | zhipu
+# 生产模式（AZB_DEMO_MODE=false）下选择真实 Provider 时：
+#   - 必须同时配置 AZB_AI_API_KEY 与 AZB_AI_BASE_URL
+#   - 缺少任一凭据 → Gateway 抛出明确错误（绝不静默降级 Mock）
+# 真实 AI Smoke Test：backend/scripts/phase9_real_ai_smoke.py（opt-in，见 .github/workflows/real-ai-smoke.yml）
 AI_PROVIDER=mock
 AI_API_KEY=sk-xxx
 AI_BASE_URL=https://api.openai.com/v1
@@ -249,6 +253,7 @@ AI_MODEL=gpt-4o
 AI_EMBEDDING_MODEL=text-embedding-3-small
 AI_MAX_TOKENS=4096
 AI_TEMPERATURE=0.7
+AI_TIMEOUT=30                # 真实 Provider 请求超时（秒，connect 10s + 总 30s）
 
 # -------------------- JWT 配置 --------------------
 JWT_SECRET=change-me-to-another-random-secret-key
@@ -863,3 +868,4 @@ LOG_LEVEL=INFO
 # 生产环境使用 WARNING 级别
 LOG_LEVEL=WARNING
 ```
+
