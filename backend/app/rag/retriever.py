@@ -13,8 +13,8 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select, text, or_
-from sqlalchemy.dialects.postgresql import UUID
+from sqlalchemy import func, select, text, or_, cast
+from sqlalchemy.dialects.postgresql import UUID, Vector
 from structlog import get_logger
 
 from app.core.config import settings
@@ -233,9 +233,10 @@ class Retriever:
         if embedding is None:
             return []
 
-        # pgvector 的 cosine_distance 需要字符串形式的向量字面量（'[1,2,...]'），
-        # SQLAlchemy 直接传 list 会被 asyncpg 拒绝（expected str, got list）。
-        embedding_literal = "[" + ",".join(str(x) for x in embedding) + "]"
+        # pgvector 的 cosine_distance 需要 vector 类型参数。
+        # SQLAlchemy 直接传 list 会被 asyncpg 拒绝（expected str, got list）；
+        # 传字符串字面量会被当作 VARCHAR —— 需显式 cast 为 vector。
+        embedding_literal = cast("[" + ",".join(str(x) for x in embedding) + "]", Vector)
 
         # 构建基础查询
         stmt = (
