@@ -7,6 +7,7 @@ import httpx
 from structlog import get_logger
 
 from app.ai.protocol import AIResponse, EmbedResponse, RerankResult
+from app.core.config import settings
 
 logger = get_logger()
 
@@ -196,6 +197,19 @@ class OpenAIProvider:
         sorted_data = sorted(data.get("data", []), key=lambda x: x.get("index", 0))
         embeddings = [item.get("embedding", []) for item in sorted_data]
 
+        # pgvector 列维度固定（默认 1536）。真实 Provider（如 text-embedding-v3=1024 维）
+        # 返回维度不足时统一补齐（尾部补零，余弦相似度保持不变）——否则写库报维度错误。
+        target_dim = settings.AI_EMBEDDING_DIM
+        if target_dim and embeddings:
+            padded: list[list[float]] = []
+            for emb in embeddings:
+                if len(emb) < target_dim:
+                    emb = emb + [0.0] * (target_dim - len(emb))
+                elif len(emb) > target_dim:
+                    emb = emb[:target_dim]
+                padded.append(emb)
+            embeddings = padded
+
         return EmbedResponse(
             embeddings=embeddings,
             model=data.get("model", use_model),
@@ -290,3 +304,4 @@ class OpenAIProvider:
         if norm_a == 0 or norm_b == 0:
             return 0.0
         return dot / (norm_a * norm_b)
+
