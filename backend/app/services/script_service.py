@@ -295,6 +295,12 @@ class ScriptService:
             result = _normalize_compliance(check_compliance(content))
             compliance_status = result["status"]
             compliance_issues = result
+        else:
+            # 传入方可能来自 check_compliance（大写），统一转为小写与数据约定一致
+            compliance_status = str(compliance_status or "green").lower()
+            if isinstance(compliance_issues, dict) and compliance_issues.get("status"):
+                compliance_issues = dict(compliance_issues)
+                compliance_issues["status"] = str(compliance_issues["status"]).lower()
         script = await self.script_repo.create(
             title=data.get("title", "AI生成话术"),
             customer_context=data.get("customer_context"),
