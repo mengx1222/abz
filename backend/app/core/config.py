@@ -49,6 +49,7 @@ class Settings(BaseSettings):
     AI_EMBEDDING_MODEL: str = ""
     AI_RERANK_MODEL: str = ""
     AI_TIMEOUT: float = 30.0  # 真实 Provider 请求超时（秒）
+    AI_EMBEDDING_DIM: int = 1536  # pgvector 列维度；真实 Provider 返回维度不足时统一补齐
 
     # --- RAG Pipeline ---
     RAG_CHUNK_TARGET_TOKENS: int = 512
