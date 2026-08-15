@@ -48,8 +48,13 @@ jobs:
       AZB_DATABASE_URL: postgresql+asyncpg://abz_user:abz_dev_2026@localhost:5432/anzhenbao
       AZB_REDIS_URL: redis://localhost:6379/0
       AZB_JWT_SECRET_KEY: e2e-playwright-secret
-      # E2E 不调用真实 AI（任务十八）：mock provider 即可
-      AZB_AI_PROVIDER: mock
+      # E2E 阶段二：真实 AI Provider（Task 12）—— 测 RAG 检索/Citation/拒答需要真实 embedding
+      # 从 GitHub Secrets 注入（Task 10 已配置 DashScope）；未配置时回退 mock
+      AZB_AI_PROVIDER: ${{ secrets.AZB_AI_PROVIDER || 'qwen' }}
+      AZB_AI_API_KEY: ${{ secrets.AZB_AI_API_KEY || '' }}
+      AZB_AI_BASE_URL: ${{ secrets.AZB_AI_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1' }}
+      AZB_AI_MODEL: ${{ secrets.AZB_AI_MODEL || 'qwen-plus' }}
+      AZB_AI_EMBEDDING_MODEL: ${{ secrets.AZB_AI_EMBEDDING_MODEL || 'text-embedding-v3' }}
       E2E_API_BASE: http://localhost:8000/api/v1
       E2E_BASE_URL: http://localhost:3000
 
@@ -78,11 +83,18 @@ jobs:
           # E2E 确定性知识库（Product QA / Script Generation 检索与拒答测试依赖）
           python scripts/e2e_seed_knowledge.py
 
-      - name: Start backend (DEMO_MODE=false, mock AI)
+      - name: Start backend (DEMO_MODE=false, real AI provider)
         run: |
           cd backend
+          # 若未配置真实 Key，回退 mock（不阻塞基础 E2E）
+          if [ -z "$AZB_AI_API_KEY" ]; then
+            export AZB_AI_PROVIDER=mock
+            echo "E2E AI provider: mock (no AZB_AI_API_KEY secret)"
+          else
+            echo "E2E AI provider: $AZB_AI_PROVIDER"
+          fi
           nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/backend.log 2>&1 &
-          for i in $(seq 1 60); do
+          for i in $(seq 1 90); do
             if curl -sf http://127.0.0.1:8000/api/v1/ready > /dev/null 2>&1; then
               echo "BACKEND_READY after ${i}s"
               break
