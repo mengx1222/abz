@@ -567,6 +567,8 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 
 - **密钥轮换**：第三方 API Key 定期轮换（建议每 90 天），旧密钥在过渡期后立即吊销。密钥泄露时支持紧急轮换，无需重新部署应用（通过环境变量更新即可生效）。
 
+- **CI 真实 AI Smoke（Task 9）**：真实 Provider 测试（`.github/workflows/real-ai-smoke.yml`）只通过 GitHub Actions Secrets（`AZB_AI_API_KEY` / `AZB_AI_BASE_URL` / `AZB_AI_MODEL`）注入 Key；workflow 文件、脚本、文档中均不出现任何真实 Key。workflow 以 `workflow_dispatch` / `REAL_AI_SMOKE_TEST=true` 显式开启，普通 push 不触发付费调用。真实 Key 一律不写入源代码 / README / worklog / docker-compose / .env（.env 已在 .gitignore）。
+
 ### 10.3 Docker 网络隔离
 
 系统使用 Docker 容器化部署，通过网络隔离增强安全性：
@@ -627,3 +629,4 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 | 安全响应头检查 | 验证所有 API 响应是否包含正确的安全响应头 | 每周 |
 | 日志脱敏抽查 | 抽查各类日志输出，确认敏感信息已被正确脱敏 | 每周 |
 | 灾备演练 | 执行灾难恢复演练，验证备份恢复和业务连续性方案 | 每半年 |
+
