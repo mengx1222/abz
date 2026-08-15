@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
 from app.core.config import settings
+from app.ai.gateway import get_ai_gateway
 from app.repositories.community_repo import (
     PostRepository,
     PostCommentRepository,
@@ -389,6 +390,7 @@ class CommunityService:
 
     def __init__(self, session: AsyncSession | None = None):
         self.session = session
+        self.gateway = get_ai_gateway()
         self._posts: dict[str, dict] = {str(p["id"]): p for p in _DEMO_POSTS}
         self._comments: dict[str, list[dict]] = dict(_DEMO_COMMENTS)
         self._likes: dict[str, set[str]] = {}  # post_id -> set[user_id]
@@ -916,16 +918,64 @@ class CommunityService:
             async for event in self._demo_generate_ai_summary(post_id):
                 yield event
             return
-        # Production path — simple event stream placeholder
+        async for event in self._production_generate_ai_summary(post_id):
+            yield event
+
+    async def _production_generate_ai_summary(
+        self, post_id: str
+    ) -> AsyncGenerator[str, None]:
+        """Production: 从数据库读取帖子，调用 AI Gateway 生成摘要并持久化 ai_summary。"""
+        try:
+            pid = uuid.UUID(post_id)
+        except (ValueError, AttributeError):
+            pid = None
+        if pid is None:
+            yield json.dumps({"event": "error", "data": {"message": "帖子不存在"}}, ensure_ascii=False)
+            return
+
+        repo = PostRepository(self.session)  # type: ignore[arg-type]
+        post = await repo.get_by_id(pid)
+        if post is None:
+            yield json.dumps({"event": "error", "data": {"message": "帖子不存在"}}, ensure_ascii=False)
+            return
+
+        title = post.title or ""
+        content = post.content or ""
         yield json.dumps({"event": "summary_start", "data": {"post_id": post_id}}, ensure_ascii=False)
-        await asyncio.sleep(0.3)
-        summary_text = "AI 摘要生成功能将在生产环境中接入 AI 网关。"
-        for i, char in enumerate(summary_text):
-            yield json.dumps(
-                {"event": "token", "data": {"content": char, "index": i}},
-                ensure_ascii=False,
-            )
-            await asyncio.sleep(0.02)
+
+        prompt = (
+            "你是一名保险社区内容编辑。请用简洁、客观的中文为以下社区帖子生成一段摘要，"
+            "提炼核心观点与实用信息，不超过120字，不要添加主观评价。"
+        )
+        messages = [
+            {"role": "system", "content": prompt},
+            {"role": "user", "content": f"标题：{title}\n\n正文：{content}"},
+        ]
+
+        summary_text = ""
+        try:
+            stream = await self.gateway.chat(messages=messages, stream=True)
+            async for token in stream:
+                summary_text += token
+                yield json.dumps(
+                    {"event": "token", "data": {"content": token, "index": len(summary_text) - len(token)}},
+                    ensure_ascii=False,
+                )
+        except Exception as e:
+            logger.warning("community_ai_summary_error", error=str(e))
+            summary_text = "AI 摘要生成失败，请稍后重试。"
+
+        if not summary_text:
+            summary_text = "摘要生成失败，请稍后重试。"
+
+        # 持久化 ai_summary
+        try:
+            post.ai_summary = summary_text
+            await self.session.commit()
+        except Exception as e:
+            logger.warning("community_ai_summary_persist_error", error=str(e))
+            await self.session.rollback()
+
         yield json.dumps(
             {"event": "summary_complete", "data": {"summary": summary_text}},
             ensure_ascii=False,
