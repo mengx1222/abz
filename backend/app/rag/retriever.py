@@ -233,11 +233,12 @@ class Retriever:
         if embedding is None:
             return []
 
-        # pgvector 的 cosine_distance 需要 vector 类型参数。
-        # SQLAlchemy 直接传 list 会被 asyncpg 拒绝（expected str, got list）；
-        # 传字符串字面量会被当作 VARCHAR —— 需显式 cast 为 vector。
-        # 直接传完整 vector 字面量 "[1,2,...]" 并 ::vector cast（避免 ']'::vector 只 cast 右括号的问题）
-        embedding_literal = text(":vec::vector").bindparams(vec="[" + ",".join(str(x) for x in embedding) + "]")
+        # pgvector 的 cosine_distance 需要 vector 类型参数：
+        # - SQLAlchemy 传 list → asyncpg 拒绝（expected str, got list）
+        # - 传 VARCHAR 字符串 → cosine_distance(vector, varchar) 不存在
+        # - text(":vec::vector") bindparam → SQLAlchemy 无法解析
+        # 因此直接构造 vector 字面量 "'[1,2,...]'::vector"（embedding 为程序内部 float 列表，拼接安全）
+        embedding_literal = text("'" + "[" + ",".join(str(x) for x in embedding) + "]'::vector")
 
         # 构建基础查询
         stmt = (
