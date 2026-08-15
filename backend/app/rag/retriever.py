@@ -239,7 +239,7 @@ class Retriever:
                 DocumentChunk.__table__.c.id,
                 DocumentChunk.__table__.c.document_id,
                 DocumentChunk.__table__.c.content,
-                DocumentChunk.__table__.c.metadata_,
+                DocumentChunk.__table__.c["metadata"],
                 # 1 - cosine_distance 作为相似度分数
                 (1 - func.cosine_distance(DocumentChunk.embedding, embedding)).label("score"),
             )
@@ -284,7 +284,7 @@ class Retriever:
                     "chunk_id": str(row.id),
                     "document_id": str(row.document_id),
                     "content": row.content,
-                    "metadata": row.metadata_ or {},
+                    "metadata": row._mapping.get("metadata") or {},
                     "score": float(row.score),
                 }
                 for row in rows
@@ -310,7 +310,7 @@ class Retriever:
                 DocumentChunk.__table__.c.id,
                 DocumentChunk.__table__.c.document_id,
                 DocumentChunk.__table__.c.content,
-                DocumentChunk.__table__.c.metadata_,
+                DocumentChunk.__table__.c["metadata"],
                 func.ts_rank(DocumentChunk.search_text, search_text).label("score"),
             )
             .where(DocumentChunk.search_text.op("@@")(search_text))
@@ -354,7 +354,7 @@ class Retriever:
                     "chunk_id": str(row.id),
                     "document_id": str(row.document_id),
                     "content": row.content,
-                    "metadata": row.metadata_ or {},
+                    "metadata": row._mapping.get("metadata") or {},
                     "score": float(row.score),
                 }
                 for row in rows
@@ -436,3 +436,4 @@ class Retriever:
 
 # 需要导入DocumentChunk、Document、KnowledgeBase
 from app.models.knowledge import DocumentChunk, Document, KnowledgeBase
+
