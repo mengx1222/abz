@@ -2,7 +2,7 @@
 
 > **本文件是项目状态的唯一事实来源。每完成一个 Phase 必须更新。**
 > 最后更新: 2026-08-15
-> Git HEAD: `7b527b9f`
+> Git HEAD: `f214d2d5`
 > 后端版本: `1.0.0-rc.1`
 
 ---
@@ -43,6 +43,7 @@
 | Prod-8 | Task 4: Growth Service Production 化 (GrowthRepository + Leaderboard 组织范围权限) | `69aa76e` `a0851f6` `3de889f` | ✅ 完成 |
 | Prod-9 | Task 5: Dashboard Service Production 化 (DashboardRepository 聚合) | `7cd28bf` `943324a` | ✅ 完成 |
 | Prod-10 | Task 6: Script Generate + RAG Production 化 (RAG Confidence Gate + Citation + Compliance) | `575775f` `60a3c19` `7b527b9` | ✅ 完成 |
+| Prod-11 | Task 7: Community AI Summary Production Hardening (失败不持久化/SSE 完整性/软删除边界) | `73cbba5` `f214d2d` | ✅ 完成 |
 
 ---
 
@@ -95,7 +96,7 @@
 | P1-1 | PostgreSQL + pgvector 真实环境未验证 | 代码就绪，需实际运行 `alembic upgrade head` + 全链路 |
 | P1-2 | AI Provider 未接入真实模型 | 需配置 API Key 并验证 SSE 流式 |
 | P1-3 | **1 个 Service 方法 Production 路径仍为 Demo Only** | growth_service(course_detail — DB 无课程表，生产返回 None 待课程体系落库) |
-| P1-4 | **1 个 Service 方法 Production 路径需完善** | community.ai_summary(1) |
+| P1-4 | **无 Service 方法 Production 路径需完善** | 全部 Service 生产路径已闭环 |
 | P1-5 | 无 Playwright E2E 测试 | 仅有 API 级 UAT，无浏览器级 E2E |
 | P1-6 | **前端存在大量既有 TypeScript 类型错误** | `npm run build`(tsc) 报 TS6133/TS2322 等错误（分布在多个页面，与 Task 1-3 无关），CI 暂用 `vite build` 绕过 tsc 门禁 |
 
@@ -115,19 +116,19 @@
 | Service | PRODUCTION_READY | NEEDS_WORK | DEMO_ONLY |
 |---------|:---:|:---:|:---:|
 | customer_service | **8** | 0 | 0 |
-| community_service | **9** | 1 (ai_summary) | 0 |
+| community_service | **10** | 0 | 0 |
 | notification_service | **4** | 0 | 0 |
 | growth_service | **3** | 0 | 1 (course_detail — DB 无课程表，生产返回 None) |
 | dashboard_service | **1** | 0 | 0 |
 | training_service | **8** | 0 | 0 |
 | script_service | **7** | 0 | 0 |
-| **合计** | **40** | **1** | **1** |
+| **合计** | **41** | **0** | **1** |
 
 ---
 
 ## F. 下一阶段建议
 
-**最高优先级: 补全剩余 1 个 Service 方法的 Production 路径**
+**Service Production 路径: 全部闭环（41 方法 PRODUCTION_READY）**
 
 1. ✅ **training_service** (8 方法) — Task 1 完成
 2. ✅ **script_service** (6 CRUD + generate 持久化) — Task 2 完成（CRUD 部分）
@@ -135,7 +136,7 @@
 4. ✅ **growth_service** (3 方法) — Task 4 完成（GrowthRepository 聚合 + Leaderboard 组织范围权限过滤；course_detail 无课程表返回 None 不强建 LMS）
 5. ✅ **dashboard_service** (1 方法) — Task 5 完成（DashboardRepository 聚合，今日统计/AI建议/最近活动/未读数全真实 DB）
 6. ✅ **script_service.generate_scripts** (1 方法) — Task 6 完成（RAG 检索 + Confidence Gate 拒答 + Citation + Compliance 全链路）
-7. **community_service** (1 方法) — ai_summary 调用 AI Gateway（注：ai_summary 生产路径已在更早阶段实现并推送 af53ea9，剩余为验收确认）
+7. ✅ **community_service.ai_summary** (1 方法) — Task 7 完成（AI 失败不持久化错误文本、error 后不发 summary_complete、旧摘要不被覆盖、软删除边界）
 
 完成后再进行:
 - PostgreSQL + pgvector 真实环境验收
@@ -181,4 +182,7 @@
 | 后端 pytest (含 Task 6 Script Generate+RAG 生产路径测试) | **197 passed** | 2026-08-15 (Task 6) |
 | Script RAG 生产路径测试 | **9/9 passed**（生产检索器、RAG 命中+Citation、RAG 未命中拒答、低置信度拒答、REVIEW 标记、AI 失败不伪造、Compliance 进链、权限归属、无产品类型通用生成） | 2026-08-15 (Task 6) |
 | CI (GitHub Actions) | **backend pytest + backend-pg (PostgreSQL+pgvector) + frontend 全部通过** | 2026-08-15 (Task 6) |
+| 后端 pytest (含 Task 7 Community AI Summary 生产测试) | **206 passed** | 2026-08-15 (Task 7) |
+| Community AI Summary 生产测试 | **9/9 passed**（正常生成+token+持久化、post not found、软删除拒答、AI 失败不写库、超时、空结果、旧摘要不被覆盖、error 后无 summary_complete、真实 wiring+敏感字段检查） | 2026-08-15 (Task 7) |
+| CI (GitHub Actions) | **backend pytest + backend-pg (PostgreSQL+pgvector) + frontend 全部通过** | 2026-08-15 (Task 7) |
 
