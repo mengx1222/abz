@@ -1,0 +1,111 @@
+name: Real AI Smoke Test
+
+# 真实 AI Provider + SSE 全面验证（Task 9）
+# 仅当显式开启 REAL_AI_SMOKE_TEST=true（repository variable）且配置了
+# GitHub Secrets（AZB_AI_API_KEY / AZB_AI_BASE_URL / AZB_AI_MODEL）时执行，
+# 避免每次 push 都调用付费真实模型。
+# 手动触发：Actions → Real AI Smoke Test → Run workflow（此时开关不强制）。
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/real-ai-smoke.yml"
+      - "backend/scripts/phase9_real_ai_smoke.py"
+
+env:
+  # 显式开关：普通 CI 不需要付费 API（默认关闭）
+  REAL_AI_SMOKE_TEST: ${{ vars.REAL_AI_SMOKE_TEST == 'true' && 'true' || 'false' }}
+
+jobs:
+  real-ai-smoke:
+    runs-on: ubuntu-latest
+    # 手动触发（workflow_dispatch）或开关开启时执行；且必须有真实 Key
+    if: >-
+      (github.event_name == 'workflow_dispatch' || vars.REAL_AI_SMOKE_TEST == 'true')
+      && secrets.AZB_AI_API_KEY != ''
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: abz_user
+          POSTGRES_PASSWORD: abz_dev_2026
+          POSTGRES_DB: anzhenbao
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U abz_user -d anzhenbao"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      AZB_APP_ENV: production
+      AZB_DEBUG: "false"
+      AZB_DEMO_MODE: "false"
+      AZB_DATABASE_URL: postgresql+asyncpg://abz_user:abz_dev_2026@localhost:5432/anzhenbao
+      AZB_REDIS_URL: redis://localhost:6379/0
+      AZB_JWT_SECRET_KEY: real-ai-smoke-secret
+      # 真实 Provider（从 Secrets 注入，绝不写进仓库）
+      AZB_AI_PROVIDER: ${{ secrets.AZB_AI_PROVIDER || 'deepseek' }}
+      AZB_AI_API_KEY: ${{ secrets.AZB_AI_API_KEY }}
+      AZB_AI_BASE_URL: ${{ secrets.AZB_AI_BASE_URL }}
+      AZB_AI_MODEL: ${{ secrets.AZB_AI_MODEL }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend dependencies
+        run: |
+          cd backend
+          pip install -e ".[dev]"
+          pip install psycopg2-binary redis requests
+
+      - name: Alembic migrate + seed
+        run: |
+          cd backend
+          alembic upgrade head
+          python -m scripts.seed || python scripts/seed.py
+
+      - name: Start backend (DEMO_MODE=false, real provider)
+        run: |
+          cd backend
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 > /tmp/backend.log 2>&1 &
+          for i in $(seq 1 60); do
+            if curl -sf http://127.0.0.1:8000/api/v1/ready > /dev/null 2>&1; then
+              echo "BACKEND_READY after ${i}s"
+              break
+            fi
+            sleep 1
+          done
+          curl -s http://127.0.0.1:8000/api/v1/ready; echo
+
+      - name: Phase 9 — Real AI Provider + SSE Smoke Test
+        env:
+          AZB_BASE_URL: http://127.0.0.1:8000
+          AZB_AI_PROVIDER: ${{ secrets.AZB_AI_PROVIDER || 'deepseek' }}
+          AZB_AI_API_KEY: ${{ secrets.AZB_AI_API_KEY }}
+          AZB_AI_BASE_URL: ${{ secrets.AZB_AI_BASE_URL }}
+          AZB_AI_MODEL: ${{ secrets.AZB_AI_MODEL }}
+        run: |
+          cd backend
+          python scripts/phase9_real_ai_smoke.py
+
+      - name: Show backend log tail on failure
+        if: failure()
+        run: |
+          tail -100 /tmp/backend.log
