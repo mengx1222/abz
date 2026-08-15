@@ -1,8 +1,8 @@
 # 安诊保 AI 副驾 — 项目状态（唯一事实来源）
 
 > **本文件是项目状态的唯一事实来源。每完成一个 Phase 必须更新。**
-> 最后更新: 2026-08-14
-> Git HEAD: `6910f21e73`
+> 最后更新: 2026-08-15
+> Git HEAD: `3de889ff75`
 > 后端版本: `1.0.0-rc.1`
 
 ---
@@ -40,6 +40,7 @@
 | Prod-5 | 权限安全强化 (IDOR + Rate Limit + 审计 + 脱敏 + 安全头 + 前端 RoleGuard) | `a68511c` | ✅ 完成 |
 | Prod-6 | 全链路测试与生产加固 (133 pytest + 27 vitest + Docker 生产配置) | `f2db21f` | ✅ 完成 |
 | Prod-7 | 内部试点发布准备 (监控 + 健康检查 + UAT) | Phase 6 本次 + 未提交 | 🔄 进行中 |
+| Prod-8 | Task 4: Growth Service Production 化 (GrowthRepository + Leaderboard 组织范围权限) | `69aa76e` `a0851f6` `3de889f` | ✅ 完成 |
 
 ---
 
@@ -91,8 +92,8 @@
 |---|------|------|
 | P1-1 | PostgreSQL + pgvector 真实环境未验证 | 代码就绪，需实际运行 `alembic upgrade head` + 全链路 |
 | P1-2 | AI Provider 未接入真实模型 | 需配置 API Key 并验证 SSE 流式 |
-| P1-3 | **2 个 Service 方法 Production 路径仍为 Demo Only** | growth_service(course/leaderboard) — 其余空桩已在 Task 1/2/3 修复 |
-| P1-4 | **5 个 Service 方法 Production 路径需完善** | dashboard(1)/growth(2)/community.ai_summary(1)/script.generate_scripts(RAG 仍仅 Demo) |
+| P1-3 | **1 个 Service 方法 Production 路径仍为 Demo Only** | growth_service(course_detail — DB 无课程表，生产返回 None 待课程体系落库) |
+| P1-4 | **3 个 Service 方法 Production 路径需完善** | dashboard(1)/community.ai_summary(1)/script.generate_scripts(RAG 仍仅 Demo) |
 | P1-5 | 无 Playwright E2E 测试 | 仅有 API 级 UAT，无浏览器级 E2E |
 | P1-6 | **前端存在大量既有 TypeScript 类型错误** | `npm run build`(tsc) 报 TS6133/TS2322 等错误（分布在多个页面，与 Task 1-3 无关），CI 暂用 `vite build` 绕过 tsc 门禁 |
 
@@ -114,22 +115,22 @@
 | customer_service | **8** | 0 | 0 |
 | community_service | **9** | 1 (ai_summary) | 0 |
 | notification_service | **4** | 0 | 0 |
-| growth_service | 0 | **2** (overview空/leaderboard空) | 2 (course/leaderboard) |
+| growth_service | **3** | 0 | 1 (course_detail — DB 无课程表，生产返回 None) |
 | dashboard_service | 0 | **1** (空zeros) | 0 |
 | training_service | **8** | 0 | 0 |
 | script_service | **6** | 1 (generate_scripts RAG 仍仅 Demo) | 0 |
-| **合计** | **35** | **5** | **2** |
+| **合计** | **38** | **3** | **1** |
 
 ---
 
 ## F. 下一阶段建议
 
-**最高优先级: 补全剩余 5 个 Service 方法的 Production 路径**
+**最高优先级: 补全剩余 3 个 Service 方法的 Production 路径**
 
 1. ✅ **training_service** (8 方法) — Task 1 完成
 2. ✅ **script_service** (6 CRUD + generate 持久化) — Task 2 完成（generate_scripts 的 RAG 知识增强仍仅 Demo）
 3. ✅ **notification_service** (4 方法) — Task 3 完成（user_id 从 current_user，偏好读写修复）
-4. **growth_service** (2 方法) — 集成 GrowthRepository，实现 DB 聚合查询
+4. ✅ **growth_service** (3 方法) — Task 4 完成（GrowthRepository 聚合 + Leaderboard 组织范围权限过滤；course_detail 无课程表返回 None 不强建 LMS）
 5. **dashboard_service** (1 方法) — 集成多 Repository 聚合统计
 6. **community_service** (1 方法) — ai_summary 调用 AI Gateway
 7. **script_service.generate_scripts** (1 方法) — 生产模式接入 RAG 知识增强
@@ -149,6 +150,7 @@
 | 后端 pytest | **133 passed** (23.32s) | 2026-08-14 |
 | 前端 vitest | **27 passed** (2.52s) | 2026-08-14 |
 | 前端 TSC | **0 errors** | 2026-08-14 |
+| 前端 TSC 核实 (Task 4) | **未恢复 tsc 门禁** — CI frontend job 仍用 `npx vite build` 绕过 tsc（仓库存在既有 TS6133/TS2322 错误，见 P1-6；本次 Growth 改动不触及前端，未扩大战线） | 2026-08-15 (Task 4) |
 | 前端 Vite Build | **OK** (374KB entry / 120KB gzip) | 2026-08-14 |
 | UAT 冒烟测试 | **23/23 passed** (7.83s) | 2026-08-14 |
 | 后端 App Import | **OK** (v1.0.0-rc.1) | 2026-08-14 |
@@ -168,3 +170,7 @@
 | 后端 pytest (含 Task 3 新增 11 个通知生产路径测试) | **174 passed** (53.13s) | 2026-08-14 (Task 3) |
 | Notification Production 路径测试 | **11/11 passed**（列表隔离/筛选/分页、标记已读、偏好默认/更新/未知类型、回滚） | 2026-08-14 (Task 3) |
 | CI (GitHub Actions) | **backend pytest + frontend vitest + vite build 全部通过** | 2026-08-14 (Task 3) |
+| 后端 pytest (含 Task 4 Growth 生产路径测试) | **190 passed** | 2026-08-15 (Task 4) |
+| Growth Production 路径测试 | **9/9 passed**（overview 聚合/空库、leaderboard 排名/空榜、org scope 组织边界、BRANCH_ADMIN 子组织、SYSTEM_ADMIN 全量、course_detail 生产 None、成就用户隔离） | 2026-08-15 (Task 4) |
+| CI (GitHub Actions) | **backend pytest + backend-pg (PostgreSQL+pgvector) + frontend 全部通过** | 2026-08-15 (Task 4) |
+
