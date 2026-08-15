@@ -317,6 +317,36 @@ MOCK_RESPONSES = {
 }
 ```
 
+### 2.5 真实 Provider 验证（Task 9, 2026-08-15）
+
+**生产模式（`DEMO_MODE=false`）真实 Provider 行为约定**：
+
+- `AI_PROVIDER=mock` → 使用 MockProvider（Demo / 测试）
+- `AI_PROVIDER=deepseek|qwen|openai` → 使用 `OpenAIProvider`（OpenAI 兼容 API）
+  - 必须同时配置 `AZB_AI_API_KEY` 与 `AZB_AI_BASE_URL`
+  - **缺少任一凭据时抛出明确 `RuntimeError`，绝不静默降级到 Mock** —— 避免"配置了真实 Provider 却实际跑 Mock"的欺骗行为
+- `AZB_AI_TIMEOUT`（默认 30s）控制真实 Provider 请求超时（connect 10s + 总 30s）
+
+**真实 AI Smoke Test（可选、显式开启）**：
+
+- 脚本：`backend/scripts/phase9_real_ai_smoke.py`
+  - Gateway → Real Provider 非流式 Chat（验证 key/model/latency/token）
+  - Gateway → Real Provider 流式 Chat（验证 SSE token 连续性）
+  - HTTP Product QA / Script Generate / Community Summary / Training（真实 RAG + PG）
+  - 未配置 `AZB_AI_API_KEY` 时输出 `REAL_AI_SMOKE_TEST=NOT RUN` 并 exit 0（不阻塞普通 CI）
+- Workflow：`.github/workflows/real-ai-smoke.yml`
+  - 触发：`workflow_dispatch` 手动 或 repository variable `REAL_AI_SMOKE_TEST=true`（普通 push 默认跳过，避免付费调用）
+  - Key 通过 GitHub Secrets（`AZB_AI_API_KEY` / `AZB_AI_BASE_URL` / `AZB_AI_MODEL`）注入，绝不写入仓库
+
+**当前状态（2026-08-15）**：
+
+```
+Real AI Provider: 链路就绪（OpenAIProvider + Gateway 路由 + opt-in smoke）
+Real Smoke Test:  NOT RUN（仓库未配置真实 API Key；配置 Secrets 后手动触发即可）
+Mock:             ✅ 可用且被 DEMO_MODE=true 强制使用
+Provider 测试:    14 项确定性测试（success/401/429/timeout/invalid/SSE/不降级 Mock）
+```
+
 ---
 
 ## 3. AI 模块详细设计
@@ -1581,3 +1611,4 @@ class MockProvider:
 > **最后更新**: 2025 年 1 月
 > **适用阶段**: 系统设计与初始开发阶段
 > **关联文档**: [系统架构文档](./architecture.md) · [API 文档](./api.md) · [数据库文档](./database.md) · [产品需求文档](./product-requirements.md)
+
