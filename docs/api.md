@@ -1080,7 +1080,7 @@ PUT /api/v1/customers/:id/tags
 ### 7.1 生成话术（SSE）
 
 ```
-POST /api/v1/ai/scripts/generate
+POST /api/v1/scripts/generate
 ```
 
 **Content-Type**: `application/json`
@@ -1090,95 +1090,75 @@ POST /api/v1/ai/scripts/generate
 
 ```json
 {
-  "customer_id": "cus_001",
-  "customer_state": {
+  "customer_context": {
+    "name": "张先生",
     "age": 35,
-    "occupation": "互联网产品经理",
-    "concerns": ["保费太贵", "不需要保险"],
-    "previous_products": []
+    "stage": "needs_analysis",
+    "objection": "觉得保费太贵",
+    "product_type": "医疗险",
+    "insurance_knowledge": "初级"
   },
-  "objection_type": "price",
-  "sales_stage": "proposal",
-  "scenario_context": "客户觉得每年保费6000元太贵，正在犹豫是否购买百万医疗险"
+  "style": "professional",
+  "product_type": "医疗险"
 }
 ```
 
 | 字段 | 类型 | 必填 | 说明 |
 |------|------|------|------|
-| `customer_id` | string | ✅ | 客户 ID |
-| `customer_state` | object | ❌ | 客户当前状态描述 |
-| `objection_type` | string | ✅ | 异议类型：`price`(保费异议)、`need`(需求异议)、`trust`(信任异议)、`compare`(竞品对比)、`timing`(时机异议)、`other`(其他) |
-| `sales_stage` | string | ✅ | 销售阶段：`opening`(开场)、`discovery`(发现)、`presentation(展示)、`objection`(异议处理)、`closing`(促单)、`follow_up`(跟进) |
-| `scenario_context` | string | ✅ | 具体场景描述 |
+| `customer_context` | object | ✅ | 客户上下文：name/age/customer_type/stage/objection/product_type/insurance_knowledge |
+| `style` | string | ❌ | 指定风格（`affinity`/`professional`/`data_driven`/`concise`），不指定则生成全部 4 种 |
+| `product_type` | string | ❌ | 产品类型；不传则回退到 customer_context.product_type |
+
+**生成链路（Production 模式）**: 客户上下文 + 产品 → RAG 检索产品知识 → Confidence Gate → AI Gateway 流式生成 → 合规检查 → 持久化。
 
 **SSE 响应流**:
 
 ```
 event: generation_start
-data: {"generation_id": "gen_001"}
+data: {"request_id": "...", "styles": ["professional"], "styles_display": ["专业型"]}
 
-event: step
-data: {"step": "scenario_analysis", "label": "场景分析", "progress": 15}
+event: rag_context
+data: {
+  "product_type": "医疗险",
+  "status": "ALLOW",           // ALLOW / REVIEW / REFUSE / ERROR
+  "confidence": "HIGH",        // HIGH / MEDIUM / LOW / NONE
+  "top_score": 0.85,
+  "context_length": 320,
+  "sources_count": 3,
+  "citations": [
+    {"document_id": "...", "document_title": "百万医疗险产品手册", "section": "保障范围", "source": "保障额度最高 600 万...", "score": 0.85}
+  ]
+}
 
-event: step
-data: {"step": "script_generation", "label": "话术生成中", "progress": 40}
+event: style_start
+data: {"style": "professional", "style_name": "专业型"}
 
-event: script_style
+event: token
+data: {"style": "professional", "content": "张先生，关于您关注的医疗险..."}
+
+event: style_complete
 data: {
   "style": "professional",
-  "style_label": "专业数据型",
-  "content": "李先生，我理解您对保费的关注。让我用一组数据帮您分析一下...\n\n首先，6000元/年的保费相当于每天仅16.4元...",
-  "compliance_check": {
-    "passed": true,
-    "warnings": [],
-    "violations": []
-  }
+  "style_name": "专业型",
+  "content": "张先生，...",
+  "compliance": {"status": "GREEN", "score": 100, "issues": []},
+  "rag_status": "ALLOW",
+  "citations": [...],
+  "word_count": 412
 }
-
-event: script_style
-data: {
-  "style": "empathetic",
-  "style_label": "共情故事型",
-  "content": "李先生，完全理解您的顾虑。其实上个月我的一位客户也有同样的想法...",
-  "compliance_check": {
-    "passed": true,
-    "warnings": ["注意：故事案例需确保真实性，避免虚构"],
-    "violations": []
-  }
-}
-
-event: script_style
-data: {
-  "style": "direct",
-  "style_label": "直击痛点型",
-  "content": "李先生，让我直接为您算一笔账...",
-  "compliance_check": {
-    "passed": true,
-    "warnings": [],
-    "violations": []
-  }
-}
-
-event: script_style
-data: {
-  "style": "comparison",
-  "style_label": "对比引导型",
-  "content": "李先生，我们来做一个简单的对比。您看每天一杯咖啡大约20元...",
-  "compliance_check": {
-    "passed": true,
-    "warnings": [],
-    "violations": []
-  }
-}
-
-event: compliance_summary
-data: {"total_checks": 4, "passed": 4, "warnings": 1, "violations": 0}
 
 event: generation_complete
-data: {"generation_id": "gen_001", "script_id": "scr_001", "token_count": 1024, "duration_ms": 5800}
+data: {"request_id": "...", "total_styles": 1, "refused_styles": 0}
 ```
 
----
+**RAG 拒答（Confidence Gate）**:
+
+- `REFUSE`（RAG 未命中 / 低置信度）：不生成涉及产品事实的话术，逐风格发送 `style_refused` 事件，提示"知识库未找到充分产品依据"，不持久化伪造话术。
+- `REVIEW`（中等置信度）：正常生成，但 `rag_status=REVIEW`，前端应提示人工确认。
+- `ERROR`（知识库检索异常）：本次生成不带产品知识依据，前端应提示。
+- AI 服务失败：逐风格发送 `style_error` 事件，返回可重试错误，不伪造话术。
+
+**权限**: 生成的话术归属当前登录用户（`created_by`），仅本人可见/管理。
 
 ### 7.2 重新生成话术
 
