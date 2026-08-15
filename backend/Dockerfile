@@ -13,9 +13,11 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# 先复制依赖文件，利用 Docker 缓存层
-COPY requirements.txt .
-RUN pip install --no-cache-dir --prefix=/install -r requirements.txt
+# 先复制项目元数据，利用 Docker 缓存层
+# 注意: 项目使用 pyproject.toml（hatchling）而非 requirements.txt
+COPY pyproject.toml .
+COPY app ./app
+RUN pip install --no-cache-dir --prefix=/install .
 
 # === 运行阶段 ===
 FROM python:3.12-slim AS runtime
