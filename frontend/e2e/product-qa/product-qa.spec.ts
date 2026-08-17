@@ -106,6 +106,12 @@ test.describe('Product QA', () => {
     await expect(assistant.last()).not.toBeEmpty({ timeout: 30_000 });
     await expect(assistant.last().locator('span.animate-pulse')).toHaveCount(0, { timeout: 30_000 });
 
+    // 知识库无依据 → 不显示"参考来源"区（拒绝伪造 citation）
+    const sourcesHeading = page.getByText('📖 参考来源');
+    await expect(sourcesHeading).toHaveCount(0, { timeout: 10_000 });
+
+    watcher.assert();
+  });
 
   test('安全：Prompt Injection 攻击 → 拒答（不输出系统提示词）', async ({ page }) => {
     const watcher = watchPage(page);
