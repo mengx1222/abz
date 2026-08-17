@@ -184,8 +184,17 @@ class RAGPipeline:
         top_k: int = 8,
         knowledge_base_ids: list[str] | None = None,
         user_roles: list[str] | None = None,
+        product_type: str | None = None,
     ) -> tuple[list[SearchResult], str]:
         """RAG查询流程：检索 → 上下文组装。
+
+        Args:
+            question: 查询问题
+            top_k: 返回结果数
+            knowledge_base_ids: 限定知识库
+            user_roles: 用户角色（权限过滤）
+            product_type: 产品边界过滤（如"医疗险"）。传值时仅检索产品匹配的
+                知识依据，避免同领域错误产品被语义召回为有效依据。
 
         Returns:
             (search_results, context_text)
@@ -209,6 +218,7 @@ class RAGPipeline:
             top_k=top_k,
             knowledge_base_ids=knowledge_base_ids,
             user_roles=user_roles,
+            product_type=product_type,
         )
 
         # 检查是否有足够相关结果
