@@ -205,3 +205,86 @@ class TestPgDashboardGrowth:
         assert isinstance(ach.unlocked, list)
         assert isinstance(ach.locked, list)
 
+
+
+class TestPgRagProductBoundary:
+    """RAG 产品边界（Task 13）：正确产品命中 / 错误产品不召回 / 无过滤语义召回。"""
+
+    async def test_product_boundary_filters_semantic_hits(self, session):
+        from app.models.knowledge import KnowledgeBase, Document, DocumentChunk
+
+        dim = 1536
+        kb = KnowledgeBase(
+            name=f"PG边界库{uuid.uuid4().hex[:6]}",
+            description="product boundary test",
+            category="product",
+            status="active",
+            is_public=True,
+        )
+        session.add(kb)
+        await session.flush()
+
+        docs = [
+            (
+                "安诊保百万医疗险产品手册",
+                "医疗险",
+                [0.1 if i % 2 == 0 else 0.2 for i in range(dim)],
+            ),
+            (
+                "安诊保重疾险产品手册",
+                "重疾险",
+                [0.9 if i % 2 == 0 else 0.1 for i in range(dim)],
+            ),
+        ]
+        for title, pt, vec in docs:
+            d = Document(
+                knowledge_base_id=kb.id,
+                title=title,
+                file_name=f"{title}.md",
+                file_type="md",
+                file_size=100,
+                content_text=f"{title} 保障范围 免赔额 理赔",
+                status="published",
+                version_number=1,
+            )
+            session.add(d)
+            await session.flush()
+            c = DocumentChunk(
+                document_id=d.id,
+                chunk_index=0,
+                content=f"{title} 保障范围 免赔额 理赔",
+                token_count=10,
+                search_text=f"{title} 保障范围 免赔额 理赔",
+                embedding=vec,
+                metadata_={
+                    "heading": "保障",
+                    "section": "核心条款",
+                    "document_title": title,
+                    "product_type": pt,
+                },
+            )
+            session.add(c)
+        await session.commit()
+
+        retriever = Retriever(db_session=session)
+        query_vec = docs[0][2]  # 与医疗险 chunk 向量一致 → 语义最强
+
+        # 正确产品 → 命中医疗险文档，且不召回重疾险
+        hits = await retriever.search(
+            query="医疗险 保障范围", query_embedding=query_vec, top_k=8, product_type="医疗险",
+        )
+        titles = [r.document_title for r in hits]
+        assert any("医疗险" in t for t in titles), f"正确产品应命中: {titles}"
+        assert not any("重疾险" in t for t in titles), f"错误产品不应召回: {titles}"
+
+        # 错误产品（知识库无对应文档）→ 无任何依据
+        hits_wrong = await retriever.search(
+            query="医疗险 保障范围", query_embedding=query_vec, top_k=8, product_type="车险",
+        )
+        assert hits_wrong == [], "错误产品必须返回空（不得把保险领域共同词当成有效依据）"
+
+        # 无产品过滤 → 语义检索可能召回同领域文档（边界存在的意义）
+        hits_all = await retriever.search(
+            query="医疗险 保障范围", query_embedding=query_vec, top_k=8,
+        )
+        assert len(hits_all) >= 1
