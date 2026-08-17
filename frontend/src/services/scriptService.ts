@@ -26,6 +26,15 @@ export interface ComplianceResult {
   issues: ComplianceIssue[];
 }
 
+/** RAG 知识依据（SSE rag_context / style_complete 的 citations 字段）。 */
+export interface ScriptCitation {
+  document_id: string;
+  document_title: string;
+  section?: string;
+  source?: string;
+  score?: number;
+}
+
 export interface Script {
   id: string;
   title: string;
