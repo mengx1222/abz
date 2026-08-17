@@ -139,10 +139,43 @@ def chunk_document(
 
             for para in paragraphs:
                 para_tokens = _estimate_tokens(para)
+
+                # 超长段落（本身超过 max_tokens）：先保存 buffer，再对段落硬切分，
+                # 避免单个段落成为远超限制的超大 chunk
+                if para_tokens > max_tokens:
+                    if buffer.strip():
+                        chunks.append(Chunk(
+                            content=buffer.strip(),
+                            chunk_index=chunk_index,
+                            heading=section_heading,
+                            section=title,
+                            token_count=_estimate_tokens(buffer),
+                            metadata={"heading": section_heading, "split_method": "paragraph"},
+                        ))
+                        chunk_index += 1
+                    start = 0
+                    while start < len(para):
+                        piece = para[start:start + max_chars].strip()
+                        start += max_chars
+                        if not piece:
+                            continue
+                        chunks.append(Chunk(
+                            content=piece,
+                            chunk_index=chunk_index,
+                            heading=section_heading,
+                            section=title,
+                            token_count=_estimate_tokens(piece),
+                            metadata={"heading": section_heading, "split_method": "paragraph_hard"},
+                        ))
+                        chunk_index += 1
+                    buffer = ""
+                    buffer_tokens = 0
+                    continue
+
                 new_buffer = buffer + "\n" + para if buffer else para
                 new_tokens = _estimate_tokens(new_buffer)
 
-                if new_tokens > max_chars:
+                if new_tokens > max_tokens:
                     # 先保存buffer
                     if buffer.strip():
                         chunks.append(Chunk(
@@ -199,6 +232,34 @@ def _chunk_text_fallback(
     chunk_index = 0
 
     for para in paragraphs:
+        # 超长段落：先保存 buffer，再硬切分，避免超大 chunk
+        if len(para) > max_chars:
+            if buffer.strip():
+                chunks.append(Chunk(
+                    content=buffer.strip(),
+                    chunk_index=chunk_index,
+                    section=title,
+                    token_count=_estimate_tokens(buffer),
+                    metadata={"split_method": "paragraph_fallback"},
+                ))
+                chunk_index += 1
+            start = 0
+            while start < len(para):
+                piece = para[start:start + max_chars].strip()
+                start += max_chars
+                if not piece:
+                    continue
+                chunks.append(Chunk(
+                    content=piece,
+                    chunk_index=chunk_index,
+                    section=title,
+                    token_count=_estimate_tokens(piece),
+                    metadata={"split_method": "paragraph_hard_fallback"},
+                ))
+                chunk_index += 1
+            buffer = ""
+            continue
+
         new_buffer = buffer + "\n" + para if buffer else para
 
         if len(new_buffer) > max_chars and buffer:

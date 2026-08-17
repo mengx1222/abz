@@ -458,8 +458,13 @@ A: 综合意外险限境内（不含港澳台），交通意外险全球保障�
 
 
 def get_demo_documents() -> list[dict]:
-    """获取演示模式的预设知识文档。"""
-    return _DEMO_KNOWLEDGE_DOCS
+    """获取演示模式的预设知识文档（带演示数据标注，避免被误认为真实产品条款）。"""
+    docs = []
+    for doc in _DEMO_KNOWLEDGE_DOCS:
+        item = dict(doc)
+        item["content"] = f"> 【演示数据，仅供测试，非真实产品条款】\n\n{doc['content']}"
+        docs.append(item)
+    return docs
 
 
 class DocumentParser:

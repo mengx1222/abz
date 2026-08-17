@@ -2,7 +2,7 @@ from datetime import datetime
 from typing import Optional
 import uuid
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 class UserLogin(BaseModel):
@@ -10,6 +10,13 @@ class UserLogin(BaseModel):
     phone: str = Field(..., min_length=11, max_length=11, description="手机号")
     verification_code: str | None = Field(default=None, max_length=10, description="验证码（演示模式使用888888）")
     password: str | None = Field(default=None, max_length=100, description="密码（正式模式）")
+
+    @model_validator(mode="after")
+    def check_credential(self) -> "UserLogin":
+        """密码和验证码至少提供一个。"""
+        if not self.password and not self.verification_code:
+            raise ValueError("密码和验证码至少提供一个")
+        return self
 
 
 class TokenResponse(BaseModel):

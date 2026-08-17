@@ -16,10 +16,14 @@ from app.ai.gateway import get_ai_gateway
 from app.core.config import settings
 from app.models.user import User
 from app.rag.pipeline import RAGPipeline, init_demo_index, _build_context
+from app.rag.safety import SeverityLevel, sanitize_user_input
 
 logger = get_logger()
 
 # 演示模式的系统提示词
+# Prompt Injection（HIGH 级别）拒答话术
+_REFUSE_TEXT = "抱歉，我无法回答这个问题。如有保险产品咨询，请直接描述您的需求。"
+
 _DEMO_SYSTEM_PROMPT = """你是「安诊保 AI 副驾」，华安保险的智能保险产品专家助手。
 
 ## 你的职责
@@ -108,6 +112,26 @@ class ProductQaService:
         """演示模式聊天流程（RAG增强）。"""
         pipeline = await self._get_pipeline()
 
+        # Step 0: 输入消毒 + Prompt Injection 检测（HIGH 级别直接拒答）
+        sanitized_question, safety_check = sanitize_user_input(question)
+        if safety_check.is_malicious and safety_check.severity == SeverityLevel.HIGH:
+            yield _sse_event("message_start", {
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "role": "assistant",
+            })
+            yield _sse_event("token", {"content": _REFUSE_TEXT})
+            yield _sse_event("reference_sources", {"sources": []})
+            yield _sse_event("message_complete", {
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "content": _REFUSE_TEXT,
+                "finish_reason": "refused",
+                "sources_count": 0,
+            })
+            return
+        question = sanitized_question
+
         # Step 1: RAG检索
         search_results = []
         try:
@@ -165,9 +189,8 @@ class ProductQaService:
                     "heading": result.metadata.get("heading", ""),
                 })
         else:
-            sources = [
-                {"title": "华安保险产品知识库", "chunk_id": "demo-general", "relevance_score": 0.5},
-            ]
+            # 无检索结果时不返回虚构引用来源（避免伪溯源）
+            sources = []
 
         yield _sse_event("reference_sources", {"sources": sources})
 
@@ -191,6 +214,26 @@ class ProductQaService:
     ) -> AsyncGenerator[str, None]:
         """正式模式聊天流程（RAG + LLM + DB持久化）。"""
         pipeline = await self._get_pipeline()
+
+        # Step 0: 输入消毒 + Prompt Injection 检测（HIGH 级别直接拒答）
+        sanitized_question, safety_check = sanitize_user_input(question)
+        if safety_check.is_malicious and safety_check.severity == SeverityLevel.HIGH:
+            yield _sse_event("message_start", {
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "role": "assistant",
+            })
+            yield _sse_event("token", {"content": _REFUSE_TEXT})
+            yield _sse_event("reference_sources", {"sources": []})
+            yield _sse_event("message_complete", {
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "content": _REFUSE_TEXT,
+                "finish_reason": "refused",
+                "sources_count": 0,
+            })
+            return
+        question = sanitized_question
 
         # Step 1: RAG检索
         search_results = []

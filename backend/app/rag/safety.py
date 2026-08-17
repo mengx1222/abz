@@ -266,10 +266,11 @@ def sanitize_user_input(raw_input: str) -> tuple[str, InjectionResult]:
     text = re.sub(r'[ \t]+', ' ', text)  # 多个空格/Tab → 单空格
     text = text.strip()
 
-    # Step 3: 限制输入长度
+    # Step 3: 限制输入长度（截断后总长不超过 MAX_INPUT_LENGTH）
     MAX_INPUT_LENGTH = 2000
+    TRUNCATE_MARKER = "[输入已截断]"
     if len(text) > MAX_INPUT_LENGTH:
-        text = "[输入已截断]" + text[:MAX_INPUT_LENGTH]
+        text = TRUNCATE_MARKER + text[:MAX_INPUT_LENGTH - len(TRUNCATE_MARKER)]
 
     # Step 4: Prompt Injection 安全检查
     safety_check = detect_prompt_injection(text)
