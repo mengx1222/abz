@@ -4,7 +4,9 @@
 
 > 最后更新: 2026-08-17
 
-> Git HEAD: `fedc279`（Task 16 校准：GitHub main == origin/main）
+> Git HEAD（Current main，Task 17A 验证时）: `44d8807`
+
+> Release Baseline Content（Task 15）: `9befe4b`（v0.1.0 Internal Pilot Candidate 基线）
 
 > 项目版本: `0.1.0`（backend/pyproject.toml）
 
@@ -28,7 +30,7 @@
 
 
 
-## Current Snapshot（2026-08-17 · HEAD fedc279）
+## Current Snapshot（2026-08-17 · HEAD 9befe4b）
 
 | 项 | 当前真实状态 |
 |----|-------------|
@@ -37,7 +39,7 @@
 | Backend Tests | **224 passed, 5 skipped**（CI @ 8050d0b） |
 | PG 集成测试（真实 PG16+pgvector） | **5 passed**（含 RAG 产品边界） |
 | Frontend Tests / Build | **27 passed（3 files）** + `vite build` ✓ |
-| Playwright E2E | **11/11 passed**（Stage 1 + Stage 2） |
+| Playwright E2E | **13/13 passed**（Stage 1 + Stage 2 + **Stage 3 Training**，2026-08-17） |
 | Real AI Smoke（DashScope/Qwen） | **8/8 PASS**（真实，非 Mock） |
 | Production Validation | **PASS** |
 | Docker | dev + prod compose 均通过 Production Validation |
@@ -1025,8 +1027,7 @@
 
 | 任务 | 说明 | 状态 |
 |------|------|------|
-| Training E2E | Playwright 阶段三（Training 黄金链） | Planned |
-| Growth E2E | Playwright 阶段三（Growth 黄金链） | Planned |
+| Growth E2E | Playwright 阶段三（Growth 黄金链） | Planned（Training 已由 Task 17A 完成） |
 | 前端 TS 清理 | 恢复 tsc 硬门禁（P1-6） | Planned |
 | AI Sales Agent | 多步推理销售策略 Agent | Planned |
 | 成长课程体系 | growth course_detail 落库（P1-3） | Planned |
@@ -1515,6 +1516,8 @@
 | Task 12 Playwright E2E 第二阶段 | **11/11 passed（42.2s）：Product QA 页面/问答/Citation(参考来源+文档名)/Refusal + Script 页面/真实生成+Compliance 徽章/Refusal 不编造；修复 4 个真实 RAG 生产 bug（query embedding 缺失 / embedding 维度 / cosine_distance vector 字面量 / RRF 分数量级）** | 2026-08-15 (Task 12) |
 | Task 13 Script Citation UI + RAG 产品边界 | **E2E 11/11 passed（37.8s）：Script 真实生成 + Compliance + Citation UI（📚产品知识依据/文档标题可见）+ 错误产品（车险）拒答且不展示依据；后端 product_type 边界过滤（metadata 精确匹配→标题回退）+ Confidence Gate 保留** | 2026-08-17 (Task 13) |
 | Task 14 Repository Cleanup + Docs Reconciliation | **仓库 CLEAN：删除 download/upload/tool-results/skills（1496 条目）+ .env 移出跟踪 + project-audit 归档；README/testing/current-state-audit 重写；release-readiness 新建（INTERNAL PILOT READY）；89 端点/30 表/7 迁移/21 路由全部对齐代码** | 2026-08-17 (Task 14) |
+| Task 15 Release Baseline Verification | **v0.1.0 Internal Pilot Candidate 基线建立：frontend 版本 0.0.0→0.1.0 统一；release-verification.md 新建；project-status 重构（Current Snapshot/Next Tasks/Historical Log）；README Known Limitations；判定 READY FOR INTERNAL PILOT** | 2026-08-17 (Task 15) |
+| Task 17A Training E2E | **Playwright 阶段三：Training（AI 陪练）浏览器级验证——页面加载 + 完整训练（确定性场景→开始→SSE≥2轮→完成→评分/反馈）13.2s PASS；E2E 总 13/13 passed（51.1s）；CI + Prod Validation 无回归** | 2026-08-17 (Task 17A) |
 
 
 

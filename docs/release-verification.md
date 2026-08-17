@@ -12,7 +12,8 @@
 |----|-----|
 | Release Version | **v0.1.0**（backend/pyproject.toml = 0.1.0，frontend/package.json = 0.1.0，README = v0.1.0） |
 | Release Status | **Internal Pilot Candidate** |
-| Git HEAD | `fedc279`（Task 16 校准：GitHub main == origin/main == Release Baseline） |
+| Git HEAD（验证时 Current main） | `44d8807`（Task 17A） |
+| Release Baseline Content | `9befe4b`（Task 15） |
 | GitHub main HEAD | 与 HEAD 一致（default branch = main） |
 | Repository Status | CLEAN（Task 14 清理后 268 blob；无 download/upload/tool-results/skills/.env） |
 
@@ -30,7 +31,7 @@
 | Real AI Provider | ✅ | 阿里云百炼 DashScope（qwen-plus / text-embedding-v3）；**Real AI Smoke 8/8 PASS**（真实，非 Mock） |
 | Security | ✅ | JWT/RBAC（7 角色）/IDOR 防护/限流/输入消毒/Prompt Injection/安全头/审计/Secret 不入库 |
 | Compliance | ✅ | GREEN/YELLOW/RED 规则引擎 + 生成链验证 + 徽章 UI + 管理后台规则/审核流 |
-| E2E（Playwright） | ✅ | **11/11 PASS**：Stage 1（Login/Dashboard/Customer List/Detail）+ Stage 2（Product QA 4 + Script 3） |
+| E2E（Playwright） | ✅ | **13/13 PASS**：Stage 1（Login/Dashboard/Customer）+ Stage 2（Product QA/Script）+ **Stage 3 Training（Task 17A）** |
 | Docker | ✅ | dev + prod compose；Production Validation 在 8050d0b 全绿 |
 | Health / Ready | ✅ | `/api/v1/health`、`/api/v1/ready`、`/api/v1/health/detail` |
 
@@ -44,7 +45,7 @@
 | Backend PG 集成（真实 PG16+pgvector） | **5 passed** | CI `backend-pg` @ 8050d0b |
 | Frontend Vitest | **27 passed（3 files）** | CI `frontend` @ 8050d0b |
 | Frontend build | `vite build` ✓ | CI `frontend` @ 8050d0b |
-| Playwright E2E | **11/11 passed（37.8s）** | CI `e2e-playwright` @ 477a3ca（代码未变） |
+| Playwright E2E | **13/13 passed（51.1s）** | CI `e2e-playwright` @ 44d8807（含 Training 阶段三） |
 | Real AI Smoke | **8/8 PASS** | CI `real-ai-smoke` run 31866434810（commit 94ce52f） |
 | Production Validation | **PASS** | CI @ 8050d0b |
 
@@ -84,6 +85,7 @@
 | RBAC | ✅ |
 | Compliance | ✅ |
 | Playwright Stage 1 | ✅ |
+| Playwright Stage 3（Training） | ✅（Task 17A） |
 | Playwright Stage 2 | ✅ |
 | CI Green | ✅ |
 | Docs Consistent | ✅（Task 15 校准） |

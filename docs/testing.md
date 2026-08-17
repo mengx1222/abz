@@ -87,7 +87,7 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 - 幂等创建确定性测试客户 `E2E-张先生 / 13900001111`
 - 确定性知识库 seed（`backend/scripts/e2e_seed_knowledge.py`：2 文档 × 3 chunk，含 `product_type` 元数据）
 
-### 5.3 用例清单（11 项）
+### 5.3 用例清单（13 项）
 
 | Spec | 覆盖 |
 |------|------|
@@ -97,11 +97,13 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 | `e2e/customers/customer-detail.spec.ts` | 详情 + 基本信息 + AI 入口 |
 | `e2e/product-qa/product-qa.spec.ts` | 页面/真实问答/Citation（参考来源+文档名）/RAG Refusal |
 | `e2e/scripts/script-generation.spec.ts` | 页面/真实生成+Compliance+**Citation UI**/错误产品拒答（**产品边界**） |
+| `e2e/training/training.spec.ts` | 页面加载 + **完整训练**（确定性场景→开始→SSE≥2轮→完成→评分/反馈） |
 
 ### 5.4 E2E 环境
 
 - 真实 PostgreSQL + Redis + **真实 AI Provider（DashScope/Qwen，GitHub Secrets 注入，无 Key 回退 mock）**
 - CI：`.github/workflows/e2e-playwright.yml`（独立 job，不影响 backend/frontend/production-validation）
+- E2E 阶段三（Task 17A）：**Training（AI 陪练）浏览器级验证**——确定性场景（seed 内置「太贵了—重疾险价格犹豫」等）→ 开始训练 → SSE 消息（message_start/token/coaching/turn_complete）≥2 轮 → 结束训练 → 评分/反馈（scoring_start/token/score_data/scoring_complete）可见；断言不依赖固定 AI 文案
 
 ---
 

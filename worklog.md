@@ -2099,18 +2099,20 @@ Task ID: 36
 
 Agent: main
 
-Task: Task 16 — GitHub Main / Release Baseline Reconciliation
+Task: Task 17A — Playwright Training E2E
 
 Work Log:
 
-- 权威查询（git refs API，无缓存）：default_branch=main；origin/main HEAD=fedc279（= Release Baseline）
-- 提交链确认：8050d0b → ef1c26c（metadata）→ 9befe4b（docs）→ fedc279（HEAD 同步），即 9befe4b → fedc279 成立
-- 结论：GitHub main 已是正确 Release Baseline fedc279；差异仅来自文档 HEAD 字段写的是内容提交 9befe4b，而最终 main HEAD 为 fedc279
-- 最小修正（仅文档字段，无业务逻辑改动）：project-status / release-verification / release-readiness / current-state-audit 的 HEAD 引用 9befe4b → fedc279（标注 Task 16 校准）
-- README 无 HEAD 字段（只写版本 v0.1.0），无需改动
-- Git 层面未做任何 ref 修改（main 本来就正确），无 force push
+- 审计：TrainingChatPage（/training/chat/:scenarioId 自动 startSession；输入框「输入您的销售话术...」+ 发送按钮 + 结束训练按钮）；SSE 消息 message_start→token→coaching→turn_complete；评分 scoring_start→token→score_data→scoring_complete；seed 确定性场景（「太贵了」— 重疾险价格犹豫等 10+）；list_active 按 created_at desc（不能用 first 假设顺序）
+- 新增 frontend/e2e/training/training.spec.ts（2 测试）：
+  - 页面加载：AI陪练 + 确定性场景可见
+  - 完整训练：XPath 定位场景卡片内「开始训练」→ SSE ≥2 轮（每轮 agent→customer 非空）→ 结束训练 → 评分（训练评分/分数值/产品准确性维度/反馈）
+  - 复用 watchPage（console/pageerror/API 4xx）监控；无 sleep；不断言固定 AI 文案
+- 修复 1 轮 E2E 失败：`getByText('综合评分')` strict mode violation（评分流式文本「生成综合评分报告」与评分面板「综合评分」撞）→ 改为断言评分数字 div.text-3xl.font-bold + getByText('产品准确性', {exact:true})
+- 验证：E2E **13/13 passed（51.1s）**（Training 完整流程 13.2s）；CI + Production Validation 全绿（44d8807）
+- 文档：testing.md（§5.3 用例清单 13 项 + §5.4 阶段三）、project-status（Current Snapshot 13/13 + Next Tasks 移除 Training + G 记录 Task 17A）、release-verification（E2E 13/13 + Stage 3）、worklog（本记录）
 
 Stage Summary:
 
-- GitHub main == origin/main == Release Baseline == fedc279（文档同步后完全一致）
-- 未修改任何业务逻辑；单一 docs commit
+- Playwright 阶段三（Training）完成：浏览器级验证真实训练黄金链（场景→会话→SSE≥2轮→评分→反馈）
+- 下一 Task：Growth E2E / TS 清理 / AI Sales Agent，等指令
