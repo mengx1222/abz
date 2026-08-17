@@ -1960,3 +1960,36 @@ Stage Summary:
 - 第二阶段 E2E 完成：Product QA（页面/问答/Citation/Refusal）+ Script（页面/生成/Compliance/Refusal）共 7 个新测试
 - 真实 RAG 生产链路修复闭环（向量检索现在真正可用）
 - 下一 Task: Training / Growth E2E 阶段三，等指令
+
+---
+Task ID: 33
+Agent: main
+Task: Task 13 — Script Citation UI + RAG 产品边界加固
+
+Work Log:
+- 审计发现两个产品级缺口：
+  1. SSE style_complete 已带 citations，但前端 genResults 丢弃、StyleScriptCard 不渲染（Citation 仅存在于 API 层）
+  2. pipeline.query / retriever.search 无产品过滤——"车险"等错误产品可被语义召回命中保险领域文档（Task 12 遗留）
+- Script Citation UI（前端）：
+  - scriptService.ts 新增 ScriptCitation 类型
+  - ScriptsPage.tsx：genResults 每卡片加 citations；style_complete 解析 data.citations；StyleScriptCard 渲染「📚 产品知识依据（RAG）」区（文档标题/章节/相关度/来源摘录）
+- RAG 产品边界（后端）：
+  - retriever.py：Retriever.search/_vector_search/_bm25_search + DemoRetriever.search 加 product_type 参数
+  - _product_boundary_condition：chunk metadata product_type 精确匹配（JSONB ->>），缺失回退文档标题包含产品名
+  - pipeline.query 加 product_type 透传；script_service 生成时传 effective_product_type
+  - DemoRetriever.search 兼容 query_embedding 参数（修复 Task 12 引入的 demo 模式 TypeError）
+  - e2e_seed_knowledge.py：chunk metadata 加 product_type；每产品 ≥3 chunk（产品边界后满足 Confidence Gate HIGH count>=3）
+- 测试：
+  - test_script_rag_production：+3 测试（product_type 透传 / 错误产品 REFUSE / citations 字段齐全）
+  - test_pg_integration：+TestPgRagProductBoundary（正确产品命中且不含重疾险 / 车险空 / 无过滤语义召回）
+- E2E：script-generation.spec.ts 更新——真实生成加 Citation UI 断言（依据区+文档标题）、车险断言改为"拒答+不展示任何依据"
+- 失败与修复 2 轮：
+  1. E2E 真实生成失败（not.toBeEmpty）：产品边界把医疗险召回缩到 1 chunk → confidence LOW → REFUSE → 修复 seed 每产品 3 chunks
+  2. E2E 断言 strict mode：同文档多 chunk 重复标题 → getByText 改 .first()
+- 验证：E2E 11/11 passed（37.8s）；CI（backend/backend-pg/frontend）+ Production Validation 全绿（HEAD 477a3ca）
+- 文档：testing.md §15、rag.md 产品边界、ai-agents.md §9、project-status（Prod-17/G 记录/HEAD）、worklog（本记录）
+
+Stage Summary:
+- Script Citation 从 API 层进入浏览器 UI（用户可直接看到产品依据）
+- RAG 产品边界生效：错误产品不再被当作有效依据（车险 → REFUSE 无依据）
+- 下一 Task: Training / Growth E2E 阶段三，等指令
