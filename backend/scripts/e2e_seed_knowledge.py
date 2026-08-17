@@ -27,10 +27,11 @@ DB_URL = os.environ.get(
 KB_NAME = "E2E产品知识库"
 DOC_TITLES = ["安诊保百万医疗险产品手册", "安诊保重疾险产品手册"]
 
-# 确定性知识文本（含 E2E 查询关键词）
+# 确定性知识文本（含 E2E 查询关键词 + product_type 用于 RAG 产品边界测试）
 KB_DOCS = [
     {
         "title": "安诊保百万医疗险产品手册",
+        "product_type": "医疗险",
         "content": (
             "安诊保百万医疗险保障范围包括：住院医疗费用、门诊手术费用、特殊门诊费用、"
             "住院前后门急诊费用。年度保额最高 600 万元。\n"
@@ -42,6 +43,7 @@ KB_DOCS = [
     },
     {
         "title": "安诊保重疾险产品手册",
+        "product_type": "重疾险",
         "content": (
             "安诊保重疾险保障 120 种重大疾病，确诊即赔，一次性给付保额。\n"
             "等待期：180 天。\n"
@@ -115,6 +117,7 @@ async def main() -> None:
                     "section": "核心条款",
                     "document_title": doc_spec["title"],
                     "knowledge_base_id": str(kb.id),
+                    "product_type": doc_spec["product_type"],
                 },
             )
             session.add(chunk)
