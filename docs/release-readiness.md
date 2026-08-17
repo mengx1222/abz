@@ -1,7 +1,7 @@
 # 发布就绪基线 — 安诊保 AI 副驾
 
 > 建立时间：2026-08-17
-> Git HEAD：`9befe4b`（Task 15 Release Baseline）
+> Git HEAD：`fedc279`（Task 16 校准：GitHub main == origin/main == Release Baseline）
 > 项目版本：`0.1.0`（pyproject）
 > 判定：**READY FOR INTERNAL PILOT**（尚未生产部署）
 

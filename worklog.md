@@ -2092,3 +2092,25 @@ Stage Summary:
 
 - Release Baseline 建立：v0.1.0 Internal Pilot Candidate，代码/Git/文档/CI 全部描述同一真实状态
 - 未开发新功能；仅元数据最小统一（package.json 版本）+ 文档校准
+
+---
+
+Task ID: 36
+
+Agent: main
+
+Task: Task 16 — GitHub Main / Release Baseline Reconciliation
+
+Work Log:
+
+- 权威查询（git refs API，无缓存）：default_branch=main；origin/main HEAD=fedc279（= Release Baseline）
+- 提交链确认：8050d0b → ef1c26c（metadata）→ 9befe4b（docs）→ fedc279（HEAD 同步），即 9befe4b → fedc279 成立
+- 结论：GitHub main 已是正确 Release Baseline fedc279；差异仅来自文档 HEAD 字段写的是内容提交 9befe4b，而最终 main HEAD 为 fedc279
+- 最小修正（仅文档字段，无业务逻辑改动）：project-status / release-verification / release-readiness / current-state-audit 的 HEAD 引用 9befe4b → fedc279（标注 Task 16 校准）
+- README 无 HEAD 字段（只写版本 v0.1.0），无需改动
+- Git 层面未做任何 ref 修改（main 本来就正确），无 force push
+
+Stage Summary:
+
+- GitHub main == origin/main == Release Baseline == fedc279（文档同步后完全一致）
+- 未修改任何业务逻辑；单一 docs commit

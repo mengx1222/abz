@@ -12,7 +12,7 @@
 |----|-----|
 | Release Version | **v0.1.0**（backend/pyproject.toml = 0.1.0，frontend/package.json = 0.1.0，README = v0.1.0） |
 | Release Status | **Internal Pilot Candidate** |
-| Git HEAD | `9befe4b`（Task 15 Release Baseline） |
+| Git HEAD | `fedc279`（Task 16 校准：GitHub main == origin/main == Release Baseline） |
 | GitHub main HEAD | 与 HEAD 一致（default branch = main） |
 | Repository Status | CLEAN（Task 14 清理后 268 blob；无 download/upload/tool-results/skills/.env） |
 
