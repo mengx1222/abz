@@ -30,7 +30,7 @@
 
 
 
-> Git HEAD: `bf81a4ea`
+> Git HEAD: `477a3ca`
 
 
 
@@ -374,6 +374,7 @@
 
 | Prod-15 | Task 11: Playwright E2E 基础设施 + 黄金路径第一阶段 (Login/Dashboard/Customer List/Detail 4 项 E2E 全绿) | `de1573c`…`dae833c` (9 commits) | ✅ 完成 |
 | Prod-16 | Task 12: Playwright E2E 第二阶段 (Product QA 4 + Script 3 = 7 项新 E2E，真实 AI RAG 链路修复闭环) | `1b9cf10`…`bf81a4e` (18 commits) | ✅ 完成 |
+| Prod-17 | Task 13: Script Citation UI + RAG 产品边界（前端渲染依据 + product_type 过滤） | `945c817`…`477a3ca` (11 commits) | ✅ 完成 |
 
 
 
@@ -1517,6 +1518,7 @@
 
 | Task 11 Playwright E2E (e2e-playwright.yml) | **4/4 passed：Login 表单登录 / Dashboard 渲染统计卡片 / Customer List 确定性客户+搜索 / Customer Detail 基本信息+AI 入口；console/pageerror/API 4xx 监控 + 失败截图/trace；CI+Prod Validation 无回归** | 2026-08-15 (Task 11) |
 | Task 12 Playwright E2E 第二阶段 | **11/11 passed（42.2s）：Product QA 页面/问答/Citation(参考来源+文档名)/Refusal + Script 页面/真实生成+Compliance 徽章/Refusal 不编造；修复 4 个真实 RAG 生产 bug（query embedding 缺失 / embedding 维度 / cosine_distance vector 字面量 / RRF 分数量级）** | 2026-08-15 (Task 12) |
+| Task 13 Script Citation UI + RAG 产品边界 | **E2E 11/11 passed（37.8s）：Script 真实生成 + Compliance + Citation UI（📚产品知识依据/文档标题可见）+ 错误产品（车险）拒答且不展示依据；后端 product_type 边界过滤（metadata 精确匹配→标题回退）+ Confidence Gate 保留** | 2026-08-17 (Task 13) |
 
 
 
