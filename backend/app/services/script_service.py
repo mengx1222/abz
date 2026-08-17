@@ -510,7 +510,10 @@ class ScriptService:
                 pipeline = await self._get_rag_pipeline()
                 if pipeline:
                     query = f"{effective_product_type} 产品特点 保障范围 保费 理赔"
-                    search_results, context_text = await pipeline.query(question=query, top_k=4)
+                    # 产品边界：检索仅限当前产品（避免同领域错误产品被召回为有效依据）
+                    search_results, context_text = await pipeline.query(
+                        question=query, top_k=4, product_type=effective_product_type,
+                    )
                     refuse, top_score, count = should_refuse_answer(search_results)
                     confidence = assess_confidence(search_results)
                     if refuse or confidence.level in (ConfidenceLevel.NONE, ConfidenceLevel.LOW):
@@ -646,14 +649,16 @@ class ScriptService:
             "styles_display": [STYLE_NAMES.get(s, s) for s in styles],
         })
 
-        # RAG检索产品知识（Demo：内存索引或空）
+        # RAG检索产品知识（Demo：内存索引或空；同样带产品边界）
         product_info = ""
         if product_type:
             try:
                 pipeline = await self._get_rag_pipeline()
                 if pipeline:
                     query = f"{product_type} 产品特点 保障范围 保费 理赔"
-                    search_results, context_text = await pipeline.query(question=query, top_k=4)
+                    search_results, context_text = await pipeline.query(
+                        question=query, top_k=4, product_type=product_type,
+                    )
                     if context_text:
                         product_info = context_text
                         yield _sse_event("rag_context", {
