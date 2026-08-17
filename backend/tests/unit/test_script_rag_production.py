@@ -106,9 +106,11 @@ class _FakePipeline:
     def __init__(self, results: list[SearchResult]):
         self._results = results
         self.query_called = False
+        self.last_product_type: str | None = None
 
-    async def query(self, question: str, top_k: int = 4):
+    async def query(self, question: str, top_k: int = 4, product_type: str | None = None):
         self.query_called = True
+        self.last_product_type = product_type
         context = "\n---\n".join(r.content for r in self._results)
         return self._results, context
 
@@ -338,3 +340,64 @@ class TestScriptRagProduction:
         # 无 product_type 时不做 RAG 拒答，直接生成
         assert "style_complete" in grouped
         assert "generation_complete" in grouped
+
+    # ------------------------------------------------------------------
+    # 产品边界：正确产品 → ALLOW + Citation；错误产品 → REFUSE
+    # ------------------------------------------------------------------
+
+    async def test_product_boundary_passed_to_pipeline(self, session, monkeypatch):
+        """ScriptService 必须把 product_type 传给 pipeline.query（产品边界过滤）。"""
+        uid = await _create_user(session, "13900550011")
+        await session.commit()
+        service = await _make_production_service(session, monkeypatch)
+        fake = await _install_fake_pipeline(service, [
+            _fake_result("医疗险保障额度最高 600 万。", 0.85),
+            _fake_result("住院医疗在保障范围内。", 0.82),
+            _fake_result("0-65 周岁可投保。", 0.78),
+        ])
+
+        await _collect_generation(service, product_type="医疗险", user_id=str(uid))
+        assert fake.last_product_type == "医疗险"
+
+    async def test_wrong_product_no_evidence_refuses(self, session, monkeypatch):
+        """错误产品（知识库无对应文档）→ pipeline 返回空 → REFUSE 不生成话术。"""
+        uid = await _create_user(session, "13900550012")
+        await session.commit()
+        service = await _make_production_service(session, monkeypatch)
+        fake = await _install_fake_pipeline(service, [])
+
+        events = await _collect_generation(service, product_type="车险", user_id=str(uid))
+        grouped = _events_by_type(events)
+
+        assert fake.last_product_type == "车险"
+        rag_ctx = grouped["rag_context"][0]
+        assert rag_ctx["status"] == "REFUSE"
+        assert rag_ctx["citations"] == []
+        assert "style_complete" not in grouped
+        assert len(grouped["style_refused"]) == 1
+        # 不持久化伪造话术
+        rows = (await session.execute(select(Script))).scalars().all()
+        assert rows == []
+
+    async def test_correct_product_citation_carried(self, session, monkeypatch):
+        """正确产品生成时，style_complete 必须携带 citations（前端 Citation UI 数据源）。"""
+        uid = await _create_user(session, "13900550013")
+        await session.commit()
+        service = await _make_production_service(session, monkeypatch)
+        await _install_fake_pipeline(service, [
+            _fake_result("医疗险保障额度最高 600 万。", 0.85),
+            _fake_result("住院医疗在保障范围内。", 0.82),
+            _fake_result("0-65 周岁可投保。", 0.78),
+        ])
+
+        events = await _collect_generation(service, product_type="医疗险", user_id=str(uid))
+        grouped = _events_by_type(events)
+        complete = grouped["style_complete"][0]
+        assert complete["rag_status"] == "ALLOW"
+        assert len(complete["citations"]) >= 1
+        c = complete["citations"][0]
+        # Citation UI 所需字段：文档标题 / 章节 / 来源 / 分数
+        assert c["document_title"]
+        assert "section" in c
+        assert c["source"]
+        assert "score" in c
