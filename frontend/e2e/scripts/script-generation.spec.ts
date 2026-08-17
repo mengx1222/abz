@@ -110,8 +110,8 @@ test.describe('Script Generation', () => {
     // Citation UI（Task 13）：生成卡片下方出现"产品知识依据（RAG）"，且文档标题可见
     const citationHeader = page.getByText('📚 产品知识依据（RAG）');
     await expect(citationHeader).toBeVisible({ timeout: 10_000 });
-    // 确定性知识库文档标题（医疗险产品手册）必须出现在依据中
-    const docTitle = page.getByText('安诊保百万医疗险产品手册');
+    // 确定性知识库文档标题（医疗险产品手册）必须出现在依据中（同文档多 chunk 取 first）
+    const docTitle = page.getByText('安诊保百万医疗险产品手册').first();
     await expect(docTitle).toBeVisible({ timeout: 10_000 });
     // 依据不为空：至少 1 个依据条目（文档标题 / 章节 / 来源可见）
     const citationItems = page.getByText(/📄/);
