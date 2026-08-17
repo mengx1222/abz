@@ -1612,3 +1612,35 @@ class MockProvider:
 > **适用阶段**: 系统设计与初始开发阶段
 > **关联文档**: [系统架构文档](./architecture.md) · [API 文档](./api.md) · [数据库文档](./database.md) · [产品需求文档](./product-requirements.md)
 
+
+## 9. Script Citation UI + RAG 产品边界（Task 13，2026-08-17）
+
+### 9.1 Script 生成结果的 Citation 进入浏览器 UI
+
+此前话术生成的 RAG 依据仅存在于 SSE/API 层（`rag_context` / `style_complete` 事件的 `citations` 字段），
+前端 `StyleScriptCard` 不展示。Task 13 打通到 UI：
+
+- `scriptService.ts` 新增 `ScriptCitation` 类型：`document_id / document_title / section / source / score`
+- `ScriptsPage.tsx` 的 `genResults` 每个风格卡片增加 `citations`，`style_complete` 事件正确解析 `data.citations`
+- `StyleScriptCard` 生成完成后渲染「📚 产品知识依据（RAG）」区：
+  - 📄 文档标题（如"安诊保百万医疗险产品手册"）
+  - 章节徽章（chunk metadata.heading）
+  - 相关度（score）
+  - 来源摘录（chunk content 前 300 字）
+- SSE 链保持 `rag_context → citations → style_complete`，前端解析无破坏
+
+### 9.2 Script RAG 产品边界
+
+用户选择产品类型（如"医疗险"）生成话术时，RAG 检索携带 `product_type` 边界：
+
+- 过滤逻辑（`retriever._product_boundary_condition`）：chunk metadata `product_type` 精确匹配；
+  元数据缺失时回退文档标题包含产品名——杜绝"保险"等共同词把同领域错误产品（如车险文档）
+  当成当前产品的有效依据
+- 过滤后仍走 Confidence Gate：正确产品 → ALLOW/REVIEW 并带 citations；错误产品/无产品知识 → REFUSE 不生成
+- 保留安全行为：即使召回错误产品，也绝不把错误产品条款注入 LLM 上下文
+
+### 9.3 验证
+
+- 后端：`test_script_rag_production`（product_type 透传 / 错误产品 REFUSE / citations 字段齐全）、
+  `test_pg_integration.TestPgRagProductBoundary`（PG 真实过滤：医疗险命中/车险空/无过滤语义召回）
+- E2E：真实生成 + Compliance 徽章 + Citation UI（8.4s）、错误产品（车险）拒答且不展示依据（2.9s）
