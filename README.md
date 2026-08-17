@@ -7,9 +7,24 @@
 |------|------|
 | 产品名称 | 安诊保 AI 副驾（Anzhenbao AI Copilot） |
 | 所属公司 | 华安保险（Sinosafe Insurance） |
-| 项目版本 | `v0.1.0`（`backend/pyproject.toml`） |
-| 发布就绪状态 | **Internal Pilot Candidate**（详见 [docs/release-readiness.md](docs/release-readiness.md)） |
+| 项目版本 | `v0.1.0`（`backend/pyproject.toml` / `frontend/package.json` 一致） |
+| 发布就绪状态 | **Internal Pilot Candidate** — ⚠️ **非正式 Production Release**（详见 [docs/release-readiness.md](docs/release-readiness.md)） |
 | 仓库语言 | Python（后端）+ TypeScript/React（前端） |
+
+---
+
+## ⚠️ Known Limitations（当前已知限制）
+
+| 项 | 说明 |
+|----|------|
+| Frontend TypeScript hard gate（P1-6） | 仓库存在既有 TS 类型错误，CI 暂用 `vite build` 绕过 tsc 门禁；TS 清理为独立任务 |
+| Growth course_detail（P1-3） | 课程表未落库，生产路径返回 None（不强建 LMS） |
+| Training / Growth E2E | **未完成（Planned）** — 当前 Playwright 覆盖 Stage 1 + Stage 2 |
+| AI Sales Agent | **未实现（Planned）** — Dashboard「今日建议」为规则化统计，非多步推理 Agent |
+| 前端组件级测试（P2-3） | 仅 utils 有 Vitest 覆盖 |
+| CSRF 显式防护（P2-1） | 未实现（JWT Bearer 下风险较低） |
+
+> 完整 P0/P1/P2 清单见 [docs/project-status.md](docs/project-status.md)。
 
 ---
 
@@ -23,7 +38,7 @@
 | Docker Production Validation | ✅ 4 容器（postgres/redis/backend/frontend）全栈通过 |
 | Backend 测试 | ✅ CI 全绿（后端单元 + API 集成 + PostgreSQL 集成） |
 | Frontend 测试 / 构建 | ✅ Vitest + Vite build 通过（tsc 硬门禁待恢复，见 [docs/project-status.md](docs/project-status.md) P1-6） |
-| Playwright E2E | ✅ 阶段一（Login/Dashboard/Customer）11 项全绿 + 阶段二（Product QA / Script / Citation / Compliance / 产品边界） |
+| Playwright E2E | ✅ **11/11 PASS**：Stage 1（Login/Dashboard/Customer List/Detail）+ Stage 2（Product QA / Script / Citation / Compliance / 产品边界） |
 
 > 详细测试数字以 [docs/project-status.md](docs/project-status.md)（唯一事实来源）与最新 CI 为准。
 
@@ -265,6 +280,7 @@ Demo 模式预置测试账号，验证码统一为 `888888`：
 | [当前状态审计](docs/current-state-audit.md) | 最近一次完整审计 |
 | [发布就绪基线](docs/release-readiness.md) | 发布能力检查表 |
 | [仓库清理审计](docs/repository-cleanup-audit.md) | 本次清理决策记录 |
+| [发布验证快照](docs/release-verification.md) | 本次 Release Baseline 真实验证快照 |
 | [系统架构](docs/architecture.md) | 分层架构 / 数据流 |
 | [API 文档](docs/api.md) | 端点清单（实际 90 端点）与设计参考 |
 | [数据库设计](docs/database.md) | 30 张表 / 7 迁移 |

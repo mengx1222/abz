@@ -4,7 +4,7 @@
 
 > 最后更新: 2026-08-17
 
-> Git HEAD: `575f8f2`
+> Git HEAD: `ef1c26ca`（Task 15 Release Baseline）
 
 > 项目版本: `0.1.0`（backend/pyproject.toml）
 
@@ -27,6 +27,29 @@
 
 
 
+
+## Current Snapshot（2026-08-17 · HEAD ef1c26ca）
+
+| 项 | 当前真实状态 |
+|----|-------------|
+| Release Version | **v0.1.0**（pyproject / package.json / README 一致） |
+| Release Status | **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md) + [release-verification.md](release-verification.md)） |
+| Backend Tests | **224 passed, 5 skipped**（CI @ 8050d0b） |
+| PG 集成测试（真实 PG16+pgvector） | **5 passed**（含 RAG 产品边界） |
+| Frontend Tests / Build | **27 passed（3 files）** + `vite build` ✓ |
+| Playwright E2E | **11/11 passed**（Stage 1 + Stage 2） |
+| Real AI Smoke（DashScope/Qwen） | **8/8 PASS**（真实，非 Mock） |
+| Production Validation | **PASS** |
+| Docker | dev + prod compose 均通过 Production Validation |
+| Repository | CLEAN（Task 14：268 blob，无过程产物/Secret） |
+| P0 | 无 |
+| P1 | P1-3（growth course_detail Demo Only）、P1-6（前端 tsc 硬门禁） |
+| P2 | P2-1~P2-4（CSRF / Demo 401 / 组件测试 / seed 集成） |
+| Current Next Tasks | 见「Current Next Tasks」节（Training/Growth E2E、TS 清理、AI Sales Agent） |
+
+> 历史测试数字与逐 Task 验证记录见「Historical Verification Log（G 记录）」，不再混入本 Snapshot。
+
+---
 
 ## A. 当前 Phase
 
@@ -996,7 +1019,19 @@
 
 
 
-## F. 下一阶段建议
+## Current Next Tasks（仅未完成任务）
+
+> 以下均为**尚未完成**的任务。已完成能力（PostgreSQL/Real AI/Playwright/RAG/产品边界等）见 Current Snapshot 与 Historical Log。
+
+| 任务 | 说明 | 状态 |
+|------|------|------|
+| Training E2E | Playwright 阶段三（Training 黄金链） | Planned |
+| Growth E2E | Playwright 阶段三（Growth 黄金链） | Planned |
+| 前端 TS 清理 | 恢复 tsc 硬门禁（P1-6） | Planned |
+| AI Sales Agent | 多步推理销售策略 Agent | Planned |
+| 成长课程体系 | growth course_detail 落库（P1-3） | Planned |
+
+### 历史：Service Production 路径审计结论（已完成）
 
 
 
@@ -1156,7 +1191,9 @@
 
 
 
-## G. 最后验证记录
+## Historical Verification Log（G 记录）
+
+> 逐 Task / 逐 Phase 的历史验证记录（含历史测试数字 133/151/163/174/190/197/206/210/221 等）。当前状态一律以顶部 Current Snapshot 为准。
 
 
 

@@ -1,7 +1,8 @@
 # 当前状态审计报告 — 安诊保 AI 副驾
 
 > 审计时间：2026-08-17
-> Git HEAD：`575f8f2`（main）
+> Git HEAD：`ef1c26ca`（main）
+> 文档角色：**最近一次完整仓库审计**（Historical 基线审计见 docs/archive/project-audit-initial.md）
 > 项目版本：`0.1.0`（`backend/pyproject.toml`）
 > 发布就绪状态：**Internal Pilot Candidate**（见 [docs/release-readiness.md](release-readiness.md)）
 > 审计方式：代码实际读取 + 最新 CI 结果（非文档推断）

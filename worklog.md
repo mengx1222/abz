@@ -2067,3 +2067,28 @@ Stage Summary:
 - 仓库达到 CLEAN / RELEASE CANDIDATE 状态（INTERNAL PILOT READY）
 - 删除 1496 个过程性条目；保留核心目录；文档全量校准
 - 未修改核心业务逻辑
+
+---
+
+Task ID: 35
+
+Agent: main
+
+Task: Task 15 — Release Baseline Verification + Project State Final Reconciliation
+
+Work Log:
+
+- Git 基线校准：default branch=main；HEAD==origin/main==GitHub main（8050d0b）；无分支/无 force push
+- 版本一致性审计：backend/pyproject.toml=0.1.0 ✓；frontend/package.json=0.0.0 ✗ → 最小统一为 0.1.0（含 package-lock.json 同步）；README=v0.1.0 ✓
+- 最新 CI 真实验证快照（HEAD 8050d0b）：Backend pytest 224 passed/5 skipped；PG 集成 5 passed（含 RAG 产品边界）；Frontend 27 passed（3 files）+ vite build ✓；Production Validation PASS；Playwright 11/11（477a3ca）；Real AI Smoke 8/8（94ce52f）
+- 能力抽查（代码级）：SecurityHeadersMiddleware / RateLimitMiddleware / Gateway 缺 Key raise（no silent fallback）/ JWT+require_role RBAC —— 全部属实
+- 新建 docs/release-verification.md（Release Version/HEAD/模块状态/Test Snapshot/P0-P2/Internal Pilot=YES → READY FOR INTERNAL PILOT）
+- project-status.md 重构：新增 Current Snapshot（仅最新真实数字）；F 下一阶段建议 → Current Next Tasks（仅未完成任务）；G 记录 → Historical Verification Log（历史数字 133/151/163/174/190/197/206/210/221 归入历史，不混入当前）
+- README：顶部加 Known Limitations（TS 硬门禁/growth course_detail/Training-Growth E2E Planned/AI Sales Agent Planned）；Verified Facts E2E 表述修正为 11/11 Stage1+Stage2；文档索引补 release-verification
+- release-readiness / current-state-audit：HEAD 更新 + 文档角色标注（audit=最近一次完整审计）
+- 判定：**READY FOR INTERNAL PILOT**（无 P0，全部最低标准满足；非 PRODUCTION READY）
+
+Stage Summary:
+
+- Release Baseline 建立：v0.1.0 Internal Pilot Candidate，代码/Git/文档/CI 全部描述同一真实状态
+- 未开发新功能；仅元数据最小统一（package.json 版本）+ 文档校准
