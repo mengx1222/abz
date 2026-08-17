@@ -16,6 +16,7 @@ import {
   type Script,
   type ComplianceResult,
   type ComplianceIssue,
+  type ScriptCitation,
 } from '../../services/scriptService';
 
 // ---- 常量 ----
@@ -98,12 +99,14 @@ function StyleScriptCard({
   style,
   content,
   compliance,
+  citations,
   wordCount,
   isStreaming,
 }: {
   style: string;
   content: string;
   compliance: ComplianceResult | null;
+  citations?: ScriptCitation[];
   wordCount?: number;
   isStreaming: boolean;
 }) {
@@ -154,6 +157,30 @@ function StyleScriptCard({
         {content}
         {isStreaming && <span className="inline-block w-1.5 h-4 bg-accent ml-0.5 animate-pulse rounded-sm" />}
       </div>
+      {/* RAG 产品知识依据（Citation UI）：生成完成后展示文档标题/章节/来源 */}
+      {!isStreaming && citations && citations.length > 0 && (
+        <div className="mt-3 pt-3 border-t border-border">
+          <p className="text-xs font-medium text-muted mb-2">📚 产品知识依据（RAG）</p>
+          <div className="space-y-1.5">
+            {citations.map((c, i) => (
+              <div key={i} className="text-xs bg-bg/60 rounded-lg p-2">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <span className="text-accent font-medium">📄 {c.document_title}</span>
+                  {c.section && (
+                    <Badge variant="default" className="text-[10px] px-1.5 py-0">{c.section}</Badge>
+                  )}
+                  {typeof c.score === 'number' && (
+                    <span className="text-muted">相关度 {Math.round(c.score * 100)}%</span>
+                  )}
+                </div>
+                {c.source && (
+                  <p className="text-muted mt-1 line-clamp-2">「{c.source}」</p>
+                )}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       {!isStreaming && compliance && compliance.issues.length > 0 && (
         <div className="mt-3">
           <CompliancePanel result={compliance} />
@@ -183,7 +210,7 @@ export function ScriptsPage() {
     product_type: '',
   });
   const [genStyle, setGenStyle] = useState<string>('');
-  const [genResults, setGenResults] = useState<Record<string, { content: string; compliance: ComplianceResult | null; wordCount: number; streaming: boolean }>>({});
+  const [genResults, setGenResults] = useState<Record<string, { content: string; compliance: ComplianceResult | null; citations: ScriptCitation[]; wordCount: number; streaming: boolean }>>({});
   const [genRequestId, setGenRequestId] = useState('');
   const abortRef = useRef<AbortController | null>(null);
 
@@ -257,19 +284,19 @@ export function ScriptsPage() {
             (data.styles as string[]).forEach((s) => {
               setGenResults((prev) => ({
                 ...prev,
-                [s]: { content: '', compliance: null, wordCount: 0, streaming: true },
+                [s]: { content: '', compliance: null, citations: [], wordCount: 0, streaming: true },
               }));
             });
             break;
 
           case 'rag_context':
-            // RAG知识检索完成
+            // RAG知识检索完成（citations 随 style_complete 逐风格带出）
             break;
 
           case 'style_start':
             setGenResults((prev) => ({
               ...prev,
-              [data.style as string]: { content: '', compliance: null, wordCount: 0, streaming: true },
+              [data.style as string]: { content: '', compliance: null, citations: [], wordCount: 0, streaming: true },
             }));
             break;
 
@@ -277,7 +304,7 @@ export function ScriptsPage() {
             const style = data.style as string;
             const token = data.content as string;
             setGenResults((prev) => {
-              const existing = prev[style] || { content: '', compliance: null, wordCount: 0, streaming: true };
+              const existing = prev[style] || { content: '', compliance: null, citations: [], wordCount: 0, streaming: true };
               return {
                 ...prev,
                 [style]: { ...existing, content: existing.content + token },
@@ -291,9 +318,10 @@ export function ScriptsPage() {
             const content = data.content as string;
             const compliance = data.compliance as ComplianceResult;
             const wordCount = (data.word_count as number) || content.length;
+            const citations = (data.citations as ScriptCitation[]) || [];
             setGenResults((prev) => ({
               ...prev,
-              [style]: { content, compliance, wordCount, streaming: false },
+              [style]: { content, compliance, citations, wordCount, streaming: false },
             }));
             break;
           }
@@ -533,6 +561,7 @@ export function ScriptsPage() {
                 content={result.content}
                 compliance={result.compliance}
                 wordCount={result.wordCount}
+                citations={result.citations}
                 isStreaming={result.streaming}
               />
             ))}
