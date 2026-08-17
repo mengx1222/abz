@@ -1,58 +1,16 @@
 # 安诊保 AI 副驾 — 项目状态（唯一事实来源）
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 > **本文件是项目状态的唯一事实来源。每完成一个 Phase 必须更新。**
 
+> 最后更新: 2026-08-17
 
+> Git HEAD: `575f8f2`
 
+> 项目版本: `0.1.0`（backend/pyproject.toml）
 
+> 发布就绪状态: **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md)）
 
-
-
-> 最后更新: 2026-08-15
-
-
-
-
-
-
-
-> Git HEAD: `477a3ca`
-
-
-
-
-
-
-
-> 后端版本: `1.0.0-rc.1`
-
-
-
-
-
-
-
-
-
-
-
-
-
-
+> 上一轮 Task: Task 14（Repository Cleanup + Documentation Reconciliation + Release Baseline）
 
 ---
 
@@ -1519,6 +1477,7 @@
 | Task 11 Playwright E2E (e2e-playwright.yml) | **4/4 passed：Login 表单登录 / Dashboard 渲染统计卡片 / Customer List 确定性客户+搜索 / Customer Detail 基本信息+AI 入口；console/pageerror/API 4xx 监控 + 失败截图/trace；CI+Prod Validation 无回归** | 2026-08-15 (Task 11) |
 | Task 12 Playwright E2E 第二阶段 | **11/11 passed（42.2s）：Product QA 页面/问答/Citation(参考来源+文档名)/Refusal + Script 页面/真实生成+Compliance 徽章/Refusal 不编造；修复 4 个真实 RAG 生产 bug（query embedding 缺失 / embedding 维度 / cosine_distance vector 字面量 / RRF 分数量级）** | 2026-08-15 (Task 12) |
 | Task 13 Script Citation UI + RAG 产品边界 | **E2E 11/11 passed（37.8s）：Script 真实生成 + Compliance + Citation UI（📚产品知识依据/文档标题可见）+ 错误产品（车险）拒答且不展示依据；后端 product_type 边界过滤（metadata 精确匹配→标题回退）+ Confidence Gate 保留** | 2026-08-17 (Task 13) |
+| Task 14 Repository Cleanup + Docs Reconciliation | **仓库 CLEAN：删除 download/upload/tool-results/skills（1496 条目）+ .env 移出跟踪 + project-audit 归档；README/testing/current-state-audit 重写；release-readiness 新建（INTERNAL PILOT READY）；89 端点/30 表/7 迁移/21 路由全部对齐代码** | 2026-08-17 (Task 14) |
 
 
 

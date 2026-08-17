@@ -1,5 +1,9 @@
 # 安全设计文档 — 安诊保 AI 副驾
 
+> **文档状态**：当前有效 · 已补充 Real AI Provider Secret 管理（GitHub Secrets 注入，不入仓库）
+> 最后校准：2026-08-17
+
+
 ## 1. 安全概述
 
 安诊保 AI 副驾是面向金融保险行业的企业级 AI 应用，系统日常处理大量敏感的客户个人信息、健康体检数据、保险业务记录等高价值数据资产。作为金融科技产品，安全是系统设计的基石，贯穿架构设计、开发实现、部署运维的全生命周期。金融保险行业受到《中华人民共和国个人信息保护法》《数据安全法》《网络安全法》等多部法律法规的严格约束，同时需满足金融监管部门对数据安全、隐私保护的合规要求。任何安全事件的爆发都可能导致客户信任崩塌、监管处罚及品牌声誉受损，因此本系统必须以最高安全标准进行设计和实施。
@@ -630,3 +634,12 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 | 日志脱敏抽查 | 抽查各类日志输出，确认敏感信息已被正确脱敏 | 每周 |
 | 灾备演练 | 执行灾难恢复演练，验证备份恢复和业务连续性方案 | 每半年 |
 
+
+---
+
+## 附录：Real AI Provider Secret 管理（2026-08-17 校准）
+
+- 真实 AI 凭据（`AZB_AI_API_KEY` / `AZB_AI_BASE_URL` / `AZB_AI_MODEL` / `AZB_AI_PROVIDER`）由 **GitHub Actions Secrets** 注入（`.github/workflows/real-ai-smoke.yml`、`e2e-playwright.yml`），**不进入仓库**
+- 本地开发：从 `.env.example` / `backend/.env.production`（占位模板，`CHANGE_ME_*`）复制并填入真实值，`.gitignore` 已忽略 `.env` / `.env.production`
+- 日志脱敏：structlog 记录 provider/model/tokens/latency，**不记录 API Key**；GitHub Actions 日志对 Secret 自动 mask（显示 `***`）
+- 仓库安全状态：当前 Git 树无真实密钥（Task 14 全仓扫描）；历史根 `.env` 仅含本地 sqlite 路径，无真实凭据

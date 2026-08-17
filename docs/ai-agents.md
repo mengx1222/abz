@@ -1,5 +1,9 @@
 # AI Agent 架构文档 — 安诊保 AI 副驾
 
+> **文档状态**：当前有效 · AI Sales Agent 等未实现能力已标注 Planned
+> 最后校准：2026-08-17
+
+
 > **文档版本**: v1.0.0
 > **最后更新**: 2025 年 1 月
 > **关联文档**: [系统架构文档](./architecture.md) · [API 文档](./api.md) · [数据库文档](./database.md)
@@ -486,7 +490,7 @@ LLM 生成（System Prompt + Context + User Query）
 
 ### 3.3 AI 销售 Agent
 
-**定位**：综合性的销售策略 Agent，整合客户数据、产品知识、历史互动，生成今日销售建议和行动计划。
+> **状态：PLANNED（未实现）** — 当前 Dashboard「今日建议」由 dashboard_service 返回规则化统计（非独立 AI Agent 编排）；多步推理销售 Agent 尚未实现。本节点为设计草案。
 
 **所在页面**：仪表盘「今日建议」
 

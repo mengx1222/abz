@@ -1,9 +1,10 @@
-# 安诊保 AI 副驾 — 当前状态审计报告
+# 当前状态审计报告 — 安诊保 AI 副驾
 
-> 审计时间: 2026-08-14
-> Git HEAD: `1843649` (main)
-> 后端版本: 1.0.0-rc.1
-> 审计方式: **代码实际运行验证**（非文档推断）
+> 审计时间：2026-08-17
+> Git HEAD：`575f8f2`（main）
+> 项目版本：`0.1.0`（`backend/pyproject.toml`）
+> 发布就绪状态：**Internal Pilot Candidate**（见 [docs/release-readiness.md](release-readiness.md)）
+> 审计方式：代码实际读取 + 最新 CI 结果（非文档推断）
 
 ---
 
@@ -11,285 +12,84 @@
 
 | 维度 | 实际状态 |
 |------|---------|
-| 技术栈 | React 19 + TS 5 + Vite 6 + Tailwind 4 ‖ Python 3.12 + FastAPI + SQLAlchemy 2.0 async + Pydantic v2 + Alembic |
-| 数据库 | PostgreSQL 16 + pgvector (Docker) — 7 个 Alembic 迁移，30 张表定义 |
-| 缓存 | Redis 7 (Docker) — 生产代码就绪，Demo 模式不依赖 |
-| AI | 自建 Gateway (Mock/OpenAI/DeepSeek/Qwen 兼容)，SSE 流式 |
-| 部署 | Docker Compose 4 容器 (postgres/redis/backend/frontend)，含生产配置 |
-| 前端构建 | TSC 0 errors，Vite build OK (入口 374KB / gzip 120KB)，19 页面独立 chunk |
-| 后端测试 | **133 pytest 用例全部通过** (6 单元 + 10 API 集成) |
-| 前端测试 | **27 vitest 用例全部通过** (3 文件) |
-| UAT 冒烟测试 | **23/23 全部通过** (14 组关键路径) |
+| 技术栈 | React 19 + TypeScript ~6.0 + Vite 8 + Tailwind 4 + React Router 7 ‖ Python 3.12 + FastAPI + SQLAlchemy 2.0 async + Pydantic v2 + Alembic（hatchling） |
+| 数据库 | PostgreSQL 16 + pgvector（1536 维）— 7 个 Alembic 迁移，30 张表 |
+| 缓存 | Redis 7（生产代码就绪；Demo 模式不依赖） |
+| AI | 自建 AI Gateway（mock / openai / deepseek / qwen）+ 真实阿里云百炼 DashScope（qwen-plus / text-embedding-v3） |
+| RAG | pgvector 向量 + BM25 + RRF 融合 + Confidence Gate（ALLOW/REVIEW/REFUSE）+ Citation + 产品边界（Task 13） |
+| 部署 | Docker Compose（开发/生产两套），4 容器（postgres/redis/backend/frontend） |
+| 前端 | 21 条路由，SSE 流式（Product QA / Script / AI 摘要 / 陪练） |
 
----
+## 2. 验证状态（Verified Facts）
 
-## 2. 后端 API 端点统计
+| 项 | 状态 |
+|----|------|
+| 真实 PostgreSQL 16 + pgvector | ✅ Production Validation + PG 集成测试 |
+| 真实 Redis | ✅ Production Validation |
+| 真实 DashScope / Qwen | ✅ Real AI Smoke **8/8 PASS**（run 31866434810，commit 94ce52f） |
+| Backend 测试 | ✅ CI 全绿（约 229 个测试函数：单元 + API 集成 + PG 集成） |
+| Frontend 测试 / 构建 | ✅ Vitest + Vite build 通过 |
+| Playwright E2E | ✅ 11/11 PASS（阶段一 4 + 阶段二 7，含 Product QA / Script / Citation UI / 产品边界） |
+| Docker Production Validation | ✅ 全绿 |
 
-| 模块 | 端点数 | 前缀 | 状态 |
-|------|--------|------|------|
-| 健康检查 | 3 | `/api/v1/health`, `/ready`, `/health/detail` | ✅ Liveness + Readiness + Detail |
-| 认证 | 4 | `/api/v1/auth` | ✅ Login/Refresh/Logout/Me |
-| AI 助手 | 3 | `/api/v1/ai` | ✅ 产品问答 SSE + 会话管理 |
-| 知识库管理 | 9 | `/api/v1/admin` (knowledge-bases) | ✅ CRUD + 上传 + 发布 |
-| 客户 360 | 8 | `/api/v1/customers` | ✅ CRUD + AI 分析 + 互动 + 跟进 |
-| AI 陪练 | 8 | `/api/v1/training` | ✅ 场景 + 会话 + SSE 对话 + 评分 |
-| AI 话术 | 6 | `/api/v1/scripts` | ✅ CRUD + SSE 生成 + 合规检查 + 收藏 |
-| AI 社区 | 11 | `/api/v1/community` | ✅ 帖子/评论/点赞/收藏/AI 摘要 |
-| 管理后台 | 28 | `/api/v1/admin` | ✅ 用户/看板/审计/合规/社区/话术/陪练/设置/分析 |
-| 成长体系 | 4 | `/api/v1/growth` | ✅ 概览/课程/排行榜/成就 |
-| 通知中心 | 4 | `/api/v1/notifications` | ✅ 列表/已读/偏好 |
-| Dashboard | 1 | `/api/v1/dashboard` | ✅ 概览 |
-| **合计** | **89** | | |
+## 3. 后端 API 端点（89 个，与 `backend/app/api/v1/` 实际代码一致）
 
----
+| 模块 | 端点数 | 前缀 |
+|------|--------|------|
+| 健康检查 | 3 | `/api/v1/health`, `/ready`, `/health/detail` |
+| 认证 | 4 | `/api/v1/auth`（login/refresh/logout/me） |
+| AI 助手 | 3 | `/api/v1/ai`（product-qa/chat SSE + conversations） |
+| 知识库管理 | 9 | `/api/v1/admin/knowledge-bases` |
+| 客户 360 | 8 | `/api/v1/customers`（CRUD + interactions + followups + ai-analysis） |
+| AI 陪练 | 8 | `/api/v1/training`（scenarios/sessions/SSE messages/complete/stats） |
+| AI 话术 | 6 | `/api/v1/scripts`（CRUD + generate SSE + check-compliance + favorite） |
+| AI 社区 | 11 | `/api/v1/community`（posts/comments/like/favorite/ai-summary SSE） |
+| 管理后台 | 28 | `/api/v1/admin`（users/audit/analytics/compliance/community/scripts/training/settings） |
+| 成长体系 | 4 | `/api/v1/growth`（overview/courses/leaderboard/achievements） |
+| 通知中心 | 4 | `/api/v1/notifications` |
+| Dashboard | 1 | `/api/v1/dashboard` |
+| **合计** | **89** | |
 
-## 3. 数据库模型 vs Alembic 迁移
+## 4. 前端路由（21 条，与 `frontend/src/app/routes.tsx` 一致）
 
-### 3.1 迁移链（7 个迁移）
+`/login`、`/dashboard`、`/customers`、`/customers/:id`、`/product-qa`、`/scripts`、`/training`、`/training/chat/:scenarioId`、`/community`、`/growth`、`/notifications`、`/knowledge`、`/admin/users`、`/admin/analytics`、`/admin/audit`、`/admin/community`、`/admin/compliance`、`/admin/scripts`、`/admin/training`、`/admin/settings`、`/`（重定向）
 
-| 迁移 | 内容 | 状态 |
-|------|------|------|
-| 0001_initial.py | User/Role/Permission/Organization 基础表 | ✅ |
-| 0002_knowledge_ai.py | KnowledgeBase/Document/DocumentChunk + AI 日志 | ✅ |
-| 0003_scripts.py | Script/ScriptVersion/ScriptFavorite | ✅ |
-| 0004_community.py | Post/PostComment/PostLike/PostFavorite | ✅ |
-| 0005_remaining.py | Customer/CustomerTag/CustomerInteraction/CustomerFollowup + Training 系列 + Conversation/Message | ✅ |
-| 0006_notification_growth_audit.py | Notification/NotificationPreference + Growth/UserAchievement + AuditLog | ✅ |
-| 0007_kb_versioning_audit_enhance.py | KB/Document 版本字段 + AuditLog request_id | ✅ |
+## 5. 数据库（30 张表，7 个迁移）
 
-### 3.2 模型注册（30 张表）
-
-全部 ORM 模型已注册到 `app/models/__init__.py`，通过 `from app.models import *` 可正常导入。
-
-| 模型 | 表名 | 迁移版本 | ORM 注册 |
-|------|------|---------|---------|
-| User | users | 0001 | ✅ |
-| Role | roles | 0001 | ✅ |
-| Permission | permissions | 0001 | ✅ |
-| Organization | organizations | 0001 | ✅ |
-| Conversation | conversations | 0005 | ✅ |
-| Message | messages | 0005 | ✅ |
-| KnowledgeBase | knowledge_bases | 0002+0007 | ✅ (+effective_date/expiry_date/created_by) |
-| Document | documents | 0002+0007 | ✅ (+effective_date/expiry_date/version_number/previous_version_id) |
-| DocumentChunk | document_chunks | 0002 | ✅ |
-| AIRequestLog | ai_request_logs | 0002 | ✅ |
-| AIFeedback | ai_feedbacks | 0002 | ✅ |
-| Script | scripts | 0003 | ✅ |
-| ScriptVersion | script_versions | 0003 | ✅ |
-| ScriptFavorite | script_favorites | 0003 | ✅ |
-| TrainingScenario | training_scenarios | 0005 | ✅ |
-| TrainingSession | training_sessions | 0005 | ✅ |
-| TrainingMessage | training_messages | 0005 | ✅ |
-| TrainingScore | training_scores | 0005 | ✅ |
-| Customer | customers | 0005 | ✅ |
-| CustomerTag | customer_tags | 0005 | ✅ |
-| CustomerInteraction | customer_interactions | 0005 | ✅ |
-| CustomerFollowup | customer_followups | 0005 | ✅ |
-| Post | community_posts | 0004 | ✅ |
-| PostComment | community_post_comments | 0004 | ✅ |
-| PostLike | community_post_likes | 0004 | ✅ |
-| PostFavorite | community_post_favorites | 0004 | ✅ |
-| Notification | notifications | 0006 | ✅ |
-| NotificationPreference | notification_preferences | 0006 | ✅ |
-| UserAchievement | user_achievements | 0006 | ✅ |
-| AuditLog | audit_logs | 0006+0007 | ✅ (+request_id) |
-
-**审计结论：30 张表全部有 ORM 模型定义 + Alembic 迁移 + __init__.py 注册，无缺口。**
-
----
-
-## 4. Demo / Production Bifurcation 状态
-
-所有 Service 均实现 `if settings.DEMO_MODE: return self._demo_xxx()` 分流模式，通过实际代码验证：
-
-| Service | Bifurcation | Demo 数据来源 | Production 数据来源 |
-|---------|-------------|---------------|-------------------|
-| AuthService | ✅ 2 DEMO_MODE checks | 4 内存用户 (13800138000 系列) | DB (UserRepository) |
-| CustomerService | ✅ 9 checks, 25 _demo_ methods | 8 内存客户 | DB (CustomerRepository) + IDOR |
-| ScriptService | ✅ 8 checks, 24 _demo_ methods | 8 内存话术 | DB (ScriptRepository) |
-| TrainingService | ✅ 8 checks, 45 _demo_ methods | 23 内存场景 | DB (TrainingRepository) |
-| CommunityService | ✅ 11 checks, 22 _demo_ methods | 8 帖 + 10 评 | DB (CommunityRepository) |
-| GrowthService | ✅ 4 checks, 8 _demo_ methods | 6 课程 + 排行 + 成就 | DB (GrowthRepository) |
-| NotificationService | ✅ 4 checks, 8 _demo_ methods | 12 通知 + 5 偏好 | DB (NotificationRepository) |
-| DashboardService | ✅ 1 check, 2 _demo_ methods | 4 统计 + 建议 | DB 聚合 |
-| ComplianceService | N/A | 纯函数，无 DB 依赖 | 静态规则引擎 |
-
-**审计结论：8/8 需要 bifurcation 的 Service 全部已实现。ComplianceService 是纯函数无需分流。**
-
-### Repository 层
-
-| Repository | 文件 | 状态 |
-|-----------|------|------|
-| BaseRepository | `repositories/base.py` | ✅ CRUD 基类完整 |
-| CustomerRepository | `repositories/customer_repo.py` | ✅ 已被 CustomerService 使用 |
-| UserRepo | `repositories/user_repo.py` | ✅ 已被 AuthService 使用 |
-| ScriptRepo | `repositories/script_repo.py` | ✅ |
-| TrainingRepo | `repositories/training_repo.py` | ✅ |
-| CommunityRepo | `repositories/community_repo.py` | ✅ |
-| NotificationRepo | `repositories/notification_repo.py` | ✅ |
-
----
-
-## 5. RAG Pipeline 状态
-
-| 组件 | 文件 | 状态 | 验证结果 |
-|------|------|------|---------|
-| 文档解析器 | `rag/parser.py` | ✅ | TXT/MD/JSON/PDF |
-| 语义分块器 | `rag/chunker.py` | ✅ | 512 token / 50 overlap |
-| Demo 检索器 | `rag/retriever.py` | ✅ | n-gram 关键词匹配 |
-| 生产检索器 | `rag/retriever.py` | ✅ | pgvector + BM25 + RRF 代码就绪 |
-| RAG 编排器 | `rag/pipeline.py` | ✅ | Demo 模式单例 58 chunks |
-| **拒答机制** | `rag/safety.py` | ✅ | `should_refuse_answer()` — 空结果/低分(<0.3)拒答，**实测通过** |
-| **置信度门控** | `rag/safety.py` | ✅ | `assess_confidence()` — HIGH/MEDIUM/LOW/NONE 四级，NONE 级直接返回固定拒答文本 |
-| **Prompt Injection 防护** | `rag/safety.py` | ✅ | `detect_prompt_injection()` — 5 类攻击模式检测（角色劫持/指令泄露/分隔符/JSON注入/编码绕过），**实测通过** |
-| **输入消毒** | `rag/safety.py` | ✅ | `sanitize_user_input()` — 控制字符清理 + 2000 字截断 |
-| **版本管理** | `models/knowledge.py` + `0007` | ✅ | effective_date/expiry_date + version_number + previous_version_id |
-| **组织隔离** | `rag/retriever.py` | ✅ | org_id 参数 + 检索时组织过滤 |
-
----
-
-## 6. 安全与权限
-
-| 项目 | 文件 | 状态 | 说明 |
-|------|------|------|------|
-| JWT 认证 | `core/security.py` | ✅ | HS256, 120min access, 7d refresh |
-| RBAC 角色 | `models/role.py` | ✅ | 7 角色定义 (SYSTEM_ADMIN→AGENT) |
-| `require_role` 装饰器 | `core/deps.py` | ✅ | 路由级角色检查 |
-| **IDOR 防护** | `core/authorization.py` | ✅ | DataPermissionChecker — 4 方法 (can_access_customer/document/manage_user/filter_org_ids)，7 角色行级权限，**30 测试通过** |
-| **Rate Limiting** | `core/rate_limit.py` | ✅ | TokenBucketRateLimiter — 线程安全令牌桶，按路径分级（登录 2/s、AI 5/s、默认 30/s），**实测通过** |
-| **审计日志** | `core/audit.py` | ✅ | AuditMiddleware — 自动审计 POST/PUT/DELETE，structlog 输出 |
-| **Prompt Injection** | `rag/safety.py` | ✅ | 5 类攻击模式检测，HIGH 级直接拒答 |
-| **敏感数据脱敏** | `core/sanitize.py` | ✅ | mask_phone/id_card/name/email + 递归脱敏，**实测通过** |
-| **安全头** | `core/security_headers.py` | ✅ | CSP/X-Frame-Options/HSTS/Permissions-Policy，Demo/Prod 双策略 |
-| **CORS 加固** | `main.py` | ✅ | 从 `["*"]` 改为基于 FRONTEND_URL 动态配置 |
-| **请求 ID** | `core/middleware.py` | ✅ | RequestIDMiddleware — X-Request-ID 注入/传播 |
-| **请求日志** | `core/monitoring.py` | ✅ | RequestLoggingMiddleware — structlog 结构化日志 |
-| **错误处理** | `core/middleware.py` | ✅ | ErrorHandlerMiddleware — 全局异常捕获→JSON |
-| CSRF | — | ❌ 无 | JWT Bearer Token 认证，CSRF 风险较低但无显式防护 |
-| `/ready` 端点 | `api/v1/health.py` | ✅ | 3 端点：/health (Liveness) + /ready (Readiness with DB/Redis/AI checks) + /health/detail |
-
-### 中间件链（6 层，从外到内）
-
-1. SecurityHeadersMiddleware — 安全头
-2. RateLimitMiddleware — 限流
-3. AuditMiddleware — 审计日志
-4. RequestIDMiddleware — 请求 ID
-5. RequestLoggingMiddleware — 请求日志（跳过 /health）
-6. ErrorHandlerMiddleware — 全局异常
-
----
-
-## 7. 前端状态
-
-| 项目 | 状态 |
+| 迁移 | 内容 |
 |------|------|
-| 页面数量 | 20 个功能页面 (8 业务 + 8 管理 + Login + Dashboard + CustomerDetail + TrainingChat) |
-| API Service 层 | 12 个 service 文件，全部对接真实后端 API |
-| TypeScript | ✅ 0 errors |
-| Vite Build | ✅ 入口 374KB / gzip 120KB（Phase 4 代码分割后 ↓34%） |
-| 代码分割 | ✅ React.lazy 将 19 个页面拆分为独立 chunk |
-| 角色路由守卫 | ✅ RoleGuard 组件 + roleRoutes.ts (7 角色 × 18 路径权限矩阵) |
-| 侧边栏过滤 | ✅ Sidebar.tsx 按用户角色动态过滤菜单项 |
-| UI 组件 | Card/Badge/Button/Input/Avatar/Toast/LoadingSpinner (7 个) |
-| 前端测试 | ✅ 27 vitest 用例 (authStore 7 + roleRoutes 13 + cn 7) |
+| 0001_initial | 基础（用户/角色/组织/权限/客户/会话） |
+| 0002_knowledge_ai | 知识库/文档/分块（pgvector）+ AI 日志 |
+| 0003_scripts | 话术 + 收藏 |
+| 0004_community | 社区（帖子/评论/点赞） |
+| 0005_remaining | 培训/成长/通知 |
+| 0006_notification_growth_audit | 通知偏好/成长/审计日志 |
+| 0007_kb_versioning_audit_enhance | 知识库版本化 + 审计增强 |
 
----
+核心表：`users` / `roles` / `organizations` / `customers` / `documents` / `document_chunks`（embedding 1536 维）/ `knowledge_bases` / `scripts` / `training_*` / `community_*` / `growth_*` / `notifications` / `audit_logs` / `ai_logs`
 
-## 8. 测试覆盖
+## 6. RAG（生产链路已真实验证）
 
-| 测试类型 | 数量 | 状态 |
-|---------|------|------|
-| 后端单元测试 | 91 断言 (6 文件) | ✅ 全部通过 |
-| — test_auth.py | 7 断言 | ✅ JWT 创建/解码/过期 |
-| — test_rag_safety.py | 40 断言 | ✅ 拒答/置信度/注入检测/消毒 |
-| — test_rate_limit.py | 15 断言 | ✅ 令牌桶核心逻辑 |
-| — test_sanitize.py | 25 断言 | ✅ 手机/身份证/银行卡/姓名/邮箱脱敏 |
-| — test_compliance.py | 25 断言 | ✅ 8 条合规规则 |
-| — test_authorization.py | 30 断言 | ✅ 5 角色 IDOR 防护 |
-| 后端 API 集成测试 | 42 用例 (10 文件) | ✅ 全部通过 |
-| 前端单元测试 | 27 用例 (3 文件) | ✅ 全部通过 |
-| UAT 冒烟测试 | 23 用例 (14 组) | ✅ 全部通过 |
-| E2E (Playwright) | 0 | ❌ 未实现 |
+- 检索：pgvector 向量 + PostgreSQL BM25 + RRF 融合（K=60，分数 ×100 对齐阈值）
+- Confidence Gate：HIGH/MEDIUM/LOW/NONE → ALLOW/REVIEW/REFUSE
+- 拒答：知识库无充分依据 → 明确拒答，不编造产品事实（E2E 验证）
+- Citation：Product QA 参考来源区 + Script 生成结果「产品知识依据」区（文档标题/章节/相关度/来源）
+- **产品边界**（Task 13）：`product_type` 元数据精确匹配（缺失回退文档标题），错误产品不得作为有效依据
 
----
+## 7. 已知问题（详见 project-status.md）
 
-## 9. 部署配置
+| 级别 | 项 | 状态 |
+|------|-----|------|
+| P1-3 | growth_service.course_detail 生产路径仍 Demo Only（DB 无课程表） | 未解决（不影响主链路） |
+| P1-6 | 前端既有 TypeScript 类型错误，CI 暂用 `vite build` 绕过 tsc 硬门禁 | 未解决（本任务明确不处理） |
+| P2-1 | 无 CSRF 显式防护 | 低风险（JWT Bearer） |
+| P2-2 | Demo 模式无 Token 返回 200 | 低风险（仅 Demo） |
+| P2-3 | 前端页面组件无测试 | 仅 utils 有 vitest |
+| P2-4 | Seed 未集成到迁移 | 需手动执行 |
 
-| 文件 | 状态 | 说明 |
-|------|------|------|
-| docker-compose.yml | ✅ | 开发 4 容器 (postgres+redis+backend+frontend) |
-| docker-compose.prod.yml | ✅ | 生产配置：资源限制 + restart:always + env_file + 4 workers + healthcheck |
-| backend/Dockerfile | ✅ | 多阶段构建 + HEALTHCHECK |
-| frontend/Dockerfile | ✅ | 多阶段构建 (node→nginx) |
-| frontend/nginx.conf | ✅ | SPA 路由 + gzip + 缓存 |
-| .env.production | ✅ | JWT/AI/API 密钥模板 |
-| scripts/deploy.sh | ✅ | 交互式部署引导 |
-| scripts/seed.py | ✅ | 种子数据脚本 |
+## 8. 仓库卫生（Task 14 清理后）
 
----
-
-## 10. Production Ready 评估
-
-### Production Ready（代码已就绪，需 PostgreSQL 真实环境验证）
-
-| 模块 | 说明 |
-|------|------|
-| 基础工程 | FastAPI + SQLAlchemy + Alembic + JWT |
-| RBAC | 7 角色 + require_role + DataPermissionChecker |
-| 数据库 | 30 表 ORM + 7 迁移链完整 |
-| Repository | 7 个 Repository 全部实现 |
-| Service Bifurcation | 8/8 Service Demo/Production 分流 |
-| RAG Safety | 拒答 + 置信度门控 + Prompt Injection + 版本管理 + 组织隔离 |
-| 安全中间件 | Rate Limiting + 审计日志 + 数据脱敏 + 安全头 + CORS |
-| IDOR 防护 | 7 角色行级权限，CustomerService 全方法覆盖 |
-| 前端安全 | 角色路由守卫 + 代码分割 |
-| 自动化测试 | 133 pytest + 27 vitest + 23 UAT |
-| 部署配置 | Docker Compose 生产配置 + deploy.sh |
-
-### Demo Only（Demo 模式使用内存数据，Production 模式需 DB）
-
-所有 8 个 Service 的 Demo 数据均为内存硬编码。切换 Production 模式（`AZB_DEMO_MODE=false` + PostgreSQL）后，Service 自动通过 Repository 访问真实数据库。**代码路径已实现，但尚未在真实 PostgreSQL + pgvector 环境中完成端到端验证。**
-
-### Mock Only
-
-| 模块 | 说明 |
-|------|------|
-| AI Gateway | Demo 模式使用 MockProvider；需配置真实 AI API Key |
-| AI Embedding | pgvector 向量嵌入尚未在真实环境验证 |
-
----
-
-## 11. 风险清单
-
-### P0 — 阻断性
-
-**无。** 之前审计中的 P0 问题（无测试、迁移不完整、Community 未注册、纯内存 Service）已全部修复。
-
-### P1 — 严重
-
-| # | 风险 | 说明 | 验证状态 |
-|---|------|------|---------|
-| P1-1 | **PostgreSQL 真实环境未验证** | 当前 Production 路径代码就绪，但未在真实 PG + pgvector 上运行 `alembic upgrade head` + 全链路测试 | 待验证 |
-| P1-2 | **AI Provider 未接入真实模型** | Gateway 代码支持 OpenAI/DeepSeek/Qwen，但仅有 MockProvider 实际运行过 | 待验证 |
-| P1-3 | **部分 Service 的 Production 路径未充分测试** | `script_service.py` 的 `generate_scripts()` 生产路径复用了 `_demo_generate_scripts`，未走真实 AI | 代码已确认 |
-| P1-4 | **无 Playwright E2E 测试** | 前后端集成仅有 API 级别 UAT，无浏览器级 E2E | 待开发 |
-
-### P2 — 改进
-
-| # | 风险 | 说明 |
-|---|------|------|
-| P2-1 | 无 CSRF 显式防护 | JWT Bearer Token 认证下风险较低，但可增加 |
-| P2-2 | Demo 模式下无 Token 请求返回 200 而非 401 | Demo + SQLite 的 FastAPI security scheme 行为特例，Prod 模式应正常 |
-| P2-3 | docker-compose.yml 含默认密码 | 已在 .gitignore，生产使用 .env.production |
-| P2-4 | 前端测试覆盖率低 | 仅 3 个工具文件测试，页面组件无测试 |
-| P2-5 | 种子数据脚本未集成到迁移流程 | 需手动执行 seed.py |
-
----
-
-## 12. Phase 判定
-
-> **旧审计报告中的 Phase 判定已过时。** 以下基于实际代码 + 测试运行结果重新判定。
-
-**当前已完成所有 Production 化 Phase（Phase 2-5），处于 Phase 6（内部试点发布准备）阶段。**
-
-详见 [`docs/project-status.md`](./project-status.md) 获取完整的 Phase 映射和状态追踪。
+- 已删除：`download/`、`upload/`（Codex Prompt）、`tool-results/`、`skills/`（1479 文件，无引用）、根 `.env`（移出 Git 跟踪）
+- 已归档：`docs/project-audit.md` → `docs/archive/project-audit-initial.md`
+- 无真实 Secret 进入仓库（历史 `.env` 仅含本地 sqlite 路径）
+- 详见 [docs/repository-cleanup-audit.md](repository-cleanup-audit.md)

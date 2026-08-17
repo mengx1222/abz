@@ -1,5 +1,9 @@
 # 用户流程文档 — 安诊保 AI 副驾
 
+> **文档状态**：当前有效 · 已区分「已实现流程」与「未来流程」
+> 最后校准：2026-08-17
+
+
 > **版本**: v1.0  
 > **更新日期**: 2025-07-13  
 > **产品定位**: 面向华安保险代理人的 AI 销售赋能工作台  
@@ -2004,3 +2008,22 @@
 ---
 
 > **文档维护说明**：本文档应随着产品迭代持续更新。每次需求变更或新增功能时，需评估是否影响现有用户流程，并及时更新对应章节。状态机设计变更需同步更新前后端代码中的枚举定义和流转逻辑。
+
+---
+
+## 流程实现状态（2026-08-17 校准）
+
+| 流程 | 状态 | 说明 |
+|------|------|------|
+| Login（验证码登录 + JWT） | ✅ Implemented | E2E 验证 |
+| Dashboard（工作台统计概览） | ✅ Implemented | E2E 验证 |
+| Customer 360（列表/详情/互动/跟进/AI 分析入口） | ✅ Implemented | E2E 验证 |
+| Product QA（RAG + SSE + Citation + Refusal） | ✅ Implemented | E2E 验证 |
+| Script（生成 + Compliance + Citation UI + 产品边界拒答） | ✅ Implemented | E2E 验证 |
+| Training（陪练会话 + 评分） | ✅ Implemented | API + 页面 |
+| Growth（概览/排行榜/成就） | ✅ Implemented | API + 页面 |
+| Community（帖子/评论/AI 摘要） | ✅ Implemented | API + 页面 |
+| 通知（列表/已读/偏好） | ✅ Implemented | API + 页面 |
+| 知识库管理 | ✅ Implemented | API + 页面 |
+| 管理后台（用户/审计/合规/分析/设置） | ✅ Implemented | API + 页面 |
+| AI Sales Agent（多步推理销售策略） | ❌ Planned | 未实现 |

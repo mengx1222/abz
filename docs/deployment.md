@@ -1,5 +1,9 @@
 # 部署方案文档 — 安诊保 AI 副驾
 
+> **文档状态**：当前有效 · 已校准为 hatchling/pyproject 构建（无 requirements.txt/setup.py），与 Dockerfile/compose 一致
+> 最后校准：2026-08-17
+
+
 > 版本：v1.0 ｜ 最后更新：2025-07-10 ｜ 负责人：技术团队
 
 ---
@@ -156,21 +160,27 @@ CMD ["nginx", "-g", "daemon off;"]
 
 ### 2.4 后端 Dockerfile
 
+> 以下为简化示意；仓库内真实文件为 `backend/Dockerfile`（多阶段构建，hatchling/pyproject）：
+
 ```dockerfile
-FROM python:3.12-slim
+FROM python:3.12-slim AS builder
 WORKDIR /app
-
-# 安装系统依赖
 RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
+    build-essential libpq-dev \
     && rm -rf /var/lib/apt/lists/*
+# 项目使用 pyproject.toml（hatchling）而非 requirements.txt
+COPY pyproject.toml .
+COPY app ./app
+RUN pip install --no-cache-dir --prefix=/install .
 
-# 安装 Python 依赖
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
+FROM python:3.12-slim AS runtime
+WORKDIR /app
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libpq5 curl \
+    && rm -rf /var/lib/apt/lists/*
+COPY --from=builder /install /usr/local
 COPY . .
-
+RUN mkdir -p /app/uploads
 EXPOSE 8000
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
 ```

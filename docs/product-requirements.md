@@ -1,5 +1,9 @@
 # 产品需求文档（PRD）— 安诊保 AI 副驾
 
+> **文档状态**：当前有效 · 需求项已标注 Implemented / Partial / Planned
+> 最后校准：2026-08-17
+
+
 | 字段 | 内容 |
 |------|------|
 | 产品名称 | 安诊保 AI 副驾 |
@@ -1160,3 +1164,26 @@ MVP 阶段大量功能使用 Demo 数据和 Mock 实现，以下是完整的标�
 ---
 
 *本文档为安诊保 AI 副驾 MVP 版本的产品需求文档，所有功能设计以 MVP 验证为核心目标，后续版本将根据用户反馈和业务需求持续迭代优化。*
+
+
+---
+
+## 当前实现对齐（2026-08-17）
+
+| 模块 | 状态 |
+|------|------|
+| 认证 / RBAC | ✅ Implemented |
+| AI 产品专家（RAG+SSE+Citation+Refusal） | ✅ Implemented |
+| 客户 360 | ✅ Implemented |
+| AI 话术（生成+合规+Citation UI） | ✅ Implemented |
+| AI 陪练 | ✅ Implemented |
+| AI 社区 | ✅ Implemented |
+| 合规引擎 | ✅ Implemented |
+| 工作台 Dashboard | ✅ Implemented |
+| 成长体系 | Partial（course_detail 待课程表落库，见 project-status P1-3） |
+| 通知中心 | ✅ Implemented |
+| 知识库管理 | ✅ Implemented |
+| 管理后台 | ✅ Implemented |
+| AI Sales Agent | ❌ Planned |
+
+> 逐项需求细节以正文为准；本表为快速状态总览。

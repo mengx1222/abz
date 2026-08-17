@@ -1,5 +1,9 @@
 # 数据库设计文档 — 安诊保 AI 副驾
 
+> **文档状态**：当前有效 · 30 张表 / 7 个 Alembic 迁移（与 backend/app/models 与 backend/alembic/versions 一致）
+> 最后校准：2026-08-17
+
+
 ## 1. 设计概述
 
 ### 1.1 数据库选型

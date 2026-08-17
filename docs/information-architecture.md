@@ -1,5 +1,9 @@
 # 信息架构文档 — 安诊保 AI 副驾
 
+> **文档状态**：当前有效 · 导航已与 frontend/src/app/routes.tsx（21 条路由）对齐
+> 最后校准：2026-08-17
+
+
 > **版本**: v1.0  
 > **更新日期**: 2025-07-12  
 > **产品定位**: 面向保险代理人的 AI 销售助手工作台（企业级 AI-Native 产品）  
@@ -1327,3 +1331,11 @@
 ---
 
 > **文档维护说明**: 本文档为产品信息架构的权威参考，任何页面结构、路由、权限的变更均需同步更新本文档。
+
+---
+
+## 已验证路由（2026-08-17，与 `frontend/src/app/routes.tsx` 一致）
+
+`/login`、`/dashboard`、`/customers`、`/customers/:id`、`/product-qa`、`/scripts`、`/training`、`/training/chat/:scenarioId`、`/community`、`/growth`、`/notifications`、`/knowledge`、`/admin/users`、`/admin/analytics`、`/admin/audit`、`/admin/community`、`/admin/compliance`、`/admin/scripts`、`/admin/training`、`/admin/settings`（共 21 条，含 `/` 重定向）
+
+> 已删除的旧页面/未实现页面不在上表。

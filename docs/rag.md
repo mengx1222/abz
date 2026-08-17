@@ -1,5 +1,31 @@
 # RAG 知识库架构文档 — 安诊保 AI 副驾
 
+> **文档状态**：当前有效 · 生产链路已真实验证（Implemented/Validated/Planned 已区分）
+> 最后校准：2026-08-17
+
+---
+
+## 0. 实现状态区分（2026-08-17）
+
+| 能力 | 状态 | 验证方式 |
+|------|------|----------|
+| 文档入库（解析/分块/嵌入） | **Implemented** | seed 脚本 + 生产代码 |
+| pgvector 向量检索（1536 维，HNSW） | **Implemented + Validated** | Task 12/13 修复 cosine_distance vector 字面量后 E2E 通过 |
+| BM25 全文检索（tsvector GIN） | **Implemented + Validated** | `to_tsvector` 查询时转换（Task 12 修复） |
+| RRF 融合（K=60，×100 对齐阈值） | **Implemented + Validated** | Task 12 修复分数量级后 E2E 通过 |
+| 查询 embedding（生产向量检索接线） | **Implemented + Validated** | Task 12 修复 `pipeline.query` 缺失 query_embedding |
+| Confidence Gate（HIGH/MEDIUM/LOW/NONE） | **Implemented + Validated** | E2E：医疗险 ALLOW / 车险 REFUSE |
+| RAG Refusal（无依据拒答） | **Implemented + Validated** | E2E：极光量子保险 → 无参考来源 |
+| Citation（来源/标题/章节/分数） | **Implemented + Validated** | Product QA 参考来源 + Script Citation UI（Task 13） |
+| **产品边界（product_type 过滤）** | **Implemented + Validated** | Task 13：metadata 精确匹配→标题回退；PG 集成测试 + E2E |
+| 查询重写/扩展（LLM 变体） | **Planned** | 设计见 §4.1，未实现 |
+| Rerank（独立重排模型） | **Planned** | 当前用 RRF top-k，未接 rerank 模型 |
+| 权限过滤（按角色限定知识库） | **Planned** | `_filter_by_permission` 为 TODO 桩 |
+| 文档版本化审核流 | **Partial** | 迁移 0007 建表；完整审核 UI 未闭环 |
+
+> 正文中的详细设计如与上表冲突，以「实现状态」为准。
+
+
 ## 1. 架构概述
 
 ### RAG 在产品中的核心地位

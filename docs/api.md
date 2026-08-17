@@ -1,5 +1,107 @@
 # API 接口设计文档 — 安诊保 AI 副驾
 
+> **文档状态**：当前有效 · 端点清单已与 `backend/app/api/v1/` 实际代码对齐（89 端点）；下方详细设计为参考规范
+> 最后校准：2026-08-17
+
+---
+
+### 已验证端点清单（自动生成，2026-08-17，共 89 个）
+
+| 模块 | 方法 | 路径 |
+|------|------|------|
+| admin | GET | `/api/v1/users` |
+| admin | POST | `/api/v1/users` |
+| admin | PUT | `/api/v1/users/{user_id}` |
+| admin | POST | `/api/v1/users/{user_id}/disable` |
+| admin | POST | `/api/v1/users/{user_id}/enable` |
+| admin | GET | `/api/v1/audit-logs` |
+| admin | GET | `/api/v1/analytics/overview` |
+| admin | GET | `/api/v1/analytics/ai-usage` |
+| admin | GET | `/api/v1/analytics/training` |
+| admin | GET | `/api/v1/analytics/community` |
+| admin | GET | `/api/v1/compliance/rules` |
+| admin | POST | `/api/v1/compliance/rules` |
+| admin | PUT | `/api/v1/compliance/rules/{rule_id}` |
+| admin | GET | `/api/v1/compliance/reviews` |
+| admin | POST | `/api/v1/compliance/reviews/{review_id}/process` |
+| admin | GET | `/api/v1/community/posts` |
+| admin | POST | `/api/v1/community/posts/{post_id}/pin` |
+| admin | POST | `/api/v1/community/posts/{post_id}/recommend` |
+| admin | DELETE | `/api/v1/community/posts/{post_id}` |
+| admin | GET | `/api/v1/scripts` |
+| admin | POST | `/api/v1/scripts/{script_id}/approve` |
+| admin | GET | `/api/v1/training/scenarios` |
+| admin | POST | `/api/v1/training/scenarios` |
+| admin | PUT | `/api/v1/training/scenarios/{scenario_id}` |
+| admin | POST | `/api/v1/training/scenarios/{scenario_id}/publish` |
+| admin | DELETE | `/api/v1/training/scenarios/{scenario_id}` |
+| admin | GET | `/api/v1/settings` |
+| admin | PUT | `/api/v1/settings` |
+| ai | POST | `/api/v1/product-qa/chat` |
+| ai | GET | `/api/v1/product-qa/conversations` |
+| ai | GET | `/api/v1/product-qa/conversations/{conversation_id}` |
+| auth | POST | `/api/v1/login` |
+| auth | POST | `/api/v1/refresh` |
+| auth | POST | `/api/v1/logout` |
+| auth | GET | `/api/v1/me` |
+| community | GET | `/api/v1/posts` |
+| community | GET | `/api/v1/favorites` |
+| community | GET | `/api/v1/posts/{post_id}` |
+| community | POST | `/api/v1/posts` |
+| community | PUT | `/api/v1/posts/{post_id}` |
+| community | DELETE | `/api/v1/posts/{post_id}` |
+| community | POST | `/api/v1/posts/{post_id}/like` |
+| community | POST | `/api/v1/posts/{post_id}/favorite` |
+| community | GET | `/api/v1/posts/{post_id}/comments` |
+| community | POST | `/api/v1/posts/{post_id}/comments` |
+| community | GET | `/api/v1/posts/{post_id}/ai-summary` |
+| customer | GET | `/api/v1` |
+| customer | GET | `/api/v1/{customer_id}` |
+| customer | POST | `/api/v1` |
+| customer | PUT | `/api/v1/{customer_id}` |
+| customer | DELETE | `/api/v1/{customer_id}` |
+| customer | POST | `/api/v1/{customer_id}/interactions` |
+| customer | POST | `/api/v1/{customer_id}/followups` |
+| customer | POST | `/api/v1/{customer_id}/ai-analysis` |
+| dashboard | GET | `/api/v1` |
+| growth | GET | `/api/v1/overview` |
+| growth | GET | `/api/v1/courses/{course_id}` |
+| growth | GET | `/api/v1/leaderboard` |
+| growth | GET | `/api/v1/achievements` |
+| health | GET | `/api/v1/health` |
+| health | GET | `/api/v1/ready` |
+| health | GET | `/api/v1/health/detail` |
+| knowledge | GET | `/api/v1/knowledge-bases` |
+| knowledge | POST | `/api/v1/knowledge-bases` |
+| knowledge | GET | `/api/v1/knowledge-bases/{kb_id}` |
+| knowledge | PUT | `/api/v1/knowledge-bases/{kb_id}` |
+| knowledge | DELETE | `/api/v1/knowledge-bases/{kb_id}` |
+| knowledge | GET | `/api/v1/knowledge-bases/{kb_id}/documents` |
+| knowledge | POST | `/api/v1/knowledge-bases/{kb_id}/documents/upload` |
+| knowledge | POST | `/api/v1/knowledge-bases/{kb_id}/documents/{doc_id}/publish` |
+| knowledge | DELETE | `/api/v1/knowledge-bases/{kb_id}/documents/{doc_id}` |
+| notification | GET | `/api/v1` |
+| notification | POST | `/api/v1/read` |
+| notification | GET | `/api/v1/preferences` |
+| notification | PUT | `/api/v1/preferences` |
+| script | POST | `/api/v1/generate` |
+| script | POST | `/api/v1/check-compliance` |
+| script | GET | `/api/v1` |
+| script | GET | `/api/v1/{script_id}` |
+| script | POST | `/api/v1/{script_id}/favorite` |
+| script | DELETE | `/api/v1/{script_id}` |
+| training | GET | `/api/v1/scenarios` |
+| training | GET | `/api/v1/scenarios/{scenario_id}` |
+| training | POST | `/api/v1/sessions` |
+| training | GET | `/api/v1/sessions` |
+| training | GET | `/api/v1/sessions/{session_id}` |
+| training | POST | `/api/v1/sessions/{session_id}/messages` |
+| training | POST | `/api/v1/sessions/{session_id}/complete` |
+| training | GET | `/api/v1/stats` |
+
+---
+
+
 > **版本**: v1.0.0-draft
 > **最后更新**: 2025-01
 > **技术栈**: Python FastAPI + SSE

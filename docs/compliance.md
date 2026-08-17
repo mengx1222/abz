@@ -1,5 +1,9 @@
 # 合规设计文档 — 安诊保 AI 副驾
 
+> **文档状态**：当前有效 · GREEN/YELLOW/RED + 规则引擎 + 人工审核流（已实现部分标注）
+> 最后校准：2026-08-17
+
+
 ## 1. 合规概述
 
 ### 1.1 保险行业合规要求
@@ -291,3 +295,18 @@ AI 不是医疗诊断工具，不得对客户的健康状况做出任何医学�
 - **运营期**：每周分析合规日志，发现新规则需求，优化现有规则
 - **成熟期**：建立规则评审机制，任何规则变更需经合规团队审批
 - **持续优化**：基于误报率和漏报率数据，调整规则灵敏度和阈值
+
+
+---
+
+## 当前实现状态（2026-08-17 校准）
+
+| 能力 | 状态 | 说明 |
+|------|------|------|
+| 规则引擎（关键词+正则，GREEN/YELLOW/RED） | ✅ Implemented | `compliance_service.check_compliance`，8 类违规，评分 0-100 |
+| AI 输出合规验证（生成后检查） | ✅ Implemented | Script 生成链 `style_complete` 携带 compliance 结果 |
+| 合规徽章展示（合规通过/建议修改/禁止使用） | ✅ Implemented | 前端 ComplianceBadge + CompliancePanel |
+| 管理后台规则管理（CRUD） | ✅ Implemented | `/api/v1/admin/compliance/rules` |
+| 人工审核流（reviews + process） | ✅ Implemented | `/api/v1/admin/compliance/reviews` |
+| 合规审计日志 | ✅ Implemented | admin audit-logs |
+| **违规内容自动拦截/自动发送阻断** | ❌ **Not Implemented** | 当前为「标记 + 人工处理」，无自动发送链路（不要将此写入已实现） |
