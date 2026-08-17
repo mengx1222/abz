@@ -5,15 +5,16 @@ set -e
 echo "🚀 安诊保 AI 副驾 — 部署引导"
 echo ""
 
-# 检查 .env.production
-if [ ! -f "backend/.env.production" ]; then
-    echo "❌ 未找到 .env.production"
-    echo "   请复制模板并填写: cp backend/.env.production.template backend/.env.production"
+# 检查 .env.production（docker-compose.prod.yml 的 env_file 相对 compose 目录 = 仓库根目录）
+# 占位模板见 backend/.env.production（CHANGE_ME_*），复制到根目录后填写真实值
+if [ ! -f ".env.production" ]; then
+    echo "❌ 未找到根目录 .env.production"
+    echo "   请复制占位模板并填写: cp backend/.env.production .env.production"
     exit 1
 fi
 
 # 检查必要变量
-source backend/.env.production
+source .env.production
 REQUIRED_VARS=("AZB_JWT_SECRET_KEY" "AZB_DATABASE_URL" "AZB_AI_API_KEY")
 for var in $REQUIRED_VARS; do
     if eval echo \$$var | grep -q "CHANGE_ME"; then
