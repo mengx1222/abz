@@ -3,14 +3,15 @@ import { test, expect } from '@playwright/test';
 /**
  * E2E 第二阶段 — Script Generation（AI 话术）
  *
- * 环境：真实 PG + Redis + mock AI provider（E2E CI 已 seed 确定性知识库）
+ * 环境：真实 PG + Redis + 真实 AI provider（DashScope；E2E CI 已 seed 确定性知识库
+ *       —— 含 product_type 元数据，供 RAG 产品边界过滤）
  *
  * 覆盖：
  *   - 页面加载（客户信息表单/场景/异议/风格/生成按钮）
  *   - 真实生成（确定性客户 → SSE 流式 → 至少一个话术生成成功）
- *   - Citation（生成过程 RAG 命中 → rag_context / citations 字段出现）
+ *   - Citation UI（生成结果卡片展示"产品知识依据"：文档标题/章节/来源，Task 13）
  *   - Compliance（合规徽章 GREEN/YELLOW/RED 展示）
- *   - RAG Refusal（知识库无依据产品 → 不生成话术、不伪造）
+ *   - RAG Product Boundary（错误产品 → 拒答，不展示任何产品依据，Task 13）
  *
  * 浏览器监控：console error / pageerror / API 4xx/5xx → 失败
  * 无 sleep：确定性 locator/expect/waitFor
@@ -72,7 +73,7 @@ test.describe('Script Generation', () => {
     watcher.assert();
   });
 
-  test('真实生成：确定性客户 → SSE → 至少一个话术生成成功 + Compliance 徽章', async ({ page }) => {
+  test('真实生成：确定性客户 → SSE → 话术 + Compliance 徽章 + Citation UI', async ({ page }) => {
     const watcher = watchPage(page);
     await page.goto('/scripts');
 
@@ -106,23 +107,30 @@ test.describe('Script Generation', () => {
     const complianceBadge = page.getByText(/合规通过|建议修改|禁止使用/).first();
     await expect(complianceBadge).toBeVisible({ timeout: 10_000 });
 
+    // Citation UI（Task 13）：生成卡片下方出现"产品知识依据（RAG）"，且文档标题可见
+    const citationHeader = page.getByText('📚 产品知识依据（RAG）');
+    await expect(citationHeader).toBeVisible({ timeout: 10_000 });
+    // 确定性知识库文档标题（医疗险产品手册）必须出现在依据中
+    const docTitle = page.getByText('安诊保百万医疗险产品手册');
+    await expect(docTitle).toBeVisible({ timeout: 10_000 });
+    // 依据不为空：至少 1 个依据条目（文档标题 / 章节 / 来源可见）
+    const citationItems = page.getByText(/📄/);
+    expect(await citationItems.count()).toBeGreaterThan(0);
+
     // Citation：SSE 响应含 rag_context 事件 + citations 字段（RAG 命中知识库）
-    // （前端 StyleScriptCard 不渲染 citations，但 SSE 数据必须真实携带）
     expect(generateBody).toContain('rag_context');
     expect(generateBody).toContain('citations');
 
     watcher.assert();
   });
 
-  test('RAG Refusal：知识库无依据产品 → 不编造产品事实（安全拒答或诚实说明依据不足）', async ({ page }) => {
+  test('RAG 产品边界：错误产品（车险）→ 拒答，不展示任何产品依据', async ({ page }) => {
     const watcher = watchPage(page);
     await page.goto('/scripts');
 
     // "车险" 在 PRODUCT_TYPES 下拉中可选，但 E2E 知识库只有医疗险/重疾险文档。
-    // 真实 embedding 下"车险"可能与保险主题文档有语义相似度（属安全 ALLOW），
-    // 也可能低于阈值触发 REFUSE。两种行为都安全，但必须保证：
-    //   ① 不编造知识库中不存在的产品事实（如虚构车险具体条款/保额）
-    //   ② 若生成，必须基于知识库依据（含"安诊保"参考说明）
+    // Task 13 产品边界：script_service 把 product_type 传入 RAG 检索 → 车险无任何
+    // 知识依据 → REFUSE（不生成话术、不展示 Citation、不把医疗险/重疾险依据当车险依据）。
     await fillGenerateForm(page, {
       name: 'E2E-张先生',
       product: '车险',
@@ -135,18 +143,13 @@ test.describe('Script Generation', () => {
     const generateBtn = page.locator('button.w-full', { hasText: '生成话术' });
     await expect(generateBtn).toBeEnabled({ timeout: 60_000 });
 
-    // 收集生成内容（可能为空=REFUSE，也可能有内容=基于依据的生成）
+    // ① 错误产品不得展示任何 Citation（产品知识依据区不存在）
+    await expect(page.getByText('📚 产品知识依据（RAG）')).toHaveCount(0, { timeout: 10_000 });
+
+    // ② 不生成任何非空话术内容（REFUSE → 无产品事实性话术）
     const contents = await page.locator('div.whitespace-pre-wrap').allTextContents();
     const nonEmpty = contents.filter((t) => (t || '').trim().length > 0);
-
-    for (const text of nonEmpty) {
-      // 若生成了话术：必须诚实说明知识库依据不足 / 匹配到安诊保系列（不虚构车险产品事实）
-      const hasHonestNote = /安诊保|依据|参考|确认|匹配|信息错配|建议/.test(text);
-      expect(hasHonestNote, `话术必须诚实说明依据（不编造）: ${text.slice(0, 120)}`).toBe(true);
-      // 不能虚构知识库中不存在的具体车险条款承诺（如"车损险保额XX万"凭空承诺）
-      const fabricates = /车损险.*?保额\d+万|三者险.*?最高\d+万/.test(text);
-      expect(fabricates, `话术不得虚构车险具体条款: ${text.slice(0, 120)}`).toBe(false);
-    }
+    expect(nonEmpty, `错误产品不应生成话术内容: ${JSON.stringify(contents)}`).toEqual([]);
 
     watcher.assert();
   });
