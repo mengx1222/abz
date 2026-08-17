@@ -13,7 +13,7 @@ import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select, text, or_, cast
+from sqlalchemy import func, select, text, or_, and_, cast
 from sqlalchemy.dialects.postgresql import UUID
 from structlog import get_logger
 
@@ -63,11 +63,13 @@ class DemoRetriever:
     async def search(
         self,
         query: str,
+        query_embedding: list[float] | None = None,  # Demo 模式忽略（兼容 pipeline.query 统一签名）
         top_k: int = RERANK_TOP_K,
         knowledge_base_ids: list[str] | None = None,
         user_roles: list[str] | None = None,
         org_id: str | None = None,
         effective_only: bool = True,
+        product_type: str | None = None,
     ) -> list[SearchResult]:
         """基于关键词匹配的简单检索。
 
@@ -76,6 +78,7 @@ class DemoRetriever:
         2. 标题匹配加分
         3. 按总分排序
         4. 可选日期有效性过滤
+        5. 可选产品边界过滤（product_type 元数据精确匹配，缺失时按标题回退）
         """
         query_lower = query.lower()
         # 提取查询中的关键词
@@ -93,6 +96,18 @@ class DemoRetriever:
             # 跳过被知识库ID过滤的
             if knowledge_base_ids and chunk.get("knowledge_base_id") not in knowledge_base_ids:
                 continue
+
+            # 产品边界过滤：明确请求产品时，仅保留产品匹配的 chunk。
+            # 有 product_type 元数据 → 精确匹配；缺失 → 按文档标题包含产品名回退，
+            # 避免"保险"等共同词把同领域错误产品当成有效依据。
+            if product_type:
+                meta = chunk.get("metadata", {}) or {}
+                chunk_product = meta.get("product_type")
+                if chunk_product:
+                    if chunk_product != product_type:
+                        continue
+                elif product_type not in title:
+                    continue
 
             # 日期有效性过滤（Demo模式简单检查 metadata）
             if effective_only and now is not None:
@@ -182,6 +197,7 @@ class Retriever:
         knowledge_base_ids: list[str] | None = None,
         user_roles: list[str] | None = None,
         org_id: str | None = None,
+        product_type: str | None = None,
     ) -> list[SearchResult]:
         """执行混合检索。
 
@@ -190,6 +206,7 @@ class Retriever:
         3. RRF 融合
         4. 权限过滤
         5. 文档版本日期过滤
+        6. 产品边界过滤（product_type，仅保留产品匹配的知识依据）
         """
         if self.db is None:
             logger.warning("retriever_no_db_session")
@@ -201,14 +218,14 @@ class Retriever:
         vector_results = await self._vector_search(
             query_embedding, top_k=VECTOR_SEARCH_TOP_K,
             knowledge_base_ids=knowledge_base_ids,
-            effective_now=now, org_id=org_id,
+            effective_now=now, org_id=org_id, product_type=product_type,
         )
 
         # Step 2: BM25检索
         bm25_results = await self._bm25_search(
             query, top_k=BM25_SEARCH_TOP_K,
             knowledge_base_ids=knowledge_base_ids,
-            effective_now=now, org_id=org_id,
+            effective_now=now, org_id=org_id, product_type=product_type,
         )
 
         # Step 3: RRF融合
@@ -221,6 +238,22 @@ class Retriever:
         # Step 5: 取 top_k
         return fused[:top_k]
 
+    @staticmethod
+    def _product_boundary_condition(product_type: str):
+        """构造产品边界 SQL 过滤条件。
+
+        优先匹配 chunk metadata.product_type（JSONB ->>），
+        缺失时回退到文档标题包含产品名——避免"保险"等共同词
+        把同领域错误产品召回为有效依据（如"车险"不得命中医疗险文档）。
+        """
+        return or_(
+            DocumentChunk.metadata_["product_type"].astext == product_type,
+            and_(
+                DocumentChunk.metadata_["product_type"].astext.is_(None),
+                Document.title.like(f"%{product_type}%"),
+            ),
+        )
+
     async def _vector_search(
         self,
         embedding: list[float] | None,
@@ -228,6 +261,7 @@ class Retriever:
         knowledge_base_ids: list[str] | None,
         effective_now: datetime | None = None,
         org_id: str | None = None,
+        product_type: str | None = None,
     ) -> list[dict]:
         """pgvector cosine距离检索。"""
         if embedding is None:
@@ -281,6 +315,10 @@ class Retriever:
             if kb_uuids:
                 stmt = stmt.where(Document.knowledge_base_id.in_(kb_uuids))
 
+        # 产品边界过滤：明确请求产品时仅保留产品匹配的 chunk
+        if product_type:
+            stmt = stmt.where(self._product_boundary_condition(product_type))
+
         stmt = stmt.order_by(text("score DESC")).limit(top_k)
 
         try:
@@ -307,6 +345,7 @@ class Retriever:
         knowledge_base_ids: list[str] | None,
         effective_now: datetime | None = None,
         org_id: str | None = None,
+        product_type: str | None = None,
     ) -> list[dict]:
         """PostgreSQL 全文检索 (tsvector + GIN)。"""
         # 使用 plainto_tsquery 进行简单查询
@@ -352,6 +391,10 @@ class Retriever:
             kb_uuids = [uuid.UUID(kid) for kid in knowledge_base_ids if kid]
             if kb_uuids:
                 stmt = stmt.where(Document.knowledge_base_id.in_(kb_uuids))
+
+        # 产品边界过滤：明确请求产品时仅保留产品匹配的 chunk
+        if product_type:
+            stmt = stmt.where(self._product_boundary_condition(product_type))
 
         stmt = stmt.order_by(text("score DESC")).limit(top_k)
 
