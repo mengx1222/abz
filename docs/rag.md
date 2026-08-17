@@ -411,6 +411,18 @@ filters = {
 }
 ```
 
+#### 产品边界（Task 13 已实现，2026-08-17）
+
+话术生成的 RAG 检索必须携带产品边界，避免「同领域但错误产品」被语义召回为有效依据（如"车险"查询命中医疗险文档）：
+
+- `Retriever.search / _vector_search / _bm25_search` 与 `DemoRetriever.search` 新增 `product_type` 参数
+- `_product_boundary_condition(product_type)` 过滤条件（两路检索共用）：
+  - 优先：chunk metadata `product_type` 精确匹配（JSONB `->>`，如 `metadata->>'product_type' = '医疗险'`）
+  - 回退：metadata 缺失时按「文档标题包含产品名」匹配（`d.title LIKE '%医疗险%'`）
+- 调用链：`script_service` 生成时把 `effective_product_type` 传入 `pipeline.query(product_type=...)` → `retriever.search`
+- 效果：产品边界过滤后仍走 Confidence Gate（ALLOW / REVIEW / REFUSE）；错误产品返回空 → REFUSE 不生成话术
+- 注意：确定性 E2E 知识库每个产品 ≥3 chunk（产品边界过滤后 count>=3 才能满足 Confidence Gate HIGH）
+
 ### 4.2 Hybrid Search
 
 #### 向量检索（Cosine Similarity）
