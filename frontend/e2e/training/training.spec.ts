@@ -98,11 +98,13 @@ test.describe('Training（AI 陪练）', () => {
 
     // 评分区出现（SSE scoring 完成）
     await expect(page.getByText('训练评分', { exact: true })).toBeVisible({ timeout: 90_000 });
-    // 综合评分数字可见（0-100，非空）
-    const totalScore = page.getByText('综合评分');
-    await expect(totalScore).toBeVisible({ timeout: 20_000 });
-    // 反馈区（优势/待改进/建议）至少存在一项
-    const feedback = page.getByText(/优势|待改进|建议/).first();
+    // 综合评分数字可见（text-3xl 分数值，0-100，非空）
+    const scoreValue = page.locator('div.text-3xl.font-bold').first();
+    await expect(scoreValue).not.toBeEmpty({ timeout: 20_000 });
+    // 评分维度标签（精确匹配，避免与评分流式文本「生成综合评分报告」混淆）
+    await expect(page.getByText('产品准确性', { exact: true })).toBeVisible({ timeout: 20_000 });
+    // 反馈区（优势/待提升/建议）至少存在一项
+    const feedback = page.getByText(/优势|待提升|建议/).first();
     await expect(feedback).toBeVisible({ timeout: 20_000 });
 
     watcher.assert();
