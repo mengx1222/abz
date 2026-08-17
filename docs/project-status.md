@@ -4,7 +4,7 @@
 
 > 最后更新: 2026-08-17
 
-> Git HEAD: `ef1c26ca`（Task 15 Release Baseline）
+> Git HEAD: `9befe4b`（Task 15 Release Baseline）
 
 > 项目版本: `0.1.0`（backend/pyproject.toml）
 
@@ -28,7 +28,7 @@
 
 
 
-## Current Snapshot（2026-08-17 · HEAD ef1c26ca）
+## Current Snapshot（2026-08-17 · HEAD 9befe4b）
 
 | 项 | 当前真实状态 |
 |----|-------------|
