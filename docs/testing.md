@@ -586,3 +586,36 @@ test-all: test test-e2e
 另修复：e2e_seed_knowledge chunk metadata 缺 document_title → Citation 无法渲染文档名
 
 **结果**：E2E 11/11 passed（42.2s），CI（backend/backend-pg/frontend）+ Production Validation 全绿。
+
+---
+
+## 15. Script Citation UI + RAG 产品边界（Task 13，2026-08-17）
+
+**范围**：① Script 生成结果 Citation 真正进入浏览器 UI；② Script RAG 增加产品边界（同领域错误产品不得作为有效依据）。
+
+**Script Citation UI（前端）**：
+- `frontend/src/services/scriptService.ts` 新增 `ScriptCitation` 类型（document_id/document_title/section/source/score）
+- `frontend/src/features/scripts/ScriptsPage.tsx`：
+  - `genResults` 每风格卡片增加 `citations` 字段（`style_complete` 事件的 `data.citations` 被正确解析）
+  - `StyleScriptCard` 生成完成后渲染「📚 产品知识依据（RAG）」区：文档标题 / 章节徽章 / 相关度 / 来源摘录
+- SSE 链保持 `rag_context → citations → style_complete`（后端 citations 本就随 rag_context + style_complete 双事件下发，前端此前丢弃）
+
+**RAG 产品边界（后端）**：
+- `retriever.py`：`Retriever.search/_vector_search/_bm25_search` 与 `DemoRetriever.search` 新增 `product_type` 参数
+- `_product_boundary_condition(product_type)`：优先匹配 chunk metadata `product_type`（JSONB `->>`），缺失时回退「文档标题包含产品名」——杜绝"保险"等共同词把同领域错误产品召回为有效依据（如"车险"不得命中医疗险文档）
+- `pipeline.query` 新增 `product_type` 透传；`script_service` 生成时把 `effective_product_type` 传入 RAG 检索
+- `DemoRetriever.search` 兼容 `query_embedding` 参数（修复 demo 模式 TypeError，Task 12 引入的签名不一致）
+- `e2e_seed_knowledge.py`：chunk metadata 增加 `product_type`；每产品 ≥3 chunk（产品边界过滤后仍满足 Confidence Gate HIGH: count>=3）
+
+**后端测试**：
+- `test_script_rag_production.py`：product_type 透传 / 错误产品 REFUSE / 正确产品 citations 字段齐全
+- `test_pg_integration.py` `TestPgRagProductBoundary`：正确产品命中且不含重疾险 / 车险空结果 / 无过滤语义召回（边界存在意义）
+
+**E2E（11/11 passed，37.8s）**：
+```
+✅ Script 真实生成 + Compliance 徽章 + Citation UI（8.4s）— 医疗险 → ALLOW + "产品知识依据"区 + 文档标题可见
+✅ RAG 产品边界：错误产品（车险）→ 拒答，不展示任何产品依据（2.9s）
+✅ 既有 9 项（Login/Dashboard/Customer/Product QA 4 项）无回归
+```
+
+**结果**：CI（backend/backend-pg/frontend）+ Production Validation + E2E 全绿（HEAD `477a3ca`）。
