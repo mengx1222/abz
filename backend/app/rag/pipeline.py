@@ -187,6 +187,7 @@ class RAGPipeline:
                 knowledge_base_id=knowledge_base_id,
                 document_id=document_id,
                 product_type=product_type,
+                file_name=file_name,
             )
 
         return {
@@ -203,6 +204,7 @@ class RAGPipeline:
         knowledge_base_id: str,
         document_id: str = "",
         product_type: str | None = None,
+        file_name: str = "",
     ) -> str:
         """Production 持久化：Document + DocumentChunk(embedding) → PostgreSQL + pgvector。
 
@@ -256,7 +258,7 @@ class RAGPipeline:
                     id=doc_uuid,
                     knowledge_base_id=kb_uuid,
                     title=parsed.title,
-                    file_name=parsed.file_name or f"{parsed.title}.{parsed.file_type}",
+                    file_name=file_name or f"{parsed.title}.{parsed.file_type}",
                     file_type=parsed.file_type,
                     file_size=len(parsed.content or ""),
                     content_text=parsed.content,
