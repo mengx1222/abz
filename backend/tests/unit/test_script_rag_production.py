@@ -107,10 +107,24 @@ class _FakePipeline:
         self._results = results
         self.query_called = False
         self.last_product_type: str | None = None
+        self.last_user_roles: list[str] | None = None
+        self.last_org_id: str | None = None
+        self.last_accessible_org_ids: list[str] | None = None
 
-    async def query(self, question: str, top_k: int = 4, product_type: str | None = None):
+    async def query(
+        self,
+        question: str,
+        top_k: int = 4,
+        product_type: str | None = None,
+        user_roles: list[str] | None = None,
+        org_id: str | None = None,
+        accessible_org_ids: list[str] | None = None,
+    ):
         self.query_called = True
         self.last_product_type = product_type
+        self.last_user_roles = user_roles
+        self.last_org_id = org_id
+        self.last_accessible_org_ids = accessible_org_ids
         context = "\n---\n".join(r.content for r in self._results)
         return self._results, context
 
@@ -358,6 +372,50 @@ class TestScriptRagProduction:
 
         await _collect_generation(service, product_type="医疗险", user_id=str(uid))
         assert fake.last_product_type == "医疗险"
+
+    async def test_permission_context_passed_to_pipeline(self, session, monkeypatch):
+        """Task 17B: ScriptService 必须把 user_roles / org_id / accessible_org_ids
+        传给 pipeline.query（角色 + 组织范围权限过滤）。"""
+        from app.core.authorization import DataPermissionChecker
+        from app.models import User as UserModel
+
+        uid = await _create_user(session, "13900550021")
+        await session.commit()
+        user_row = (await session.execute(select(UserModel).where(UserModel.id == uid))).scalars().first()
+        assert user_row is not None
+
+        service = await _make_production_service(session, monkeypatch)
+        fake = await _install_fake_pipeline(service, [
+            _fake_result("医疗险保障额度最高 600 万。", 0.85),
+            _fake_result("住院医疗在保障范围内。", 0.82),
+            _fake_result("0-65 周岁可投保。", 0.78),
+        ])
+
+        await _collect_generation(service, product_type="医疗险", user_id=str(uid))
+
+        assert fake.last_user_roles == [user_row.role_code] or fake.last_user_roles == []
+        assert fake.last_org_id == str(user_row.organization_id)
+        # 复用 DataPermissionChecker 计算可访问组织集合（与 checker 输出一致）
+        expected = DataPermissionChecker(user_row).filter_accessible_org_ids()
+        assert fake.last_accessible_org_ids == expected
+
+    async def test_permission_context_missing_user_refuses_rag(self, session, monkeypatch):
+        """Task 17B: user_id 查不到用户（无法确认权限）→ user_roles=[]（RAG 全拒，
+        不降级到通用知识）。"""
+        service = await _make_production_service(session, monkeypatch)
+        fake = await _install_fake_pipeline(service, [
+            _fake_result("医疗险保障额度最高 600 万。", 0.85),
+        ])
+
+        events = await _collect_generation(
+            service, product_type="医疗险", user_id=str(uuid.uuid4()),
+        )
+        grouped = _events_by_type(events)
+        assert fake.last_user_roles == []
+        rag_ctx = grouped["rag_context"][0]
+        assert rag_ctx["status"] == "REFUSE"
+        assert "style_refused" in grouped
+        assert "style_complete" not in grouped
 
     async def test_wrong_product_no_evidence_refuses(self, session, monkeypatch):
         """错误产品（知识库无对应文档）→ pipeline 返回空 → REFUSE 不生成话术。"""

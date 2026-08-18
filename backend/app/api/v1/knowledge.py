@@ -71,6 +71,8 @@ async def _ensure_demo_data():
         return
 
     # 初始化Demo知识库
+    # organization_id: 组织范围（Task 17B）；null=未限定组织的共享知识库
+    _demo_org_hq = "00000000-0000-0000-0000-000000000001"
     _demo_knowledge_bases = [
         {
             "id": "demo-kb-001",
@@ -82,6 +84,7 @@ async def _ensure_demo_data():
             "total_chunks": 0,
             "is_public": True,
             "allowed_roles": None,
+            "organization_id": _demo_org_hq,
             "version": 1,
             "created_at": "2025-01-01T00:00:00Z",
             "updated_at": "2025-01-15T00:00:00Z",
@@ -96,6 +99,7 @@ async def _ensure_demo_data():
             "total_chunks": 0,
             "is_public": True,
             "allowed_roles": None,
+            "organization_id": _demo_org_hq,
             "version": 1,
             "created_at": "2025-01-10T00:00:00Z",
             "updated_at": "2025-01-10T00:00:00Z",
@@ -110,6 +114,7 @@ async def _ensure_demo_data():
             "total_chunks": 0,
             "is_public": False,
             "allowed_roles": ["HQ_ADMIN", "BRANCH_ADMIN", "COMPLIANCE"],
+            "organization_id": _demo_org_hq,
             "version": 1,
             "created_at": "2025-01-12T00:00:00Z",
             "updated_at": "2025-01-12T00:00:00Z",
@@ -195,6 +200,7 @@ async def create_knowledge_base(
         "total_chunks": 0,
         "is_public": body.is_public,
         "allowed_roles": None,
+        "organization_id": str(current_user.organization_id) if current_user.organization_id else None,
         "version": 1,
         "created_at": "2025-01-20T00:00:00Z",
         "updated_at": "2025-01-20T00:00:00Z",
@@ -349,7 +355,7 @@ async def upload_document(
     file_type = file_name.rsplit(".", 1)[-1] if "." in file_name else "txt"
     doc_title = title or file_name.rsplit(".", 1)[0]
 
-    # RAG入库
+    # RAG入库（携带 KB 权限策略，供 Demo 检索权限过滤）
     pipeline = RAGPipeline()
     result = await pipeline.index_document(
         content=content,
@@ -357,6 +363,8 @@ async def upload_document(
         title=doc_title,
         file_name=file_name,
         knowledge_base_id=kb_id,
+        kb_allowed_roles=kb.get("allowed_roles"),
+        kb_org_id=kb.get("organization_id"),
     )
 
     # 创建文档记录

@@ -499,6 +499,33 @@ class ScriptService:
             "styles_display": [STYLE_NAMES.get(s, s) for s in styles],
         })
 
+        # ---- 权限上下文（Task 17B）：RAG 检索必须限定当前用户角色/组织 ----
+        # 从 DB 加载 User（仅 user_id 传入），复用 DataPermissionChecker；
+        # 加载失败（无法确认权限）→ user_roles=[]（全拒，RAG 走 REFUSE，不降级到通用知识）。
+        rag_user_roles: list[str] | None = None
+        rag_org_id: str | None = None
+        rag_accessible_org_ids: list[str] | None = None
+        try:
+            if user_id:
+                from sqlalchemy import select as sa_select
+                from app.models import User as UserModel
+                from app.core.authorization import DataPermissionChecker
+                user_row = (
+                    await self.session.execute(
+                        sa_select(UserModel).where(UserModel.id == uuid.UUID(user_id))
+                    )
+                ).scalar_one_or_none()
+                if user_row is not None:
+                    checker = DataPermissionChecker(user_row)
+                    rag_user_roles = [user_row.role_code] if user_row.role_code else []
+                    rag_org_id = str(user_row.organization_id)
+                    rag_accessible_org_ids = checker.filter_accessible_org_ids()
+                else:
+                    rag_user_roles = []
+        except Exception as e:
+            logger.warning("script_rag_permission_context_failed", error=str(e))
+            rag_user_roles = []
+
         # ---- RAG 检索 + Confidence Gate ----
         product_info = ""
         citations: list[dict] = []
@@ -511,8 +538,12 @@ class ScriptService:
                 if pipeline:
                     query = f"{effective_product_type} 产品特点 保障范围 保费 理赔"
                     # 产品边界：检索仅限当前产品（避免同领域错误产品被召回为有效依据）
+                    # 权限：角色 + 组织范围（Task 17B），无权限上下文时全拒
                     search_results, context_text = await pipeline.query(
                         question=query, top_k=4, product_type=effective_product_type,
+                        user_roles=rag_user_roles,
+                        org_id=rag_org_id,
+                        accessible_org_ids=rag_accessible_org_ids,
                     )
                     refuse, top_score, count = should_refuse_answer(search_results)
                     confidence = assess_confidence(search_results)
