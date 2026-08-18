@@ -92,7 +92,7 @@ export function CompliancePage() {
 // ----------- Rules Tab -----------
 
 function RulesTab() {
-  useToast();
+  const { toast } = useToast();
   const [rules, setRules] = useState<ComplianceRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -208,7 +208,7 @@ function RulesTab() {
 // ----------- Reviews Tab -----------
 
 function ReviewsTab() {
-  useToast();
+  const { toast } = useToast();
   const [reviews, setReviews] = useState<ComplianceReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

@@ -21,7 +21,6 @@ import {
   deleteDocument,
   deleteKnowledgeBase,
 } from '../../services/knowledgeService';
-import { useAuthStore } from '../../stores/authStore';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
 import { useToast } from '../../hooks/useToast';
