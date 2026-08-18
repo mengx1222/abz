@@ -1,6 +1,7 @@
 import uuid
 
 from fastapi import FastAPI, Request, Response
+from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from structlog import get_logger
 
@@ -30,6 +31,12 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         try:
             return await call_next(request)
+        except StarletteHTTPException:
+            # Task 24 (P2-2): HTTPException（401/403/404 等）必须放行给 FastAPI
+            # 标准异常处理 —— 此前被当作普通异常捕获，导致依赖 get_current_user 的
+            # 端点认证失败返回 500 而非 401，前端 401 处理（登出跳转）静默失效。
+            # 修复后受保护端点无 token/无效 token 均正确返回 401 + {detail:{code,message}}。
+            raise
         except Exception as exc:
             request_id = getattr(request.state, "request_id", "unknown")
             logger.error(
