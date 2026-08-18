@@ -23,6 +23,8 @@ logger = get_logger()
 # 演示模式的系统提示词
 # Prompt Injection（HIGH 级别）拒答话术
 _REFUSE_TEXT = "抱歉，我无法回答这个问题。如有保险产品咨询，请直接描述您的需求。"
+# 知识库无合法依据时的固定拒答文本（Task 17B 拒答不降级：不 fallback 到通用模型知识）
+_KB_REFUSE_TEXT = "抱歉，我目前的知识库中没有与您问题相关的信息。建议您咨询华安保险产品部门或专业顾问获取准确信息。"
 
 _DEMO_SYSTEM_PROMPT = """你是「安诊保 AI 副驾」，华安保险的智能保险产品专家助手。
 
@@ -85,6 +87,7 @@ class ProductQaService:
 
         if settings.DEMO_MODE or self.db is None:
             async for event in self._demo_chat(
+                user=user,
                 question=question,
                 conversation_id=conversation_id,
                 message_id=message_id,
@@ -108,9 +111,14 @@ class ProductQaService:
         conversation_id: str,
         message_id: str,
         knowledge_scope: str | None = None,
+        user: User | None = None,
     ) -> AsyncGenerator[str, None]:
-        """演示模式聊天流程（RAG增强）。"""
+        """演示模式聊天流程（RAG增强，带权限过滤）。"""
         pipeline = await self._get_pipeline()
+
+        # 权限上下文：demo 用户（存在时）按与生产一致语义过滤
+        user_roles = [user.role_code] if user and hasattr(user, "role_code") and user.role_code else None
+        org_id = str(user.organization_id) if user and user.organization_id else None
 
         # Step 0: 输入消毒 + Prompt Injection 检测（HIGH 级别直接拒答）
         sanitized_question, safety_check = sanitize_user_input(question)
@@ -140,10 +148,31 @@ class ProductQaService:
                 question=question,
                 top_k=6,
                 knowledge_base_ids=kb_ids,
+                user_roles=user_roles,
+                org_id=org_id,
             )
         except Exception as e:
             logger.error("demo_rag_search_error", error=str(e))
             context_text = ""
+
+        # Step 1.5: 拒答不降级（Task 17B）
+        # 权限过滤后无合法结果 → 固定拒答文本，不 fallback 到通用模型知识
+        if not search_results:
+            yield _sse_event("message_start", {
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "role": "assistant",
+            })
+            yield _sse_event("token", {"content": _KB_REFUSE_TEXT})
+            yield _sse_event("reference_sources", {"sources": []})
+            yield _sse_event("message_complete", {
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "content": _KB_REFUSE_TEXT,
+                "finish_reason": "refused",
+                "sources_count": 0,
+            })
+            return
 
         # Step 2: 构建系统提示词
         if context_text:
@@ -235,19 +264,42 @@ class ProductQaService:
             return
         question = sanitized_question
 
-        # Step 1: RAG检索
+        # Step 1: RAG检索（权限：角色 + 组织范围，复用 DataPermissionChecker）
         search_results = []
         try:
             kb_ids = [knowledge_scope] if knowledge_scope else None
+            from app.core.authorization import DataPermissionChecker
+            checker = DataPermissionChecker(user)
             search_results, context_text = await pipeline.query(
                 question=question,
                 top_k=8,
                 knowledge_base_ids=kb_ids,
                 user_roles=[user.role_code] if hasattr(user, "role_code") else None,
+                org_id=str(user.organization_id),
+                accessible_org_ids=checker.filter_accessible_org_ids(),
             )
         except Exception as e:
             logger.error("real_rag_search_error", error=str(e))
             context_text = ""
+
+        # Step 1.5: 拒答不降级（Task 17B）
+        # 权限过滤后无合法结果 → 固定拒答文本，不 fallback 到通用模型知识
+        if not search_results:
+            yield _sse_event("message_start", {
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "role": "assistant",
+            })
+            yield _sse_event("token", {"content": _KB_REFUSE_TEXT})
+            yield _sse_event("reference_sources", {"sources": []})
+            yield _sse_event("message_complete", {
+                "conversation_id": conversation_id,
+                "message_id": message_id,
+                "content": _KB_REFUSE_TEXT,
+                "finish_reason": "refused",
+                "sources_count": 0,
+            })
+            return
 
         # Step 2: 构建系统提示词
         if context_text:
