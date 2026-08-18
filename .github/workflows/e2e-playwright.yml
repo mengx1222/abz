@@ -9,6 +9,7 @@ on:
     branches: [main]
     paths:
       - "frontend/e2e/**"
+      - "frontend/src/**"
       - "frontend/playwright.config.ts"
       - "frontend/package.json"
       - ".github/workflows/e2e-playwright.yml"
