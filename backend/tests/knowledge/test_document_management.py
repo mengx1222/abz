@@ -104,6 +104,7 @@ async def _seed(session: AsyncSession) -> dict:
         return u
 
     agent_a = _user(role_agent, org_a)
+    agent_a2 = _user(role_agent, org_a)  # 同组织非创建者（写权限 403 场景）
     agent_b = _user(role_agent, org_b)
     hq_a = _user(role_hq, org_a)
     await session.flush()
@@ -138,7 +139,7 @@ async def _seed(session: AsyncSession) -> dict:
     await session.commit()
     return {
         "org_a": org_a, "org_b": org_b,
-        "agent_a": agent_a, "agent_b": agent_b, "hq_a": hq_a,
+        "agent_a": agent_a, "agent_a2": agent_a2, "agent_b": agent_b, "hq_a": hq_a,
         "kb": kb.id,
         "doc_pub": doc_pub.id, "doc_draft": doc_draft.id,
     }
@@ -322,18 +323,21 @@ class TestDocumentManagement:
                 return user
             app.dependency_overrides[get_current_user] = _cu
 
-        # 创建者（agent_a）删除 → 200
-        await _as_user(data["agent_a"])
-        # 先用草稿文档测 403：agent_b 非管理角色且非创建者
+        # 1) 组织外用户（agent_b）：文档不可见 → 404（不泄露资源存在性）
         await _as_user(data["agent_b"])
+        resp = await api.delete(f"/api/v1/admin/knowledge-bases/{data['kb']}/documents/{data['doc_draft']}")
+        assert resp.status_code == 404, resp.text
+
+        # 2) 同组织非创建者（agent_a2）：可见但无写权限 → 403
+        await _as_user(data["agent_a2"])
         resp = await api.delete(f"/api/v1/admin/knowledge-bases/{data['kb']}/documents/{data['doc_draft']}")
         assert resp.status_code == 403, resp.text
         # 文档仍在
-        await _as_user(data["agent_a"])
         resp = await api.get(f"/api/v1/admin/knowledge-bases/{data['kb']}/documents/{data['doc_draft']}")
         assert resp.status_code == 200
 
-        # 创建者删除 → 200
+        # 3) 创建者（agent_a）删除 → 200
+        await _as_user(data["agent_a"])
         resp = await api.delete(f"/api/v1/admin/knowledge-bases/{data['kb']}/documents/{data['doc_draft']}")
         assert resp.status_code == 200, resp.text
         resp = await api.get(f"/api/v1/admin/knowledge-bases/{data['kb']}/documents/{data['doc_draft']}")
