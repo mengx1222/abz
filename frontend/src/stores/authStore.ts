@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { UserInfo } from '../types/auth';
 import { loginWithCode, getCurrentUser } from '../services/authService';
+import { getApiErrorMessage } from '../utils/apiError';
 
 interface AuthState {
   user: UserInfo | null;
@@ -55,9 +56,11 @@ export const useAuthStore = create<AuthState>((set) => ({
         // If fetching user fails, still consider logged in with token
         set({ isAuthenticated: true });
       }
-    } catch {
+    } catch (err) {
+      // Task 24 (P2-2): 透传后端真实错误消息（如「手机号或密码错误」），
+      // 不再吞成固定文案；后端未提供消息时保留通用提示。
       set({ isLoading: false });
-      throw new Error('登录失败，请检查手机号和验证码');
+      throw new Error(getApiErrorMessage(err, '登录失败，请检查手机号和验证码'));
     }
   },
 

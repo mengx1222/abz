@@ -30,9 +30,17 @@ api.interceptors.response.use(
   },
   (error) => {
     if (error.response?.status === 401) {
-      const store = useAuthStore.getState();
-      store.logout();
-      window.location.href = '/login';
+      // Task 24 (P2-2): auth 端点自身的 401（登录失败/刷新失败）交由调用方处理，
+      // 不得触发登出跳转 —— 否则登录失败会导致整页刷新、错误提示被冲掉。
+      // 非 auth 端点的 401 = 会话过期 → 清理凭据并跳转登录页。
+      const requestUrl: unknown = error.config?.url;
+      const isAuthEndpoint =
+        typeof requestUrl === 'string' && requestUrl.startsWith('/auth/');
+      if (!isAuthEndpoint) {
+        const store = useAuthStore.getState();
+        store.logout();
+        window.location.href = '/login';
+      }
     }
     return Promise.reject(error);
   }
