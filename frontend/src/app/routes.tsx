@@ -12,7 +12,8 @@ function lazyNamed<T extends string>(
   factory: () => Promise<Record<T, ComponentType>>,
   name: T
 ): ComponentType {
-  const LazyComp = React.lazy(() =>
+  // React 19 lazy 泛型需显式指定：module[name] 是 ComponentType 联合，推断会退化为 {} 触发 TS2322
+  const LazyComp = React.lazy<ComponentType>(() =>
     factory().then((module) => ({ default: module[name] }))
   );
   return function LazyPage() {

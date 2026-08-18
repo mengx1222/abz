@@ -2,7 +2,7 @@ import { cn } from '../../utils/cn';
 
 interface BadgeProps {
   children: React.ReactNode;
-  variant?: 'default' | 'success' | 'warning' | 'error';
+  variant?: 'default' | 'success' | 'warning' | 'error' | 'primary' | 'info' | 'danger';
   className?: string;
 }
 
@@ -11,6 +11,9 @@ const variantStyles: Record<string, string> = {
   success: 'bg-success/10 text-success',
   warning: 'bg-warning/10 text-warning',
   error: 'bg-error/10 text-error',
+  primary: 'bg-primary/10 text-primary',
+  info: 'bg-blue-500/10 text-blue-600 dark:text-blue-400',
+  danger: 'bg-error/10 text-error',
 };
 
 export function Badge({ children, variant = 'default', className }: BadgeProps) {

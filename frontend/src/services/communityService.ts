@@ -32,6 +32,9 @@ export interface PostDetail extends PostListItem {
   content: string;
   ai_summary?: string | null;
   updated_at?: string | null;
+  // toggleFavorite 返回该字段（后端 FavoriteToggleResponse），本地状态更新用；
+  // 详情接口本身不返回 → 可选，渲染处 fallback 0
+  favorites_count?: number;
 }
 
 export interface CommentAuthor {
