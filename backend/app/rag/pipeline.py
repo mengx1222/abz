@@ -121,8 +121,14 @@ class RAGPipeline:
         file_name: str = "",
         knowledge_base_id: str = "",
         document_id: str = "",
+        kb_allowed_roles: list[str] | None = None,
+        kb_org_id: str | None = None,
     ) -> dict:
         """文档入库流程：解析 → 分块 → 嵌入。
+
+        Args:
+            kb_allowed_roles: 所属知识库的 allowed_roles（Demo 索引注入，检索权限过滤用）。
+            kb_org_id: 所属知识库的 organization_id（Demo 索引注入，组织范围过滤用）。
 
         Returns:
             {"chunks_count": int, "chunks": list[dict]}
@@ -155,6 +161,9 @@ class RAGPipeline:
                         "heading": chunk.heading,
                         "knowledge_base_id": knowledge_base_id,
                         "document_id": document_id,
+                        # 携带 KB 权限策略（与生产 SQL 层同语义）
+                        "kb_allowed_roles": kb_allowed_roles,
+                        "kb_org_id": kb_org_id,
                     })
                 retriever.add_chunks(chunk_dicts)
         else:
@@ -184,6 +193,8 @@ class RAGPipeline:
         top_k: int = 8,
         knowledge_base_ids: list[str] | None = None,
         user_roles: list[str] | None = None,
+        org_id: str | None = None,
+        accessible_org_ids: list[str] | None = None,
         product_type: str | None = None,
     ) -> tuple[list[SearchResult], str]:
         """RAG查询流程：检索 → 上下文组装。
@@ -192,7 +203,10 @@ class RAGPipeline:
             question: 查询问题
             top_k: 返回结果数
             knowledge_base_ids: 限定知识库
-            user_roles: 用户角色（权限过滤）
+            user_roles: 用户角色（权限过滤）。None=不限角色；[]=无任何角色被允许（全拒）
+            org_id: 用户组织 ID（组织范围过滤，兼容单组织场景）
+            accessible_org_ids: 可访问组织集合（DataPermissionChecker
+                filter_accessible_org_ids 产出），["__ALL__"] 表示全量
             product_type: 产品边界过滤（如"医疗险"）。传值时仅检索产品匹配的
                 知识依据，避免同领域错误产品被语义召回为有效依据。
 
@@ -218,6 +232,8 @@ class RAGPipeline:
             top_k=top_k,
             knowledge_base_ids=knowledge_base_ids,
             user_roles=user_roles,
+            org_id=org_id,
+            accessible_org_ids=accessible_org_ids,
             product_type=product_type,
         )
 
@@ -241,6 +257,8 @@ class RAGPipeline:
         top_k: int = 8,
         knowledge_base_ids: list[str] | None = None,
         user_roles: list[str] | None = None,
+        org_id: str | None = None,
+        accessible_org_ids: list[str] | None = None,
     ) -> tuple[list[SearchResult], str, str, dict | None]:
         """安全增强的 RAG 聊天。
 
@@ -281,6 +299,8 @@ class RAGPipeline:
             top_k=top_k,
             knowledge_base_ids=knowledge_base_ids,
             user_roles=user_roles,
+            org_id=org_id,
+            accessible_org_ids=accessible_org_ids,
         )
 
         # ---- Step 3: 拒答判断 + 置信度评估 ----
@@ -330,6 +350,8 @@ async def init_demo_index() -> DemoRetriever:
     demo_docs = get_demo_documents()
     pipeline = RAGPipeline()
 
+    # demo-kb-001 权限策略：allowed_roles=None（全员）+ 总部组织（与 demo 用户一致）
+    demo_kb_org_id = "00000000-0000-0000-0000-000000000001"
     for doc in demo_docs:
         result = await pipeline.index_document(
             content=doc["content"],
@@ -338,6 +360,8 @@ async def init_demo_index() -> DemoRetriever:
             file_name=doc["file_name"],
             knowledge_base_id="demo-kb-001",
             document_id=f"demo-doc-{doc['title'][:4]}",
+            kb_allowed_roles=None,
+            kb_org_id=demo_kb_org_id,
         )
         logger.info(
             "demo_document_indexed",
