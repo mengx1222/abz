@@ -27,7 +27,7 @@
 
 | 项 | 说明 | 影响 |
 |----|------|------|
-| 前端 tsc 硬门禁（P1-6） | CI 暂用 `vite build` 绕过既有 TS 类型错误 | 低（运行时不受影响，代码质量门禁待恢复） |
+| ~~前端 tsc 硬门禁（P1-6）~~ | **已 RESOLVED（Task 19）**：`tsc -b` 0 errors，CI frontend job 已恢复显式 TypeScript typecheck + `npm run build` 硬门禁 | — |
 | growth course_detail（P1-3） | 课程表未落库，生产返回 None | 低（成长模块主链路不受影响） |
 | 前端组件级测试缺失（P2-3） | 仅 utils 有 vitest | 低 |
 | Seed 手动执行（P2-4） | 未集成进迁移流程 | 低（compose 启动命令已含 seed） |
@@ -36,7 +36,7 @@
 ## 3. 剩余 P0 / P1 / P2
 
 - **P0**：无
-- **P1**：P1-3（course_detail Demo Only）、P1-6（前端 tsc 硬门禁）
+- **P1**：P1-3（course_detail Demo Only）；~~P1-6（前端 tsc 硬门禁）~~ **RESOLVED**
 - **P2**：P2-1（CSRF）、P2-2（Demo 401）、P2-3（组件测试）、P2-4（seed 集成）
 
 ## 4. Verified Facts（当前已验证事实）

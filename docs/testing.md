@@ -130,3 +130,12 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 - 固定测试客户：`E2E-张先生 / 13900001111`
 - 固定知识库：`E2E产品知识库`（幂等 seed，含产品边界元数据）
 - 不使用随机手机号/UUID/客户/AI 文案断言
+
+---
+
+## 6. TypeScript 门禁（Task 19 恢复）
+
+- **`npx tsc -b` = 0 errors**（cloud runner 验证，Frontend Typecheck workflow @ `acebb0e`）
+- CI frontend job 含显式 **TypeScript typecheck** 步骤（`npx tsc -b`，exit code != 0 → job failed）+ Build 使用 `npm run build`（`tsc -b && vite build`）
+- 独立 `frontend-typecheck.yml` 快速验证 workflow（frontend/** 变更触发）
+- 基线 32 errors → 0 errors 的完整分类与修复见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)

@@ -24,7 +24,7 @@
 | 模块 | 状态 | 依据 |
 |------|------|------|
 | Backend | ✅ | pytest **265 passed, 5 skipped**（Task 17B 本地全量；基线 228 → 265）；FastAPI + SQLAlchemy 2 async + Alembic |
-| Frontend | ✅ | Vitest **27 passed（3 files）** + `vite build` ✓（CI）；React 19 + Vite 8 + TS ~6.0 |
+| Frontend | ✅ | Vitest **27 passed（3 files）** + **TypeScript `tsc -b` 0 errors + CI Hard Gate（Task 19）** + `vite build` ✓；React 19 + Vite 8 + TS ~6.0 |
 | PostgreSQL 16 + pgvector | ✅ | PG 集成 **5 passed**（含 RAG 产品边界）+ **RAG 权限边界 5 用例**（test_permission_pg.py，CI backend-pg 纳入）；Production Validation 真实容器 |
 | Redis | ✅ | Production Validation 真实容器 |
 | RAG | ✅ | 向量+BM25+RRF+Confidence Gate+Refusal+Citation+**产品边界**（Task 12/13）+ **权限过滤（allowed_roles + 组织范围，Task 17B）**：Role Filtering Implemented+Tested（test_role_filter.py）、Organization Filtering Implemented+Tested（test_org_scope.py）、Citation/SSE Leakage Protected（test_citation_leak.py）、Prompt Injection Cannot Bypass（test_permission_pg.py::J） |

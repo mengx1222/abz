@@ -12,7 +12,7 @@
 
 > 发布就绪状态: **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md)）
 
-> 上一轮 Task: Task 18（Growth E2E 覆盖 · Playwright Stage 3）
+> 上一轮 Task: Task 19（Frontend TypeScript 0 Errors + CI Hard Gate）
 
 ---
 
@@ -41,12 +41,13 @@
 | PG 集成测试（真实 PG16+pgvector） | **10 passed**（含 RAG 产品边界 5 + RAG 权限边界 5） |
 | Frontend Tests / Build | **27 passed（3 files）** + `vite build` ✓ |
 | Playwright E2E | **18/18 passed**（Stage 1 + Stage 2 + Stage 3：Training 13 + **Growth 5**，2026-08-18） |
+| **TypeScript（Task 19）** | **`tsc -b` 0 errors** + **CI Hard Gate 恢复**（backend-tests frontend job 显式 typecheck 步骤 + `npm run build`；详见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)） |
 | Real AI Smoke（DashScope/Qwen） | **8/8 PASS**（真实，非 Mock） |
 | Production Validation | **PASS** |
 | Docker | dev + prod compose 均通过 Production Validation |
 | Repository | CLEAN（Task 14：268 blob，无过程产物/Secret） |
 | P0 | 无 |
-| P1 | P1-3（growth course_detail Demo Only，前端空状态友好处理已 E2E 覆盖）、P1-6（前端 tsc 硬门禁） |
+| P1 | P1-3（growth course_detail Demo Only，前端空状态友好处理已 E2E 覆盖；**P1-6 TypeScript hard gate 已 RESOLVED（Task 19）**） |
 | P2 | P2-1~P2-4（CSRF / Demo 401 / 组件测试 / seed 集成） |
 | Current Next Tasks | 见「Current Next Tasks」节（Training/Growth E2E、TS 清理、AI Sales Agent） |
 

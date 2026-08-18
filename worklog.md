@@ -2174,3 +2174,26 @@ Stage Summary:
 
 - Growth 模块 UI 行为被 E2E 锁定（G-1~G-5），防止未来重构退化
 - P1-3（course_detail 生产 None）前端空状态友好处理已被测试覆盖
+---
+
+Task ID: 39
+
+Agent: main
+
+Task: Task 19 — Frontend TypeScript 0 Errors + CI Hard Gate（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@c9ec80c；新增 frontend-typecheck.yml workflow（`npm ci && npx tsc -b`）→ 基线 32 errors
+- 错误分类：TS6133×22 / TS2322×5 / TS2367×2 / TS2339×1 / TS2353×1 / TS2551×1（14 文件）
+- 根因优先：Badge variant 补 primary/info/danger（1 处修 4 错误）；PostDetail 补 favorites_count?（后端 FavoriteToggleResponse 契约）；PostListItem 用 summary 替代不存在的 content；lazyNamed 显式 React.lazy<ComponentType>
+- Feature 清理：未使用导入/变量/常量（含 TrainingChatPage DIFFICULTY_CONFIG/abortRef/difficulty）；ScriptManagePage 冗余比较
+- 排障：DIFFICULTY_CONFIG 删除残留 `};` → TS1128（vite build 失败）；CompliancePage 三组件各自 useToast 作用域误删恢复；KnowledgePage 删 user 后 useAuthStore import 清理
+- 结果：**tsc -b 0 errors**（acebb0e 全绿：Typecheck + CI + Prod Validation）
+- CI Hard Gate 恢复：backend-tests.yml frontend job 显式 TypeScript typecheck 步骤 + Build 改 `npm run build`；e2e-playwright.yml paths 增加 frontend/src/**（src 变更触发 E2E）
+- 文档：typescript-cleanup-audit.md（新建）、project-status（P1-6 RESOLVED）、release-verification、release-readiness、testing、worklog
+- 提交链：1dc70e7(typecheck workflow) → 9e29aab/C1 → c03dc2e/C2 → cfdfbab/C3 → 25aa3a0(TS1128) → acebb0e(toast/authStore) → 待 push：ci hard gate + docs
+
+Stage Summary:
+
+- TypeScript 门禁恢复：error → CI FAIL；P1-6 清零；Release Status 保持 READY FOR INTERNAL PILOT 不变
