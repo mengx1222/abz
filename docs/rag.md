@@ -1168,3 +1168,38 @@ User → Auth(JWT) → RBAC → Org Scope(DataPermissionChecker) → KB Scope(ro
 
 - 已实现/已验证：KB CRUD 生产化 + 权限继承 + 级联删除 + 同名处理（PG 集成固化）。
 - 未处理：文档管理接口（list_documents/upload/publish/delete_document）的 CRUD 部分仍 Demo（upload 生产链路 Task 20 已闭环）；AI Sales Agent 等新功能不在范围。
+
+
+---
+
+## 9. Document Management Production 化（Task 22）
+
+> 状态：**Implemented + Tested**（PG 集成 tests/knowledge/test_document_management.py 7 用例，CI backend-pg 纳入）
+
+### 9.1 文档生命周期全链路 DB backed
+
+```
+管理员 → GET    /api/v1/admin/kb/{kb_id}/documents            → DB query（JOIN KB 角色+组织过滤）
+      → GET    /api/v1/admin/kb/{kb_id}/documents/{doc_id}   → DB query（越权/不存在 → 404）
+      → POST   /api/v1/admin/kb/{kb_id}/documents/upload     → Task 20 生产链路（解析→分块→embedding→PG+pgvector）
+      → POST   /api/v1/admin/kb/{kb_id}/documents/{doc_id}/publish    → status=published + published_at
+      → POST   /api/v1/admin/kb/{kb_id}/documents/{doc_id}/unpublish  → status=draft
+      → DELETE /api/v1/admin/kb/{kb_id}/documents/{doc_id}   → DB 物理删除（FK CASCADE 清 chunks/embedding）+ KB 计数回退
+```
+
+### 9.2 关键保证
+
+| 项 | 实现 |
+|----|------|
+| Repository 层 | `repositories/document_repository.py`（SQLAlchemy async，API 层不直接操作 ORM） |
+| 权限继承 | Document 可见性 JOIN KnowledgeBase：角色 `allowed_roles IS NULL OR ? role` + 组织 `organization_id IS NULL OR IN accessible_org_ids`（Task 17B/21 同语义） |
+| 写权限 | publish/unpublish/delete 仅管理角色或创建者本人（`_can_manage_kb` 复用，越权 403） |
+| 级联删除 | delete 物理删除，document_chunks（含 embedding）由 FK `ondelete=CASCADE` 清理，无孤儿数据（PG 集成验证） |
+| 计数一致性 | delete 后 KB `document_count`/`total_chunks` 同步回退 |
+| 404 vs 403 | 资源不可见（组织外/角色不符）→ 404 不泄露存在性；可见但无写权限 → 403 |
+| 兼容 | DEMO_MODE=true 保留内存行为；既有 API path/response schema 不变（新增 detail/unpublish 路由向后兼容） |
+
+### 9.3 边界
+
+- 已实现/已验证：Document list/detail/publish/unpublish/delete 生产化 + 权限继承 + 级联删除 + 计数回退。
+- 未处理：文档内容编辑/版本管理（previous_version_id 已有列未闭环）、AI Sales Agent 等新功能。

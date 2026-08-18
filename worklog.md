@@ -2267,3 +2267,41 @@ Stage Summary:
 
 - Knowledge Base 从 Demo 管理变为 Production 管理：CRUD 全链路 DB backed、权限继承（org/role/metadata）、
   级联删除、同名处理，PG 集成固化；不涉及 RAG 算法与权限模型改动
+---
+
+Task ID: 42
+
+Agent: main
+
+Task: Task 22 — Document Management Productionization（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@4a73564（Task 21 后 CI 全绿）；备份分支 backup/task-22-20260818-2149
+- 段1 审计（docs/document-management-audit.md）：list/publish/delete 全 Demo（_demo_documents）；
+  detail/unpublish 接口不存在；upload 生产链路 Task 20 已闭环
+- 段2 实现：新建 repositories/document_repository.py（SQLAlchemy async）——
+  create/get/list/delete/update_document_status/publish/unpublish；
+  可见性过滤 JOIN KnowledgeBase（角色 ? 操作符 + 组织 IN/NULL 共享，Task 17B/21 同语义）
+- 段3 API 生产化：knowledge.py list/publish/delete 加 db + production 分支（repository）；
+  新增 GET documents/{doc_id}（detail）与 POST documents/{doc_id}/unpublish；
+  写权限=管理角色或创建者（_can_manage_kb 复用）；delete 物理删除 + KB 计数回退
+- 段4 权限验证：AGENT@A 可见 / AGENT@B list 不含 + detail 404（不泄露存在性）；
+  同组织非创建者 publish/delete → 403；创建者 → 200
+- 段5 数据库：Document/DocumentChunk FK CASCADE 既有（Task 20/21），无需新迁移；
+  embedding 随 chunk 行删除无孤儿
+- 段6 测试：tests/knowledge/test_document_management.py（7 用例 @integration，backend-pg 纳入）——
+  list success/detail/org isolation/role isolation/publish status change/delete cascade/unauthorized delete
+- 排障：unauthorized delete 首轮 agent_b（组织外）返回 404 —— 语义正确（不可见不泄露），
+  403 场景需「可见但无写权限」用户 → seed 增加同组织非创建者 agent_a2
+- 验证：**backend-pg 32 passed**（pg 5 + permission 5 + ingestion 8 + kb_crud 7 + document 7）；
+  CI+Prod 全绿（9130667）；backend 270 passed/32 skipped；frontend vitest 27 + tsc 0 + build ✅
+- 文档：document-management-audit.md（新建）、rag.md（§9）、database.md、security.md、
+  project-status、release-verification（backend-pg 32 passed）、release-readiness（文档管理边界清零）、worklog
+- 提交链：a7d450a（feat document repo+API）→ 195bca8（test+CI）→ 9130667（unauthorized 语义修正）→ 待 docs
+
+Stage Summary:
+
+- KnowledgeBase → Document 完整生产管理闭环：KB CRUD（Task 21）+ Document list/detail/publish/unpublish/
+  delete（Task 22）全 DB backed，权限继承（org/role）、级联删除无孤儿、计数一致，PG 集成固化；
+  RAG 算法与权限模型未改动

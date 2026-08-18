@@ -65,7 +65,8 @@
 | Seed 手动执行（P2-4） | 未集成进迁移流程 | 低（compose 启动命令已含 seed） |
 
 | AI Sales Agent | 未实现（文档标注 Planned） | 不阻塞本期发布 |
-| ~~知识库 CRUD（list/create/update/delete）~~ | **已生产化（Task 21）**：DB backed + 权限继承（org/role/metadata）+ 级联删除 + 同名 409，PG 集成 7 用例（test_kb_crud.py）；文档管理接口（list_documents 等）仍 Demo | — |
+| ~~知识库 CRUD（list/create/update/delete）~~ | **已生产化（Task 21）**：DB backed + 权限继承（org/role/metadata）+ 级联删除 + 同名 409，PG 集成 7 用例（test_kb_crud.py） | — |
+| ~~文档管理（list/detail/publish/unpublish/delete）~~ | **已生产化（Task 22）**：DB backed + 继承 KB 权限 + FK CASCADE 无孤儿，PG 集成 7 用例（test_document_management.py） | — |
 
 
 

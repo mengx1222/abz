@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 21（Knowledge Base Management Productionization）
+> 上一轮 Task: Task 22（Document Management Productionization）
 
 
 
@@ -87,6 +87,7 @@
 | **TypeScript（Task 19）** | **`tsc -b` 0 errors** + **CI Hard Gate 恢复**（backend-tests frontend job 显式 typecheck 步骤 + `npm run build`；详见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)） |
 | **Knowledge Production Ingestion（Task 20）** | **Implemented + Tested**：index_document 生产分支持久化 Document/Chunk/Embedding（PG + pgvector，1536 维），权限/产品 metadata 继承 KB，事务 rollback、重复索引幂等、空文档拒绝；PG 集成 8 用例（test_ingestion_pg.py）；详见 [rag.md](rag.md) §7 |
 | **Knowledge Base CRUD Production（Task 21）** | **Implemented + Tested**：KB list/create/detail/update/delete 全链路 DB backed（repositories/knowledge_repository.py + API production 分支），组织/角色/metadata 权限继承（Task 17B 语义）、级联删除、同名 409；PG 集成 7 用例（test_kb_crud.py）；审计见 [knowledge-crud-audit.md](knowledge-crud-audit.md) |
+| **Document Management Production（Task 22）** | **Implemented + Tested**：Document list/detail/publish/unpublish/delete 全链路 DB backed（repositories/document_repository.py + API production 分支），继承 KB 组织/角色权限（越权 404 / 无写权限 403）、FK CASCADE 级联清 chunks/embedding 无孤儿、delete 回退 KB 计数；PG 集成 7 用例（test_document_management.py）；审计见 [document-management-audit.md](document-management-audit.md) |
 
 | Real AI Smoke（DashScope/Qwen） | **8/8 PASS**（真实，非 Mock） |
 

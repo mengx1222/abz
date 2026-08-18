@@ -1958,3 +1958,14 @@ SELECT * FROM pg_extension WHERE extname = 'vector';
 - `knowledge_bases.allowed_roles` 列：`JSONB(none_as_null=True)` —— Python None 存 SQL NULL（全员语义，Task 17B）
 - `knowledge_bases.metadata` 列：新增（alembic 0009_kb_metadata），创建/更新时携带扩展元数据
 - 删除：物理删除（FK `ondelete=CASCADE` → documents → document_chunks）
+
+
+---
+
+## Document Management 生产化（Task 22）
+
+- 管理链路：`GET/POST/DELETE /api/v1/admin/knowledge-bases/{kb_id}/documents[/{doc_id}[/publish|/unpublish]]`（生产模式走 Repository）
+- Repository：`backend/app/repositories/document_repository.py`（create/get/list/delete/update_document_status/publish/unpublish + JOIN KB 可见性过滤）
+- 级联：`documents.knowledge_base_id` FK CASCADE（Task 20/21 既有）→ `document_chunks.document_id` FK CASCADE → embedding 随 chunk 行删除（无孤儿）
+- 状态机：`uploaded → parsing → parsed → reviewing → published`（publish 置 published + published_at/published_by；unpublish 置 draft）
+- 计数：delete 同步回退 `knowledge_bases.document_count` / `total_chunks`
