@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 23（Knowledge Base + Document Admin Frontend Productionization）
+> 上一轮 Task: Task 24（Security & Engineering Hardening — P2 收敛）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-18 · HEAD Task 18）
+## Current Snapshot（2026-08-19 · HEAD Task 24）
 
 
 
@@ -74,21 +74,22 @@
 
 | Release Status | **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md) + [release-verification.md](release-verification.md)） |
 
-| Backend Tests | **270 passed, 18 skipped**（Task 20 后全量云端验证：+8 ingestion 用例在无 PG 环境 skip） |
+| Backend Tests | **278 passed, 35 skipped**（Task 24 后全量云端验证：+7 安全态势，seed 幂等 3 无 PG 环境 skip） |
 
 | **RAG 权限加固（Task 17B）** | **Role Filtering + Organization Filtering + Citation/SSE 防泄漏 + 拒答不降级 全部 Implemented + Tested**（tests/rag/ 35 用例 + PG 集成 5 用例；详见 [rag-permission-audit.md](rag-permission-audit.md)） |
 
-| PG 集成测试（真实 PG16+pgvector） | **10 passed**（含 RAG 产品边界 5 + RAG 权限边界 5） |
+| PG 集成测试（真实 PG16+pgvector） | **35 passed**（含 RAG 产品边界 5 + RAG 权限边界 5 + ingestion 8 + KB CRUD 7 + Document 7 + E2E seed 幂等 3） |
 
-| Frontend Tests / Build | **27 passed（3 files）** + `vite build` ✓ |
+| Frontend Tests / Build | **58 passed（7 files）** + `tsc -b` 0 errors + `vite build` ✓ |
 
-| Playwright E2E | **18/18 passed**（Stage 1 + Stage 2 + Stage 3：Training 13 + **Growth 5**，2026-08-18） |
+| Playwright E2E | **22/22 passed**（Task 23 后含 Knowledge K-1~K-3；Task 24 前端改动验证全绿） |
 
 | **TypeScript（Task 19）** | **`tsc -b` 0 errors** + **CI Hard Gate 恢复**（backend-tests frontend job 显式 typecheck 步骤 + `npm run build`；详见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)） |
 | **Knowledge Production Ingestion（Task 20）** | **Implemented + Tested**：index_document 生产分支持久化 Document/Chunk/Embedding（PG + pgvector，1536 维），权限/产品 metadata 继承 KB，事务 rollback、重复索引幂等、空文档拒绝；PG 集成 8 用例（test_ingestion_pg.py）；详见 [rag.md](rag.md) §7 |
 | **Knowledge Base CRUD Production（Task 21）** | **Implemented + Tested**：KB list/create/detail/update/delete 全链路 DB backed（repositories/knowledge_repository.py + API production 分支），组织/角色/metadata 权限继承（Task 17B 语义）、级联删除、同名 409；PG 集成 7 用例（test_kb_crud.py）；审计见 [knowledge-crud-audit.md](knowledge-crud-audit.md) |
 | **Document Management Production（Task 22）** | **Implemented + Tested**：Document list/detail/publish/unpublish/delete 全链路 DB backed（repositories/document_repository.py + API production 分支），继承 KB 组织/角色权限（越权 404 / 无写权限 403）、FK CASCADE 级联清 chunks/embedding 无孤儿、delete 回退 KB 计数；PG 集成 7 用例（test_document_management.py）；审计见 [document-management-audit.md](document-management-audit.md) |
 | **Admin Frontend Production（Task 23）** | **Implemented + Tested**：Knowledge/Document 管理页对接真实 Production API（service 解包 SuccessResponse、detail/unpublish/update 全接入、404/403 语义 toast、mutation loading/防重复、demo badge 按环境）；vitest 组件测试 13 用例 + E2E K-1~K-3；审计见 [admin-frontend-production-audit.md](admin-frontend-production-audit.md) |
+| **Security & Engineering Hardening（Task 24）** | **P2-1~P2-4 收敛**：CSRF（Bearer 架构无攻击面 + 防御测试 4）、Demo 401（3 Confirmed Bug 修复：ErrorHandlerMiddleware 吞 HTTPException→受保护端点 500、前端 /auth 401 豁免、login 真实错误透传）、组件测试 +18、seed 确定性（settings URL / embedding fail-fast / 幂等）；安全态势测试 7 + seed 幂等 3；审计见 [p2-hardening-audit.md](p2-hardening-audit.md) |
 
 | Real AI Smoke（DashScope/Qwen） | **8/8 PASS**（真实，非 Mock） |
 
@@ -1700,7 +1701,7 @@
 
 
 
-| P2-1 | 无 CSRF 显式防护 | JWT Bearer 下风险较低 |
+| P2-1 | 无 CSRF 显式防护 | ✅ **RESOLVED / ACCEPTED LIMITATION（Task 24）**：Bearer header 认证 + 无 cookie 会话 → 架构无 CSRF 攻击面（不引入 CSRF 中间件）；防御性回归测试 4 用例（无 Set-Cookie / 写操作强制 Bearer）+ 文档修正（security.md §6.1） |
 
 
 
@@ -1716,7 +1717,7 @@
 
 
 
-| P2-2 | Demo 模式无 Token 返回 200 | Prod 模式应正常返回 401 |
+| P2-2 | Demo 模式无 Token 返回 200 | ✅ **RESOLVED（Task 24）**：3 个 Confirmed Bug 修复 —— ① 前端 401 interceptor 对 /auth/* 豁免（登录失败不再整页刷新）；② login 透传后端真实错误消息；③ **ErrorHandlerMiddleware 吞 HTTPException → 受保护端点认证失败 500 而非 401（真实 bug，前端 401 登出静默失效）**；401/403 语义契约测试 3 用例 |
 
 
 
@@ -1732,7 +1733,7 @@
 
 
 
-| P2-3 | 前端页面组件无测试 | 仅 3 个工具文件有 vitest |
+| P2-3 | 前端页面组件无测试 | ✅ **RESOLVED（Task 24）**：+18 用例（dashboard 4 / compliance 8 / customers 6，loading/error/empty/mutation/分页/权限语义），未改生产逻辑 |
 
 
 
@@ -1748,7 +1749,7 @@
 
 
 
-| P2-4 | Seed 脚本未集成到迁移 | 需手动执行 |
+| P2-4 | Seed 脚本未集成到迁移 | ✅ **RESOLVED（Task 24）**：e2e_seed_knowledge 确定性加固（settings DB URL 消除硬编码凭据 / embedding fail-fast 杜绝 NULL 向量污染 / 计数不一致 WARN）；幂等测试 3 用例（backend-pg 纳入） |
 
 
 

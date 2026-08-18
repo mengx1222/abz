@@ -60,9 +60,13 @@
 
 | growth course_detail（P1-3） | 课程表未落库，生产返回 None | 低（成长模块主链路不受影响） |
 
-| 前端组件级测试缺失（P2-3） | 仅 utils 有 vitest | 低 |
+| ~~前端组件级测试缺失（P2-3）~~ | **已 RESOLVED（Task 24）**：dashboard/compliance/customers 组件测试 +18 用例（loading/error/empty/mutation/分页），未改生产逻辑 | — |
 
-| Seed 手动执行（P2-4） | 未集成进迁移流程 | 低（compose 启动命令已含 seed） |
+| ~~Seed 手动执行（P2-4）~~ | **已 RESOLVED（Task 24）**：e2e_seed_knowledge 确定性加固（settings DB URL / embedding fail-fast / 计数不一致 WARN）+ 幂等测试 3 用例 | — |
+
+| ~~CSRF 显式防护（P2-1）~~ | **已收敛（Task 24）**：Bearer header + 无 cookie → 架构无 CSRF 攻击面（ACCEPTED LIMITATION）；防御性回归测试 4 用例 + 文档修正 | — |
+
+| ~~Demo 401 语义（P2-2）~~ | **已 RESOLVED（Task 24）**：ErrorHandlerMiddleware 放行 HTTPException（受保护端点认证失败 500→401 真实 bug）、前端 /auth 401 豁免、login 真实错误透传；测试 3 用例 | — |
 
 | AI Sales Agent | 未实现（文档标注 Planned） | 不阻塞本期发布 |
 | ~~知识库 CRUD（list/create/update/delete）~~ | **已生产化（Task 21）**：DB backed + 权限继承（org/role/metadata）+ 级联删除 + 同名 409，PG 集成 7 用例（test_kb_crud.py） | — |
@@ -77,9 +81,9 @@
 
 - **P0**：无
 
-- **P1**：P1-3（course_detail Demo Only）；~~P1-6（前端 tsc 硬门禁）~~ **RESOLVED**
+- **P1**：P1-3（course_detail Demo Only）
 
-- **P2**：P2-1（CSRF）、P2-2（Demo 401）、P2-3（组件测试）、P2-4（seed 集成）
+- **P2**：~~P2-1~P2-4~~ **全部收敛（Task 24）** —— 详见 [p2-hardening-audit.md](p2-hardening-audit.md)
 
 
 

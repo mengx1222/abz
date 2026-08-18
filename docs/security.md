@@ -28,7 +28,7 @@
 | AI Prompt 注入 | 通过精心构造的输入操纵 AI 模型，窃取系统提示词或非授权数据 | 高 | 输入过滤 + 知识库隔离 + 输出安全检测 |
 | SQL 注入 | 通过 API 参数注入恶意 SQL 语句，窃取或篡改数据库数据 | 高 | SQLAlchemy 参数化查询 + ORM 抽象层 |
 | XSS 攻击 | 在前端页面注入恶意 JavaScript 脚本，窃取用户 Token 或数据 | 中 | 输出编码 + Content-Security-Policy 响应头 |
-| CSRF 攻击 | 诱导已登录用户执行非预期的操作请求 | 中 | SameSite Cookie 属性 + CSRF Token 双重验证 |
+| CSRF 攻击 | 诱导已登录用户执行非预期的操作请求 | 低 | 无 cookie 会话（凭据仅走 `Authorization: Bearer`，跨站请求无法自动附带）+ 状态修改端点强制 Bearer 认证（详见 §6.1，Task 24 校准） |
 | 暴力破解 | 对密码或验证码进行自动化暴力猜测 | 中 | Rate Limiting 频率限制 + 登录失败锁定机制 |
 | 文件上传攻击 | 上传恶意文件（WebShell、病毒）执行任意代码 | 中 | 文件类型白名单 + 大小限制 + 存储隔离 |
 | DDoS 攻击 | 大量请求耗尽系统资源导致服务不可用 | 低 | 接口级限流 + 请求体大小限制 |
@@ -41,11 +41,17 @@
 
 ### 2.1 JWT 双 Token 方案（Access 2h + Refresh 7d）
 
-系统采用 JWT（JSON Web Token）双 Token 认证方案，在安全性与用户体验之间取得最优平衡：
+系统采用 JWT（JSON Web Token）双 Token 认证方案：
 
-- **Access Token**：用于每次 API 请求的身份认证，有效期设为 **2 小时**。该 Token 存储在前端应用内存中（React/Vue 的 state 或 Pinia store），**绝不使用 localStorage 或 sessionStorage**，以彻底杜绝 XSS 攻击窃取 Token 的风险。每次 API 请求时通过 `Authorization: Bearer <token>` 请求头携带，服务端中间件逐次验证其签名和有效期。
+> **Task 24 实现校准**：以下为**实际实现**（此前本文档描述的"内存存储 + HttpOnly Cookie"为设计稿，与代码不符，已修正）：
+> - Access Token 有效期 **2 小时**（`JWT_EXPIRE_MINUTES=120`），每次请求通过 `Authorization: Bearer <token>` 携带，服务端 `HTTPBearer` 逐次验证签名与有效期。
+> - Refresh Token 有效期 **7 天**（`REFRESH_EXPIRE_DAYS=7`）。登录接口在 JSON 响应中返回 access_token + refresh_token（`TokenResponse`），前端当前仅持久化 access_token（localStorage，key `abz_token`）；refresh 链路（`POST /auth/refresh` + `authService.refreshToken`）已存在但前端尚未接线（Existing Limitation，见 p2-hardening-audit.md）。
+> - **无 cookie 会话**：服务端不设置任何 Set-Cookie；前端 axios 不启用 withCredentials。该架构下不存在 CSRF 攻击面（§6.1）。
+> - **已知威胁面**：token 存 localStorage 对 XSS 暴露（CSP 已启用缓解，见 §6.2）；刷新链路未接线意味着 access 过期即登出（UX 待优化）。
 
-- **Refresh Token**：用于在 Access Token 过期后无感刷新，有效期设为 **7 天**。该 Token 存储在 **HttpOnly、Secure、SameSite=Strict** 属性的 Cookie 中，JavaScript 代码无法读取，有效防止 XSS 攻击获取刷新令牌。当 Access Token 过期时，前端自动调用刷新接口，使用 HttpOnly Cookie 中的 Refresh Token 获取新的 Access Token，用户全程无感知。
+- **Access Token**：用于每次 API 请求的身份认证，有效期设为 **2 小时**。每次 API 请求时通过 `Authorization: Bearer <token>` 请求头携带，服务端逐次验证其签名和有效期。
+
+- **Refresh Token**：用于在 Access Token 过期后无感刷新，有效期设为 **7 天**。通过 `POST /api/v1/auth/refresh`（body: `refresh_token`）换取新令牌。
 
 Token 载荷结构设计如下：
 
@@ -111,7 +117,7 @@ Refresh Token 采用服务端存储方案，后端数据库中记录每个有效
 
 为方便产品演示和试用评估，系统提供了 Demo 模式登录功能，但该模式在安全方面有严格的隔离措施：
 
-- **预设账户**：Demo 模式使用固定的用户名和密码（demo / demo123），仅可在系统配置 `DEMO_MODE=true` 时启用。生产环境必须禁用 Demo 模式。
+- **预设账户**：Demo 模式使用固定演示账号（**13800138000~13800138003 / 统一密码 888888**，对应 AGENT/TEAM_LEADER/BRANCH_ADMIN/SYSTEM_ADMIN 四种角色），仅可在 `DEMO_MODE=true` 时启用。生产环境必须禁用 Demo 模式（`AZB_DEMO_MODE=false`）。
 
 - **数据隔离**：Demo 账户访问的是专门的演示数据集，与真实业务数据完全物理隔离。Demo 数据为虚构的脱敏数据，不包含任何真实客户信息。Demo 账户的所有操作均限定在演示数据范围内，无法访问真实业务表。
 
@@ -322,15 +328,18 @@ Refresh Token 采用服务端存储方案，后端数据库中记录每个有效
 
 API 是系统与外部交互的唯一通道，也是攻击面最集中的区域。本系统从 CSRF 防护、XSS 防护、SQL 注入防护、接口限流、请求体限制和安全响应头等多个维度构建了完整的 API 安全防护体系。
 
-### 6.1 CSRF 防护（SameSite Cookie + CSRF Token）
+### 6.1 CSRF 防护（Task 24 校准：Bearer header 认证下无攻击面）
 
-系统采用双重 CSRF 防护机制，有效防止跨站请求伪造攻击：
+**当前架构事实**：认证凭据仅存在于 `Authorization: Bearer` 请求头（`HTTPBearer`），**无 cookie 会话**（服务端不设置 Set-Cookie，前端 axios 不启用 withCredentials，token 存 localStorage）。
 
-- **SameSite Cookie**：所有 Cookie 均设置 `SameSite=Strict` 或 `SameSite=Lax` 属性。Strict 模式下，Cookie 仅在同站请求中发送，完全阻止跨站请求携带 Cookie。Lax 模式允许顶级导航的 GET 请求携带 Cookie，兼容性更好。Refresh Token Cookie 使用 Strict 模式。
+**风险判断**：CSRF 攻击依赖浏览器自动携带认证凭据（cookie/session）。Bearer header 无法被跨站请求（form/img/script）自动附带，因此**当前架构不存在可利用的 CSRF 漏洞**，无需 CSRF Token / SameSite Cookie 配置，也**不引入 CSRF 中间件**（与 Bearer 认证架构冲突且无防护收益）。
 
-- **CSRF Token**：对于状态修改类请求（POST、PUT、PATCH、DELETE），系统要求携带 CSRF Token。Token 在用户首次访问时由服务端生成，嵌入到前端页面（meta 标签或隐藏表单字段）中。请求时通过自定义请求头（如 `X-CSRF-Token`）提交，服务端验证 Token 的有效性。
+**防御性回归**（`backend/tests/api/test_security_posture.py`）：
+- 登录/受保护端点响应无 Set-Cookie（无 cookie 会话）
+- 状态修改端点（POST/PUT/DELETE）无 Bearer → 401（写操作强制 Bearer）
+- 若未来引入 cookie 会话认证，必须重新评估并补 CSRF 防护，CI 会因上述测试失败而提示。
 
-- **双重验证**：SameSite Cookie 和 CSRF Token 双重机制互为补充。即使浏览器不支持 SameSite 属性，CSRF Token 仍能有效防护；即使 CSRF Token 被泄露（理论上可能通过 XSS），SameSite Cookie 仍能阻止跨站请求。
+**CORS 说明**：production 仅允许 `FRONTEND_URL` 白名单；DEBUG/DEMO 追加 `localhost:5173` + `*`（demo 有意的宽松，`allow_credentials=True` 下 Starlette 回显 Origin）。
 
 ### 6.2 XSS 防护（输出编码 + Content-Security-Policy）
 
@@ -340,7 +349,7 @@ API 是系统与外部交互的唯一通道，也是攻击面最集中的区域�
 
 - **Content-Security-Policy（CSP）**：服务端在所有响应中添加严格的 CSP 响应头，限制页面可以加载的资源来源。策略包括：禁止内联脚本（`script-src 'self'`）、禁止内联样式（`style-src 'self'`）、限制图片和字体来源等。CSP 策略 initially 以 Report-Only 模式部署，观察无误后切换为 Enforce 模式。
 
-- **HttpOnly Cookie**：所有认证相关的 Cookie 均设置 HttpOnly 属性，JavaScript 无法读取，从根本上阻断 XSS 窃取 Cookie 的攻击路径。
+- **无认证 Cookie（Task 24 校准）**：认证凭据走 Bearer header（token 存前端 localStorage），服务端不设置认证相关 Cookie。因无 HttpOnly Cookie 可窃取，XSS 的主要风险面是 localStorage token —— 由 CSP（`script-src 'self'`、禁用内联脚本）缓解；若未来引入 cookie 会话，须补 HttpOnly/Secure/SameSite。
 
 ### 6.3 SQL 注入防护（SQLAlchemy 参数化查询）
 

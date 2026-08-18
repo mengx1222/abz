@@ -65,9 +65,11 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 ## 4. 前端测试（Vitest）
 
 - 位置：`frontend/src/tests/`
-- 覆盖：`authStore.test.ts` / `cn.test.ts` / `roleRoutes.test.ts`
+- 覆盖：
+  - utils：`authStore.test.ts` / `cn.test.ts` / `roleRoutes.test.ts`
+  - 组件：`features/knowledge.test.tsx`（13，Task 23）、`features/dashboard.test.tsx`（4）、`features/compliance.test.tsx`（8）、`features/customers.test.tsx`（6）（Task 24，P2-3）
 - 运行：`cd frontend && npm test`（`vitest run`）
-- 构建：`npm run build`（`tsc -b && vite build`；注：tsc 硬门禁存在既有类型错误，CI 暂用 `vite build`，见 project-status P1-6）
+- 构建：`npm run build`（`tsc -b && vite build`；Task 19 已恢复 tsc 硬门禁）
 
 ---
 
@@ -150,3 +152,27 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 - **E2E**：`frontend/e2e/knowledge/knowledge.spec.ts`（K-1 KB 列表 / K-2 文档列表 / K-3 文档详情，production 后端 + e2e_seed_knowledge 数据）
 - **根因修复**：service 原返回 SuccessResponse 包装对象 → 页面 `knowledgeBases.map` 崩溃白屏
   （既有 bug，E2E K-1 暴露）→ 全部 `res.data.data` 解包
+
+---
+
+## 8. Security & Engineering Hardening（Task 24）
+
+### 8.1 安全态势回归（`backend/tests/api/test_security_posture.py`，7 用例）
+
+- **CSRF posture（P2-1，4 用例）**：登录/受保护端点响应无 Set-Cookie（无 cookie 会话 → CSRF 攻击面不存在）；状态修改端点（POST/PUT/DELETE）无 Bearer → 401；无效 token / refresh 类型错误 → 401 语义码。防御性回归：未来若引入 cookie 会话，CI 立即失败提示重新评估。
+- **Auth 错误语义契约（P2-2，3 用例）**：login 失败 → 统一 `ErrorResponse{success:false,error:{code,message}}`；get_current_user 拒绝 → `{detail:{code,message}}`；refresh 失败格式。
+- **根因修复验证**：`ErrorHandlerMiddleware` 曾吞 HTTPException → 受保护端点认证失败返回 500（前端 401 登出静默失效）——修复后 401 用例全绿。
+
+### 8.2 E2E seed 幂等（`backend/tests/knowledge/test_e2e_seed_idempotency.py`，3 用例，backend-pg）
+
+- 首次创建 True / 二次调用跳过 False（幂等，不重复插入）
+- embedding 失败 → RuntimeError 且无半成品残留（rollback 验证）
+- 计数不一致 → 跳过 + WARN（不静默、不破坏数据）
+
+### 8.3 组件测试扩展（P2-3，+18 用例）
+
+| 文件 | 用例 | 覆盖状态 |
+|------|------|----------|
+| `features/dashboard.test.tsx` | 4 | loading / error+重试 / 数据渲染 / 空 AI 建议区块 |
+| `features/compliance.test.tsx` | 8 | rules loading/error/empty/list/toggle；reviews list/approve/error |
+| `features/customers.test.tsx` | 6 | loading / error / empty / list / delete mutation / pagination |

@@ -2347,3 +2347,52 @@ Stage Summary:
 
 - Admin KB/Document 管理在 Production 模式真实 DB/API backed（修复 SuccessResponse 解包
   既有 bug 后页面正常渲染）；404/403 语义、loading/防重复、测试矩阵、E2E 全链路云端验证
+
+---
+
+Task ID: 44
+
+Agent: main
+
+Task: Task 24 — Security & Engineering Hardening（P2 收敛，100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@4ee44fe（Task 23 全绿）；备份分支 backup/task-24-20260819-012117
+- 审计（docs/p2-hardening-audit.md）：
+  · P2-1 CSRF：认证 = JWT Bearer header（HTTPBearer），无 cookie 会话，axios 无 withCredentials，
+    token 存 localStorage → **架构无 CSRF 攻击面**（跨站请求无法自动附带 Bearer）；
+    security.md 原描述"HttpOnly Cookie + CSRF Token 双重验证"为设计稿，与实现矛盾（文档失真）
+  · P2-2 Demo 401：① 前端 401 interceptor 对所有 401（含 /auth/login 失败）触发登出+跳转 →
+    登录失败整页刷新（真实 bug）；② login 吞后端真实错误消息；③ 受保护端点无 token 返回 500
+    而非 401（中间件吞 HTTPException，日志证据 HTTPException 401 + generator didn't stop）；
+    Demo fallback 均有 DEMO_MODE 门控，无 production silently fallback
+  · P2-3：仅 knowledge.test.tsx（13 用例），Dashboard/Compliance/Customers 零组件测试
+  · P2-4：e2e_seed_knowledge.py 硬编码 dev DB 凭据 + embedding 失败静默容忍（NULL 向量污染检索）；
+    seed.py 幂等良好；backend-pg 测试自包含（随机 org/phone）；E2E workers=1 串行
+- 实现（6 提交）：
+  ① fix(security)：test_security_posture.py（7 用例：CSRF posture 4 + Auth 语义契约 3）
+  ② fix(auth)：api.ts /auth/* 401 豁免 + authStore 透传后端真实消息 + utils/apiError.ts
+  ③ test(admin)：dashboard 4 + compliance 8 + customers 6 组件测试（未改生产逻辑）
+  ④ test(seed)：e2e_seed_knowledge 确定性（settings DB URL / embedding fail-fast / 计数 WARN）
+    + test_e2e_seed_idempotency.py（3 用例）+ backend-pg workflow 纳入
+  ⑤ fix(security)：ErrorHandlerMiddleware 放行 HTTPException（**受保护端点认证失败 500→401 真实 bug**）
+  ⑥ test(admin)：TS 类型修复（AxiosResponse mock 包装 / CustomerListResult 类型化）
+- 排障（日志驱动）：
+  ① test_security_posture 5 用例 500：ErrorHandlerMiddleware 吞 HTTPException（根因③）
+  ② tsc 失败：complianceApi 返回 AxiosResponse → mock 需 { data } 包装；patterns never[]；
+    CustomerListResult.items 为 Customer[]
+- 验证（最终全绿）：Backend（含 security 7）、backend-pg（32+3=35）、vitest（40+18=58）、
+  tsc -b 0 errors、vite build、E2E（22）、Prod Validation —— 见最终 HEAD CI
+- 文档：p2-hardening-audit.md（新建）、security.md（CSRF/Demo/token 存储校准）、testing.md（§8）、
+  project-status（Task 24）、release-verification（P2 收敛）、release-readiness（P2 清零）、worklog
+- 发现但未处理：Compliance/Customers demo badge 硬编码；refresh token 前端未接线；
+  _apply_visibility None 参数不过滤（API 层契约）；P1-3 course_detail（约束禁止）；prod-validation continue-on-error 宽松
+- 边界：未开发 AI Sales Agent；未重构 RAG；未改 KB/Document 权限模型；未改 API contract；
+  未 force push；仓库无临时文件/诊断代码（卫生扫描通过）
+
+Stage Summary:
+
+- P2-1~P2-4 全部收敛：CSRF（架构评估 + 防御回归）、Demo 401（3 真实 bug 修复，含后端
+  500→401 根因）、组件测试 +18、seed 确定性 + 幂等测试；安全修复均有测试证据；
+  TypeScript 0 errors、全验证矩阵绿、文档与源码一致

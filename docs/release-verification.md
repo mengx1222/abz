@@ -26,13 +26,13 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | Task 17B 提交链（Task 18 修复 fe32aa8 之后；Task 17A 为 44d8807） |
+| Git HEAD（验证时 Current main） | **Task 24 提交链（HEAD=6ffa82b，P2 收敛完成）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
-| GitHub main HEAD | 与 HEAD 一致（default branch = main） |
+| GitHub main HEAD | 与 HEAD 一致（default branch = main；无 force push） |
 
-| Repository Status | CLEAN（Task 14 清理后 268 blob；无 download/upload/tool-results/skills/.env） |
+| Repository Status | CLEAN（无 download/upload/tool-results/skills/.env；仅占位符模板 .env.example/.env.production；Task 24 卫生扫描通过） |
 
 
 
@@ -84,19 +84,19 @@
 
 |--------|------|------|
 
-| Backend pytest（SQLite） | **270 passed, 32 skipped**（+7 KB CRUD +7 Document 用例无 PG 环境 skip） | CI `backend-tests` @ Task 22 |
+| Backend pytest（SQLite） | **278 passed, 35 skipped**（含安全态势 7：CSRF posture + Auth 语义契约；seed 幂等 3 无 PG 环境 skip） | CI `backend-tests` @ Task 24（6ffa82b） |
 
-| Backend PG 集成（真实 PG16+pgvector） | **32 passed**（pg 5 + permission 5 + ingestion 8 + KB CRUD 7 + Document 7，Task 22） | CI `backend-pg`（test_pg_integration + test_permission_pg + test_ingestion_pg + test_kb_crud + test_document_management） |
+| Backend PG 集成（真实 PG16+pgvector） | **35 passed**（pg 5 + permission 5 + ingestion 8 + KB CRUD 7 + Document 7 + **E2E seed 幂等 3**） | CI `backend-pg` @ Task 24 |
 
-| Frontend Vitest | **40 passed（4 files：utils 3 + KnowledgePage 组件 13）** | CI `frontend` @ Task 23 |
+| Frontend Vitest | **58 passed（7 files：utils 3 + KnowledgePage 13 + Dashboard 4 + Compliance 8 + Customers 6）** | CI `frontend` @ Task 24 |
 
-| Frontend build | `vite build` ✓ | CI `frontend` @ 8050d0b |
+| Frontend build | `tsc -b` 0 errors + `vite build` ✓ | CI `frontend` @ Task 24 |
 
-| Playwright E2E | **13/13 passed（51.1s）** | CI `e2e-playwright` @ 44d8807（含 Training 阶段三） |
+| Playwright E2E | **22 passed**（含 Growth 5 + Knowledge K-1~K-3） | CI `e2e-playwright` @ Task 24 |
 
 | Real AI Smoke | **8/8 PASS** | CI `real-ai-smoke` run 31866434810（commit 94ce52f） |
 
-| Production Validation | **PASS** | CI @ 8050d0b |
+| Production Validation | **PASS** | CI @ Task 24 |
 
 
 
@@ -120,15 +120,15 @@
 
 | P1-3 | growth_service.course_detail 生产路径仍 Demo Only（DB 无课程表） | 未解决（成长模块主链路不受影响） |
 
-| P1-6 | 前端既有 TypeScript 类型错误，CI 暂用 `vite build` 绕过 tsc 硬门禁 | 未解决（TS 清理为独立任务） |
+| ~~P1-6~~ | ~~前端既有 TypeScript 类型错误，CI 暂用 `vite build` 绕过 tsc 硬门禁~~ | ✅ **RESOLVED（Task 19）**：`tsc -b` 0 errors + CI Hard Gate 恢复 |
 
-| P2-1 | 无 CSRF 显式防护 | 低风险（JWT Bearer） |
+| ~~P2-1~~ | ~~无 CSRF 显式防护~~ | ✅ **收敛（Task 24）**：Bearer 架构无 CSRF 攻击面（ACCEPTED LIMITATION）+ 防御测试 4 |
 
-| P2-2 | Demo 模式无 Token 返回 200 | 低风险（仅 Demo） |
+| ~~P2-2~~ | ~~Demo 模式无 Token 返回 200~~ | ✅ **RESOLVED（Task 24）**：3 Confirmed Bug 修复（含受保护端点 500→401 真实 bug）+ 测试 3 |
 
-| P2-3 | 前端页面组件无测试 | 仅 utils 有 vitest |
+| ~~P2-3~~ | ~~前端页面组件无测试~~ | ✅ **RESOLVED（Task 24）**：+18 用例（dashboard/compliance/customers） |
 
-| P2-4 | Seed 未集成到迁移 | 需手动执行 |
+| ~~P2-4~~ | ~~Seed 未集成到迁移~~ | ✅ **RESOLVED（Task 24）**：e2e seed 确定性加固 + 幂等测试 3 |
 
 | — | Training E2E / Growth E2E | **Planned / Remaining**（非本次范围） |
 
