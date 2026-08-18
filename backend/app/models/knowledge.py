@@ -58,6 +58,9 @@ class KnowledgeBase(Base):
     version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default="1", comment="版本号"
     )
+    metadata_: Mapped[dict | None] = mapped_column(
+        "metadata", JSONB, nullable=True, comment="扩展元数据（Task 21）"
+    )
     effective_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, comment="生效日期")
     expiry_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True, comment="失效日期")
     created_by: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), nullable=True, comment="创建人")

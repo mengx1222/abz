@@ -17,6 +17,7 @@ from structlog import get_logger
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
+from app.repositories.knowledge_repository import KnowledgeBaseRepository
 from app.schemas.common import SuccessResponse
 from app.rag.pipeline import RAGPipeline, init_demo_index
 
@@ -34,6 +35,9 @@ class KnowledgeBaseCreate(BaseModel):
     description: str = Field("", max_length=2000, description="知识库描述")
     category: str = Field("product", description="分类：product/regulation/training/faq")
     is_public: bool = Field(True, description="是否公开")
+    organization_id: str | None = Field(None, description="所属组织（缺省=当前用户组织；SYSTEM_ADMIN/HQ_ADMIN/BRANCH_ADMIN 可指定）")
+    allowed_roles: list[str] | None = Field(None, description="允许访问的角色列表（null=全员，Task 17B 语义）")
+    metadata: dict | None = Field(None, description="扩展元数据")
 
 
 class KnowledgeBaseUpdate(BaseModel):
@@ -43,6 +47,7 @@ class KnowledgeBaseUpdate(BaseModel):
     category: str | None = Field(None)
     is_public: bool | None = Field(None)
     status: str | None = Field(None, description="状态：draft/active/archived")
+    metadata: dict | None = Field(None, description="扩展元数据（整体替换）")
 
 
 class DocumentUploadResponse(BaseModel):
@@ -148,6 +153,58 @@ async def _ensure_demo_data():
 
 
 # ============================================================
+# Production helpers（Task 21）
+# ============================================================
+
+_MANAGE_ROLES = {"SYSTEM_ADMIN", "HQ_ADMIN", "BRANCH_ADMIN", "TEAM_LEADER"}
+
+
+def _kb_to_dict(kb) -> dict:
+    """ORM KnowledgeBase → 与 Demo 响应一致的结构。"""
+    return {
+        "id": str(kb.id),
+        "name": kb.name,
+        "description": kb.description or "",
+        "category": kb.category,
+        "status": kb.status,
+        "document_count": kb.document_count or 0,
+        "total_chunks": kb.total_chunks or 0,
+        "is_public": kb.is_public,
+        "allowed_roles": kb.allowed_roles,
+        "organization_id": str(kb.organization_id) if kb.organization_id else None,
+        "version": kb.version or 1,
+        "metadata": kb.metadata_,
+        "created_at": kb.created_at.isoformat() if kb.created_at else None,
+        "updated_at": kb.updated_at.isoformat() if kb.updated_at else None,
+    }
+
+
+def _user_role_code(user: User) -> str:
+    role = getattr(user, "role", None)
+    return getattr(role, "code", "") or ""
+
+
+def _can_manage_kb(user: User, kb) -> bool:
+    """写操作权限：管理者角色 或 创建者本人。"""
+    if _user_role_code(user) in _MANAGE_ROLES:
+        return True
+    return kb.created_by is not None and kb.created_by == user.id
+
+
+def _resolve_org_id(body_org: str | None, user: User) -> str | None:
+    """解析创建 KB 的组织归属：显式指定需管理角色，否则用当前用户组织。"""
+    if body_org:
+        role_code = _user_role_code(user)
+        if role_code not in _MANAGE_ROLES:
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "FORBIDDEN", "message": "无权限指定知识库所属组织"},
+            )
+        return body_org
+    return str(user.organization_id) if user.organization_id else None
+
+
+# ============================================================
 # Knowledge Base CRUD
 # ============================================================
 
@@ -161,9 +218,27 @@ async def list_knowledge_bases(
     category: str | None = Query(None, description="按分类筛选"),
     status: str | None = Query(None, description="按状态筛选"),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
-    """获取知识库列表。"""
+    """获取知识库列表。
+
+    Production 模式：DB 查询 + Task 17B 可见性过滤（角色 + 组织范围）。
+    Demo 模式：内存数据（兼容）。
+    """
     request_id = getattr(request.state, "request_id", None)
+
+    if not settings.DEMO_MODE:
+        from app.core.authorization import DataPermissionChecker
+        checker = DataPermissionChecker(current_user)
+        accessible_org_ids = checker.filter_accessible_org_ids()
+        repo = KnowledgeBaseRepository(db)
+        records, _total = await repo.list_knowledge_bases(
+            category=category,
+            status=status,
+            user_roles=[_user_role_code(current_user)],
+            accessible_org_ids=accessible_org_ids,
+        )
+        return SuccessResponse(data=[_kb_to_dict(kb) for kb in records], request_id=request_id)
 
     await _ensure_demo_data()
 
@@ -185,9 +260,37 @@ async def create_knowledge_base(
     body: KnowledgeBaseCreate,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
-    """创建新知识库。"""
+    """创建新知识库。
+
+    Production 模式：DB insert（组织/角色/metadata 支持）；同名冲突 → 409。
+    Demo 模式：内存数据（兼容）。
+    """
     request_id = getattr(request.state, "request_id", None)
+
+    if not settings.DEMO_MODE:
+        org_id = _resolve_org_id(body.organization_id, current_user)
+        org_uuid = uuid.UUID(org_id) if org_id else None
+        repo = KnowledgeBaseRepository(db)
+        if await repo.name_exists(body.name, org_uuid):
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "DUPLICATE_NAME", "message": "知识库名称已存在"},
+            )
+        kb = await repo.create_knowledge_base(
+            name=body.name,
+            description=body.description,
+            category=body.category,
+            is_public=body.is_public,
+            organization_id=org_uuid,
+            allowed_roles=body.allowed_roles,
+            metadata_=body.metadata,
+            created_by=current_user.id,
+        )
+        await db.commit()
+        logger.info("knowledge_base_created", kb_id=str(kb.id), name=kb.name, org=str(org_uuid))
+        return SuccessResponse(data=_kb_to_dict(kb), request_id=request_id)
 
     await _ensure_demo_data()
 
@@ -220,9 +323,27 @@ async def get_knowledge_base(
     kb_id: str,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
-    """获取知识库详情。"""
+    """获取知识库详情。
+
+    Production 模式：DB 查询 + 可见性过滤（越权/不存在 → 404）。
+    Demo 模式：内存数据（兼容）。
+    """
     request_id = getattr(request.state, "request_id", None)
+
+    if not settings.DEMO_MODE:
+        from app.core.authorization import DataPermissionChecker
+        checker = DataPermissionChecker(current_user)
+        repo = KnowledgeBaseRepository(db)
+        kb = await repo.get_knowledge_base(
+            uuid.UUID(kb_id),
+            user_roles=[_user_role_code(current_user)],
+            accessible_org_ids=checker.filter_accessible_org_ids(),
+        )
+        if kb is None:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "知识库不存在"})
+        return SuccessResponse(data=_kb_to_dict(kb), request_id=request_id)
 
     await _ensure_demo_data()
 
@@ -243,9 +364,48 @@ async def update_knowledge_base(
     body: KnowledgeBaseUpdate,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
-    """更新知识库信息。"""
+    """更新知识库信息。
+
+    Production 模式：DB update（写权限：管理者或创建者；越权 → 403）。
+    Demo 模式：内存数据（兼容）。
+    """
     request_id = getattr(request.state, "request_id", None)
+
+    if not settings.DEMO_MODE:
+        from app.core.authorization import DataPermissionChecker
+        checker = DataPermissionChecker(current_user)
+        repo = KnowledgeBaseRepository(db)
+        kb = await repo.get_knowledge_base(
+            uuid.UUID(kb_id),
+            user_roles=[_user_role_code(current_user)],
+            accessible_org_ids=checker.filter_accessible_org_ids(),
+        )
+        if kb is None:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "知识库不存在"})
+        if not _can_manage_kb(current_user, kb):
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "FORBIDDEN", "message": "无权限修改该知识库"},
+            )
+        if body.name is not None and await repo.name_exists(body.name, kb.organization_id, exclude_id=kb.id):
+            raise HTTPException(
+                status_code=409,
+                detail={"code": "DUPLICATE_NAME", "message": "知识库名称已存在"},
+            )
+        updated = await repo.update_knowledge_base(
+            kb.id,
+            name=body.name,
+            description=body.description,
+            category=body.category,
+            status=body.status,
+            is_public=body.is_public,
+            metadata_=body.metadata,
+            updated_by=current_user.id,
+        )
+        await db.commit()
+        return SuccessResponse(data=_kb_to_dict(updated), request_id=request_id)
 
     await _ensure_demo_data()
 
@@ -277,9 +437,35 @@ async def delete_knowledge_base(
     kb_id: str,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
-    """删除知识库。"""
+    """删除知识库。
+
+    Production 模式：DB 物理删除（FK CASCADE 级联删文档/chunk；写权限同 update）。
+    Demo 模式：内存数据（兼容）。
+    """
     request_id = getattr(request.state, "request_id", None)
+
+    if not settings.DEMO_MODE:
+        from app.core.authorization import DataPermissionChecker
+        checker = DataPermissionChecker(current_user)
+        repo = KnowledgeBaseRepository(db)
+        kb = await repo.get_knowledge_base(
+            uuid.UUID(kb_id),
+            user_roles=[_user_role_code(current_user)],
+            accessible_org_ids=checker.filter_accessible_org_ids(),
+        )
+        if kb is None:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "知识库不存在"})
+        if not _can_manage_kb(current_user, kb):
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "FORBIDDEN", "message": "无权限删除该知识库"},
+            )
+        await repo.delete_knowledge_base(kb.id)
+        await db.commit()
+        logger.info("knowledge_base_deleted", kb_id=str(kb.id))
+        return SuccessResponse(data={"message": "知识库已删除"}, request_id=request_id)
 
     await _ensure_demo_data()
 
