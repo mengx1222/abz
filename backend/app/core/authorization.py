@@ -9,6 +9,8 @@ from typing import TYPE_CHECKING
 
 from fastapi import Depends, HTTPException, status
 
+from app.core.config import settings
+
 if TYPE_CHECKING:
     from app.models.user import User
 

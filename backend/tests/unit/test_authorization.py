@@ -123,3 +123,81 @@ class TestDataPermissionChecker:
         admin = _make_user(role_code="SYSTEM_ADMIN", user_id=uuid.uuid4())
         checker = DataPermissionChecker(agent)
         assert checker.can_manage_user(admin) is False
+
+
+# ==================================================================
+# 生产模式（DEMO_MODE=false）P0 回归（Task 17B-Hotfix）
+# 修复前：authorization.py 缺 settings 导入，_collect_child_org_ids 内
+# settings.DEMO_MODE NameError → HQ/BRANCH_ADMIN 组织树解析崩溃。
+# 修复后：settings.DEMO_MODE 可求值，正式分支走 org.children 递归收集。
+# ==================================================================
+
+class TestProductionModeOrgScope:
+    def test_hq_admin_production_no_nameerror(self, monkeypatch):
+        """P0: 生产模式 HQ_ADMIN filter_accessible_org_ids 不抛 NameError。"""
+        from app.core.config import settings
+        monkeypatch.setattr(settings, "DEMO_MODE", False)
+        user = _make_user(role_code="HQ_ADMIN", demo_mode=False)
+        checker = DataPermissionChecker(user)
+        orgs = checker.filter_accessible_org_ids()  # 修复前此处 NameError
+        assert str(ORG_ID) in orgs
+
+    def test_branch_admin_production_no_nameerror(self, monkeypatch):
+        """P0: 生产模式 BRANCH_ADMIN filter_accessible_org_ids 不抛 NameError。"""
+        from app.core.config import settings
+        monkeypatch.setattr(settings, "DEMO_MODE", False)
+        user = _make_user(role_code="BRANCH_ADMIN", demo_mode=False)
+        checker = DataPermissionChecker(user)
+        orgs = checker.filter_accessible_org_ids()  # 修复前此处 NameError
+        assert str(ORG_ID) in orgs
+
+    def test_team_leader_production_no_nameerror(self, monkeypatch):
+        """P0: 生产模式 TEAM_LEADER filter_accessible_org_ids 不抛 NameError。"""
+        from app.core.config import settings
+        monkeypatch.setattr(settings, "DEMO_MODE", False)
+        user = _make_user(role_code="TEAM_LEADER", demo_mode=False, team_id=TEAM_ID)
+        checker = DataPermissionChecker(user)
+        orgs = checker.filter_accessible_org_ids()  # 修复前此处 NameError
+        assert str(ORG_ID) in orgs
+
+    def test_hq_admin_production_collects_children(self, monkeypatch):
+        """生产模式组织树收集：HQ_ADMIN 含本组织 + 全部子组织（RAG org scope 依赖）。"""
+        from app.core.config import settings
+        monkeypatch.setattr(settings, "DEMO_MODE", False)
+
+        child1 = Organization(
+            id=uuid.uuid4(), name="浦东团队", type=OrgType.TEAM,
+            created_at=NOW, updated_at=NOW,
+        )
+        child2 = Organization(
+            id=uuid.uuid4(), name="浦西团队", type=OrgType.TEAM,
+            created_at=NOW, updated_at=NOW,
+        )
+        grandchild = Organization(
+            id=uuid.uuid4(), name="浦西二组", type=OrgType.TEAM,
+            created_at=NOW, updated_at=NOW,
+        )
+        child2.children = [grandchild]
+
+        user = _make_user(role_code="HQ_ADMIN", demo_mode=False, org_id=ORG_ID)
+        user.organization = Organization(
+            id=ORG_ID, name="总部", type=OrgType.HQ,
+            created_at=NOW, updated_at=NOW,
+        )
+        user.organization.children = [child1, child2]
+
+        checker = DataPermissionChecker(user)
+        orgs = checker.filter_accessible_org_ids()
+        assert str(ORG_ID) in orgs
+        assert str(child1.id) in orgs
+        assert str(child2.id) in orgs
+        assert str(grandchild.id) in orgs, "组织树应递归收集孙级组织"
+
+    def test_hq_admin_production_can_access_customer(self, monkeypatch):
+        """生产模式 can_access_customer 不崩溃（复用 filter_accessible_org_ids）。"""
+        from app.core.config import settings
+        monkeypatch.setattr(settings, "DEMO_MODE", False)
+        user = _make_user(role_code="HQ_ADMIN", demo_mode=False)
+        checker = DataPermissionChecker(user)
+        assert checker.can_access_customer(str(ORG_ID)) is True
+        assert checker.can_access_customer(str(OTHER_ORG_ID)) is False
