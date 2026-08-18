@@ -15,8 +15,8 @@
 | 真实 PostgreSQL + pgvector | ✅ | Production Validation + PG 集成测试（含产品边界） |
 | 真实 Redis | ✅ | Production Validation |
 | 真实 AI Provider（DashScope/Qwen） | ✅ | Real AI Smoke 8/8 PASS（qwen-plus / text-embedding-v3） |
-| RAG（向量+BM25+RRF+Confidence Gate+Citation+产品边界） | ✅ | Task 12/13 E2E 真实验证 |
-| 安全（JWT/RBAC/限流/消毒/Prompt Injection） | ✅ | 单元 + API 集成测试 |
+| RAG（向量+BM25+RRF+Confidence Gate+Citation+产品边界+**权限过滤**） | ✅ | Task 12/13 E2E 真实验证 + **Task 17B RAG 权限加固（allowed_roles + 组织范围，SQL WHERE 层；tests/rag/ 35 用例 + PG 权限边界 5 用例）** |
+| 安全（JWT/RBAC/限流/消毒/Prompt Injection/**RAG 越权防护**） | ✅ | 单元 + API 集成测试；RAG 权限阻断项已清零（Task 17B） |
 | Playwright E2E | ✅ | 阶段一 + 阶段二，11/11 PASS |
 | Frontend | ✅ | Vitest + Vite build 通过 |
 | Backend | ✅ | pytest 全绿（单元/集成/PG） |

@@ -20,7 +20,7 @@
 | **产品边界（product_type 过滤）** | **Implemented + Validated** | Task 13：metadata 精确匹配→标题回退；PG 集成测试 + E2E |
 | 查询重写/扩展（LLM 变体） | **Planned** | 设计见 §4.1，未实现 |
 | Rerank（独立重排模型） | **Planned** | 当前用 RRF top-k，未接 rerank 模型 |
-| 权限过滤（按角色限定知识库） | **Planned** | `_filter_by_permission` 为 TODO 桩 |
+| **权限过滤（allowed_roles + 组织范围）** | **Implemented + Tested** | Task 17B：SQL WHERE 层过滤（test_role_filter.py / test_org_scope.py）+ PG 集成（test_permission_pg.py）；详见 [rag-permission-audit.md](rag-permission-audit.md) |
 | 文档版本化审核流 | **Partial** | 迁移 0007 建表；完整审核 UI 未闭环 |
 
 > 正文中的详细设计如与上表冲突，以「实现状态」为准。
@@ -1061,3 +1061,38 @@ MOCK_SEARCH_RESULTS = {
     → SSE 返回引用卡片
     → 记录 messages + 更新 recall_count
 ```
+
+---
+
+## 6. 权限过滤（Task 17B 加固）
+
+> 完整审计与修复锚点见 [docs/rag-permission-audit.md](rag-permission-audit.md)。
+> 目标：**一个没有权限的人，物理上无法通过 RAG（召回、citation、SSE、日志正文）获得越权知识。**
+
+### 6.1 实现摘要
+
+| 维度 | 实现 | 状态 |
+|------|------|------|
+| Role filtering（allowed_roles） | SQL WHERE 层 `allowed_roles IS NULL OR allowed_roles ? role_code`（jsonb 存在），召回前过滤 | **Implemented + Tested**（test_role_filter.py） |
+| Organization filtering（org scope） | `KnowledgeBase.organization_id IN (accessible_org_ids)`（`DataPermissionChecker.filter_accessible_org_ids()` 产出，`["__ALL__"]`=全量）；org=NULL=未限定组织的共享知识库 | **Implemented + Tested**（test_org_scope.py） |
+| Citation leakage | citation 仅从过滤后的 `search_results` 构造；越权文档不出现在 reference_sources | **Protected**（test_citation_leak.py） |
+| SSE leakage | `rag_context` / `style_complete` 引用来源与 citation 同源（过滤后集合） | **Protected**（test_citation_leak.py） |
+| Prompt Injection | 消毒后检索仍受权限边界约束；HIGH 级注入直接拒答 | **Cannot bypass permission boundary**（test_permission_pg.py::J） |
+| 拒答不降级 | 过滤后空结果 → 固定拒答文本，不 fallback 到通用模型知识 | **Implemented + Tested**（test_citation_leak.py::K） |
+
+### 6.2 权限链（全栈生效）
+
+```
+User → Auth(JWT) → RBAC → Org Scope(DataPermissionChecker) → KB Scope(role)
+→ Document Scope → Retrieval(SQL WHERE) → Confidence Gate → LLM → Citation → Compliance
+```
+
+任一层拒绝，知识不得进入最终回答。
+
+### 6.3 实现要点
+
+- 过滤时机：`_vector_search` / `_bm25_search` 的 **SQL WHERE 层**（JOIN KnowledgeBase），与 `product_type`、`effective_date`、`status=='published'` 同级，禁止"先召回全部再 Python 过滤"。
+- 纵深防御：`Retriever._filter_by_permission` 保留原签名并填充真实逻辑（召回后二次校验，基于结果携带的 `kb_allowed_roles` / `kb_org_id` 元数据），日志仅记录 `filtered_count`，不记录被过滤正文。
+- 调用方：`ProductQaService._real_chat/_demo_chat`、`ScriptService._production_generate_scripts` 均补传 `user_roles` / `org_id` / `accessible_org_ids`；无用户上下文时 `user_roles=[]`（全拒）。
+- Demo 模式：`DemoRetriever` 实现等价过滤（chunk 携带 `kb_allowed_roles` / `kb_org_id`）。
+- 偏差记录：任务段4 矩阵假设"HQ_ADMIN 命中 allowed_roles=['AGENT'] 的 KB"，与 §2.3.3 精确匹配硬约束冲突 → 以硬约束（精确匹配）为准，详见审计文档 §2 偏差记录。

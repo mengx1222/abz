@@ -12,7 +12,7 @@
 |----|-----|
 | Release Version | **v0.1.0**（backend/pyproject.toml = 0.1.0，frontend/package.json = 0.1.0，README = v0.1.0） |
 | Release Status | **Internal Pilot Candidate** |
-| Git HEAD（验证时 Current main） | `44d8807`（Task 17A） |
+| Git HEAD（验证时 Current main） | Task 17B 提交链（Task 18 修复 fe32aa8 之后；Task 17A 为 44d8807） |
 | Release Baseline Content | `9befe4b`（Task 15） |
 | GitHub main HEAD | 与 HEAD 一致（default branch = main） |
 | Repository Status | CLEAN（Task 14 清理后 268 blob；无 download/upload/tool-results/skills/.env） |
@@ -23,13 +23,13 @@
 
 | 模块 | 状态 | 依据 |
 |------|------|------|
-| Backend | ✅ | pytest **224 passed, 5 skipped**（CI 8050d0b）；FastAPI + SQLAlchemy 2 async + Alembic |
+| Backend | ✅ | pytest **265 passed, 5 skipped**（Task 17B 本地全量；基线 228 → 265）；FastAPI + SQLAlchemy 2 async + Alembic |
 | Frontend | ✅ | Vitest **27 passed（3 files）** + `vite build` ✓（CI）；React 19 + Vite 8 + TS ~6.0 |
-| PostgreSQL 16 + pgvector | ✅ | PG 集成 **5 passed**（含 RAG 产品边界测试）；Production Validation 真实容器 |
+| PostgreSQL 16 + pgvector | ✅ | PG 集成 **5 passed**（含 RAG 产品边界）+ **RAG 权限边界 5 用例**（test_permission_pg.py，CI backend-pg 纳入）；Production Validation 真实容器 |
 | Redis | ✅ | Production Validation 真实容器 |
-| RAG | ✅ | 向量+BM25+RRF+Confidence Gate+Refusal+Citation+**产品边界**（Task 12/13 修复闭环，E2E 验证） |
+| RAG | ✅ | 向量+BM25+RRF+Confidence Gate+Refusal+Citation+**产品边界**（Task 12/13）+ **权限过滤（allowed_roles + 组织范围，Task 17B）**：Role Filtering Implemented+Tested（test_role_filter.py）、Organization Filtering Implemented+Tested（test_org_scope.py）、Citation/SSE Leakage Protected（test_citation_leak.py）、Prompt Injection Cannot Bypass（test_permission_pg.py::J） |
 | Real AI Provider | ✅ | 阿里云百炼 DashScope（qwen-plus / text-embedding-v3）；**Real AI Smoke 8/8 PASS**（真实，非 Mock） |
-| Security | ✅ | JWT/RBAC（7 角色）/IDOR 防护/限流/输入消毒/Prompt Injection/安全头/审计/Secret 不入库 |
+| Security | ✅ | JWT/RBAC（7 角色）/IDOR 防护/限流/输入消毒/Prompt Injection/**RAG 权限边界（Task 17B）**/安全头/审计/Secret 不入库 |
 | Compliance | ✅ | GREEN/YELLOW/RED 规则引擎 + 生成链验证 + 徽章 UI + 管理后台规则/审核流 |
 | E2E（Playwright） | ✅ | **13/13 PASS**：Stage 1（Login/Dashboard/Customer）+ Stage 2（Product QA/Script）+ **Stage 3 Training（Task 17A）** |
 | Docker | ✅ | dev + prod compose；Production Validation 在 8050d0b 全绿 |
@@ -41,8 +41,8 @@
 
 | 测试域 | 结果 | 位置 |
 |--------|------|------|
-| Backend pytest（SQLite） | **224 passed, 5 skipped** | CI `backend-tests` @ 8050d0b |
-| Backend PG 集成（真实 PG16+pgvector） | **5 passed** | CI `backend-pg` @ 8050d0b |
+| Backend pytest（SQLite） | **265 passed, 5 skipped** | Task 17B 本地全量（基线 228 → 265） |
+| Backend PG 集成（真实 PG16+pgvector） | **5 passed + 5 RAG 权限边界** | CI `backend-pg`（test_pg_integration.py + test_permission_pg.py） |
 | Frontend Vitest | **27 passed（3 files）** | CI `frontend` @ 8050d0b |
 | Frontend build | `vite build` ✓ | CI `frontend` @ 8050d0b |
 | Playwright E2E | **13/13 passed（51.1s）** | CI `e2e-playwright` @ 44d8807（含 Training 阶段三） |

@@ -2116,3 +2116,38 @@ Stage Summary:
 
 - Playwright 阶段三（Training）完成：浏览器级验证真实训练黄金链（场景→会话→SSE≥2轮→评分→反馈）
 - 下一 Task：Growth E2E / TS 清理 / AI Sales Agent，等指令
+
+---
+
+Task ID: 37
+
+Agent: main
+
+Task: Task 17B — RAG 知识库角色权限过滤 + 组织范围隔离（安全加固）
+
+Work Log:
+
+- 段0 基线：HEAD=origin/main=fe32aa8（Task 18 修复后，CI/Prod/E2E 全绿）；备份分支 backup/task-17b-20260818-1055；后端基线 228 passed/5 skipped；前端 vitest 27 passed + vite build ✓
+- 段1 审计（docs/rag-permission-audit.md）：确认 `_filter_by_permission` 为 TODO 空桩；`org_id` 在 _vector_search/_bm25_search 被误用为 KB id（`KnowledgeBase.id == org_uuid`，永不命中）；pipeline.query 无 org_id 透传；3 处 RAG 调用点（ai/service _demo_chat/_real_chat、script_service）权限参数缺失/不全；`KnowledgeBase.organization_id` 字段不存在（偏差 D1，本次新增模型列+迁移 0008）；DemoRetriever 完全忽略权限参数
+- 段2 实现（提交链见 Git Commits）：
+  - retriever.py：`_permission_conditions`（SQL WHERE 层 role+org 条件）、`_vector_search`/`_bm25_search` JOIN KnowledgeBase + 权限条件 + 携带 kb_allowed_roles/kb_org_id 元数据、`_filter_by_permission` 真实实现（二次校验，仅记 filtered_count）、DemoRetriever 等价过滤
+  - models/knowledge.py + alembic 0008：KnowledgeBase.organization_id（可空，FK organizations SET NULL；NULL=未限定组织的共享知识库）
+  - pipeline.py：query/chat_with_rag 透传 org_id/accessible_org_ids；index_document 注入 kb 权限策略
+  - ai/service.py：_real_chat 补 DataPermissionChecker → accessible_org_ids；_demo_chat 传 user 权限；空结果拒答不降级（_KB_REFUSE_TEXT）
+  - script_service.py：production 生成从 DB 加载 User → checker → 补传；无用户上下文 → user_roles=[] 全拒
+  - api/v1/knowledge.py：demo KB 数据加 organization_id；upload/index 传 kb 策略
+- 段3 测试矩阵（tests/rag/ 35 用例全绿）：
+  - test_role_filter.py（16）：A/B/C 角色过滤 Demo + SQL 编译断言 + 二次校验
+  - test_org_scope.py（11）：D/E/F/G 组织隔离 + DataPermissionChecker 复用（含 BRANCH_ADMIN 子树、SYSTEM_ADMIN __ALL__）
+  - test_citation_leak.py（8）：H 越权不出现于 citation；I SSE 事件无越权 doc_id；J 注入不绕过；K 空结果 REFUSE 不降级；L product_type+权限联合
+  - test_permission_pg.py（5，@integration，CI backend-pg 纳入）：KB-A/B/C 断言矩阵（AGENT@A→仅A；HQ_ADMIN@A→仅B；AGENT@B→仅C）+ 向量/BM25 双路径 + J/L PG 版
+  - test_script_rag_production.py：_FakePipeline 适配权限参数 + 新增 2 用例（权限参数透传、无用户全拒）
+- 段4 PG：本地无 PG/Docker，依赖 CI backend-pg job（已纳入 test_permission_pg.py；本地 skip 5 用例）
+- 段5 文档：rag.md（§6 权限过滤）、security.md（§7.2 RAG 越权防护）、rag-permission-audit.md（新建）、project-status（Current Snapshot + HEAD）、release-verification（权限验证项）、release-readiness（RAG 阻断清零）、worklog（本记录）
+- 验证：后端全量 265 passed/5 skipped（基线 228→265，+37 无回归）；前端 vitest 27 passed + vite build ✓；CI 等待确认
+- 偏差记录：任务段4 矩阵"HQ_ADMIN 命中 allowed_roles=[AGENT] 的 KB-A"与 §2.3.3 精确匹配硬约束冲突 → 以硬约束为准（HQ_ADMIN@A 仅命中 KB-B），已在审计文档/rag.md 注明
+
+Stage Summary:
+
+- RAG 权限全栈生效：User→Auth→RBAC→Org Scope→KB Scope(role)→Retrieval(SQL WHERE)→Confidence Gate→LLM→Citation→Compliance
+- 无权限用户物理上无法通过召回/citation/SSE/日志获得越权知识；拒答不降级

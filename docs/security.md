@@ -413,10 +413,14 @@ Prompt Injection 是 AI 应用面临的最主要安全威胁，攻击者可能�
 
 RAG（检索增强生成）模块在检索知识库内容时，必须确保用户只能检索到其权限范围内的信息：
 
-- **检索结果按用户权限过滤**：知识库检索不是简单的全文匹配，而是在检索结果返回后，根据当前用户的角色和机构归属进行二次过滤。用户只能看到其权限范围内的知识条目摘要。例如，A 机构的代理人无法通过 AI 对话获取 B 机构的内部知识库内容。
-
-- **知识条目权限标签**：知识库中的每条知识条目均标注权限标签（可见角色范围、可见机构范围、敏感级别等）。检索时先按权限标签过滤，再进行语义匹配，确保权限范围外的内容不会被检索到。
-
+- **检索结果按用户权限过滤（SQL WHERE 层）**：权限过滤在检索 SQL 的 WHERE 层完成（Task 17B 加固，`backend/app/rag/retriever.py`），而非"先召回全部再 Python 过滤"。条件与 `product_type`、`effective_date`、`status='published'` 同级拼入 `_vector_search` / `_bm25_search`：
+  - 角色：`KnowledgeBase.allowed_roles IS NULL`（全员）或 `allowed_roles ? role_code`（JSONB 存在，精确匹配）；
+  - 组织：`KnowledgeBase.organization_id IN (accessible_org_ids)`，`accessible_org_ids` 由 `DataPermissionChecker.filter_accessible_org_ids()` 产出（`["__ALL__"]` = 全量，SYSTEM_ADMIN）；org=NULL 视为未限定组织的共享知识库。
+  - 例如，A 机构的代理人（AGENT）物理上无法从 SQL 层召回 B 机构知识库（KB-C）或总部专属知识库（KB-B，allowed_roles 不含 AGENT）的内容。
+- **召回后二次校验（纵深防御）**：`Retriever._filter_by_permission` 保留原签名并填充真实逻辑，基于召回结果携带的 `kb_allowed_roles` / `kb_org_id` 元数据再次校验，防止任何绕过 SQL 条件的路径；日志仅记录 `filtered_count`，不记录被过滤正文。
+- **Citation / SSE 防泄漏**：传给 LLM 的 `search_results` 即为最终集合，citation 与 SSE `rag_context` / `style_complete` 引用来源只从该集合构造，越权文档不出现在任何事件中（test_citation_leak.py 固化）。
+- **拒答不降级**：过滤后合法结果为 0 时走固定拒答文本，不 fallback 到通用模型知识。
+- **知识条目权限标签**：知识库中的每条知识条目经 `KnowledgeBase → Document → DocumentChunk` 继承父级权限（`allowed_roles` / `organization_id` 定义在 KnowledgeBase，检索时 JOIN 继承），确保权限范围外的内容不会被检索到。
 - **检索日志审计**：每次知识库检索操作均记录审计日志，包括检索者、检索查询内容（脱敏后）、命中的知识条目列表、检索时间等信息，便于安全审计和异常检测。
 
 ### 7.3 模型输出安全
