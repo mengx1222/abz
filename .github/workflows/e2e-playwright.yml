@@ -18,6 +18,9 @@ on:
 jobs:
   e2e:
     runs-on: ubuntu-latest
+    # Task 25: 增加 job 超时，防止依赖安装/runner 偶发卡死时无限挂起
+    # （2026-08-19 d7777b1 run 曾卡在 Install frontend deps + Playwright browsers >110min）
+    timeout-minutes: 30
     services:
       postgres:
         image: pgvector/pgvector:pg16
