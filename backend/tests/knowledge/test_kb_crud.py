@@ -99,9 +99,13 @@ async def _seed(session: AsyncSession) -> dict:
         session.add(u)
         return u
 
-    agent_a = _user(f"139{suffix}0001", role_agent, org_a)
-    agent_b = _user(f"139{suffix}0002", role_agent, org_b)
-    hq_a = _user(f"139{suffix}0003", role_hq, org_a)
+    # 唯一随机 phone：与 ingestion/permission 测试的 139 前缀格式彻底隔离
+    def _rand_phone() -> str:
+        return "17" + str(uuid.uuid4().int)[:11]
+
+    agent_a = _user(_rand_phone(), role_agent, org_a)
+    agent_b = _user(_rand_phone(), role_agent, org_b)
+    hq_a = _user(_rand_phone(), role_hq, org_a)
     await session.flush()
     return {
         "org_a": org_a, "org_b": org_b,
@@ -196,7 +200,7 @@ class TestKnowledgeBaseCrud:
 
         # 创建者创建 KB
         await _as_user(data["agent_a"])
-        resp = await api.post("/api/v1/knowledge-bases", json={
+        resp = await api.post("/api/v1/admin/knowledge-bases", json={
             "name": "权限测试库", "description": "", "category": "training",
         })
         assert resp.status_code == 200, resp.text
@@ -204,19 +208,19 @@ class TestKnowledgeBaseCrud:
 
         # 同组织另一 AGENT（非创建者）update → 403
         other = User(
-            id=uuid.uuid4(), phone=f"137{uuid.uuid4().hex[:6]}", name="其他代理人",
+            id=uuid.uuid4(), phone="17" + str(uuid.uuid4().int)[:11], name="其他代理人",
             password_hash=None, role_id=data["agent_a"].role_id,
             organization_id=data["org_a"].id, status="active", demo_mode=False,
         )
         other.role = data["agent_a"].role
         other.organization = data["org_a"]
         await _as_user(other)
-        resp = await api.put(f"/api/v1/knowledge-bases/{kb_id}", json={"name": "改名"})
+        resp = await api.put(f"/api/v1/admin/knowledge-bases/{kb_id}", json={"name": "改名"})
         assert resp.status_code == 403, resp.text
 
         # 创建者 update → 200
         await _as_user(data["agent_a"])
-        resp = await api.put(f"/api/v1/knowledge-bases/{kb_id}", json={"name": "改名成功"})
+        resp = await api.put(f"/api/v1/admin/knowledge-bases/{kb_id}", json={"name": "改名成功"})
         assert resp.status_code == 200, resp.text
         assert resp.json()["data"]["name"] == "改名成功"
 
@@ -267,7 +271,7 @@ class TestKnowledgeBaseCrud:
 
         # AGENT@A 创建 org A KB
         await _as_user(data["agent_a"])
-        resp = await api.post("/api/v1/knowledge-bases", json={
+        resp = await api.post("/api/v1/admin/knowledge-bases", json={
             "name": "A组织专属库", "description": "", "category": "product",
         })
         assert resp.status_code == 200, resp.text
@@ -275,19 +279,19 @@ class TestKnowledgeBaseCrud:
         assert resp.json()["data"]["organization_id"] == str(data["org_a"].id)
 
         # AGENT@A 列表可见
-        resp = await api.get("/api/v1/knowledge-bases")
+        resp = await api.get("/api/v1/admin/knowledge-bases")
         assert resp.status_code == 200
         names_a = [kb["name"] for kb in resp.json()["data"]]
         assert "A组织专属库" in names_a
 
         # AGENT@B 列表不可见
         await _as_user(data["agent_b"])
-        resp = await api.get("/api/v1/knowledge-bases")
+        resp = await api.get("/api/v1/admin/knowledge-bases")
         names_b = [kb["name"] for kb in resp.json()["data"]]
         assert "A组织专属库" not in names_b, "AGENT@B 不应看到 org A KB"
 
         # AGENT@B 详情 → 404
-        resp = await api.get(f"/api/v1/knowledge-bases/{kb_id}")
+        resp = await api.get(f"/api/v1/admin/knowledge-bases/{kb_id}")
         assert resp.status_code == 404, resp.text
 
     # 6. role scope（repo 层过滤）
@@ -325,9 +329,9 @@ class TestKnowledgeBaseCrud:
             app.dependency_overrides[get_current_user] = _cu
 
         await _as_user(data["agent_a"])
-        resp = await api.post("/api/v1/knowledge-bases", json={"name": "同名知识库"})
+        resp = await api.post("/api/v1/admin/knowledge-bases", json={"name": "同名知识库"})
         assert resp.status_code == 200, resp.text
-        resp = await api.post("/api/v1/knowledge-bases", json={"name": "同名知识库"})
+        resp = await api.post("/api/v1/admin/knowledge-bases", json={"name": "同名知识库"})
         assert resp.status_code == 409, resp.text
         assert resp.json()["detail"]["code"] == "DUPLICATE_NAME"
 

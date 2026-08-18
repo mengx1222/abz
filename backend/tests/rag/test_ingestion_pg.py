@@ -115,9 +115,11 @@ async def _seed_kb(session) -> dict:
         session.add(u)
         return u
 
-    agent_a = _user(f"1390088{suffix[:4]}01", role_agent, org_a)
-    hq_a = _user(f"1390088{suffix[:4]}02", role_hq, org_a)
-    agent_b = _user(f"1390088{suffix[:4]}03", role_agent, org_b)
+    # phone 全随机：多个测试共享同一 PG 数据库，短随机+固定前缀在多次运行时可能碰撞
+    # users_phone_key 唯一约束（CI 曾触发 UniqueViolationError）
+    agent_a = _user("17" + str(uuid.uuid4().int)[:11], role_agent, org_a)
+    hq_a = _user("17" + str(uuid.uuid4().int)[:11], role_hq, org_a)
+    agent_b = _user("17" + str(uuid.uuid4().int)[:11], role_agent, org_b)
     await session.flush()
 
     kb = KnowledgeBase(
