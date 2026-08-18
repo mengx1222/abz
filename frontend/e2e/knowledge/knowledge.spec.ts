@@ -66,7 +66,7 @@ test.describe('知识库管理（Knowledge Admin）', () => {
     // 诊断：等待 React 渲染后打印页面正文与错误
     await page.waitForTimeout(3_000);
     const bodyText = await page.locator('body').innerText().catch(() => '');
-    console.log('DIAG body text:', bodyText.slice(0, 600).replace(/\n/g, ' | '));
+    console.log('DIAG body text:', bodyText.slice(0, 2000).replace(/\n/g, ' | '));
     console.log('DIAG page errors:', JSON.stringify(watcher.errors));
     console.log('DIAG api errors:', JSON.stringify(watcher.apiErrors));
 
