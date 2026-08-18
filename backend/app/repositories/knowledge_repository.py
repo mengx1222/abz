@@ -182,9 +182,26 @@ class KnowledgeBaseRepository(BaseRepository[KnowledgeBase]):
                 role_conds.append(KnowledgeBase.allowed_roles.has_key(role))
             conds.append(or_(*role_conds))
         if accessible_org_ids:
-            org_conds = [KnowledgeBase.organization_id.is_(None)]
-            org_conds.append(KnowledgeBase.organization_id.in_(accessible_org_ids))
-            conds.append(or_(*org_conds))
+            if "__ALL__" in accessible_org_ids:
+                # SYSTEM_ADMIN 全量标记：跳过组织过滤
+                pass
+            else:
+                # asyncpg UUID 列需 uuid 对象（str 列表不匹配）→ 转换
+                org_ids = []
+                for oid in accessible_org_ids:
+                    if not oid:
+                        continue
+                    try:
+                        org_ids.append(uuid.UUID(oid))
+                    except (ValueError, TypeError):
+                        continue
+                if org_ids:
+                    conds.append(
+                        or_(
+                            KnowledgeBase.organization_id.is_(None),
+                            KnowledgeBase.organization_id.in_(org_ids),
+                        )
+                    )
         for c in conds:
             stmt = stmt.where(c)
         return stmt
