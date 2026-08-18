@@ -102,10 +102,11 @@ describe('ScriptManagePage（话术管理）', () => {
     await waitFor(() => {
       expect(screen.getByText('百万医疗险价格异议话术')).toBeInTheDocument();
     });
-    expect(screen.getByText('专业')).toBeInTheDocument();
-    expect(screen.getByText('合规')).toBeInTheDocument();
-    expect(screen.getByText('待审核')).toBeInTheDocument();
     expect(screen.getByText('李四')).toBeInTheDocument();
+    // 「专业」「合规」「待审核」同时出现在筛选下拉与 badge → 用 getAllByText 断言存在
+    expect(screen.getAllByText('专业').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('合规').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('待审核').length).toBeGreaterThan(0);
   });
 
   it('approve mutation：点击通过调用 approve(approve) 并 toast 成功', async () => {

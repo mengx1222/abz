@@ -109,8 +109,9 @@ describe('CommunityManagePage（社区管理）', () => {
       expect(screen.getByText('百万医疗险投保攻略')).toBeInTheDocument();
     });
     expect(screen.getByText('张三')).toBeInTheDocument();
-    expect(screen.getByText('知识分享')).toBeInTheDocument();
-    expect(screen.getByText('已发布')).toBeInTheDocument();
+    // 「知识分享」「已发布」同时出现在筛选器与 badge → 用 getAllByText 断言存在
+    expect(screen.getAllByText('知识分享').length).toBeGreaterThan(0);
+    expect(screen.getAllByText('已发布').length).toBeGreaterThan(0);
   });
 
   it('pin mutation：点击置顶调用 togglePin 并 toast 成功', async () => {
