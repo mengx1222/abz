@@ -23,7 +23,9 @@ async function loginAsSystemAdmin(): Promise<{
   user: Record<string, unknown>;
 }> {
   const api = await pwRequest.newContext({ baseURL: API_BASE });
-  const res = await api.post('/auth/login', {
+  // 注意：Playwright baseURL 按 URL 语义拼接，路径前导 / 会丢弃 baseURL 的 path
+  // （/api/v1）→ 必须用相对路径 auth/login
+  const res = await api.post('auth/login', {
     data: { phone: '13800138003', password: '888888' },
   });
   if (res.status() !== 200) {
@@ -31,7 +33,7 @@ async function loginAsSystemAdmin(): Promise<{
   }
   const body = await res.json();
   const token = body.data.access_token;
-  const me = await api.get('/auth/me', {
+  const me = await api.get('auth/me', {
     headers: { Authorization: `Bearer ${token}` },
   });
   const user = (await me.json()).data as Record<string, unknown>;
