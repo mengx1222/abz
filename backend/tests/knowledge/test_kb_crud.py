@@ -178,24 +178,10 @@ class TestKnowledgeBaseCrud:
         )
         await session.commit()
 
-        # ---- 诊断：落库 + 过滤行为 ----
-        from sqlalchemy import text as sa_text
-        cnt = (await session.execute(sa_text("SELECT count(*) FROM knowledge_bases"))).scalar()
-        print("DIAG count:", cnt)
-        rows_isnull = (await session.execute(sa_text(
-            "SELECT name FROM knowledge_bases WHERE allowed_roles IS NULL"
-        ))).fetchall()
-        print("DIAG IS NULL rows:", rows_isnull)
-        rows_orga = (await session.execute(sa_text(
-            "SELECT name FROM knowledge_bases WHERE organization_id::text = :o"
-        ), {"o": str(data["org_a"].id)})).fetchall()
-        print("DIAG org_a rows:", rows_orga)
-
         records, total = await repo.list_knowledge_bases(
             user_roles=["AGENT"],
             accessible_org_ids=[str(data["org_a"].id)],
         )
-        print("DIAG filtered:", [(r.name, r.allowed_roles, str(r.organization_id)) for r in records], "total", total)
         ids = {str(r.id) for r in records}
         assert str(kb_a.id) in ids, "org A KB 应可见"
         assert shared is not None and str(shared.id) in ids, "共享 KB（org=NULL）应可见"
