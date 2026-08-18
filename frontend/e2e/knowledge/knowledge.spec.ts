@@ -40,10 +40,28 @@ test.describe('知识库管理（Knowledge Admin）', () => {
 
   test('K-1 知识库列表加载（production API）', async ({ page }) => {
     const watcher = watchPage(page);
+    // 诊断：捕获 KB list API 响应状态
+    const kbResp = page.waitForResponse(
+      (r) => r.url().includes('/admin/knowledge-bases') && r.request().method() === 'GET',
+      { timeout: 20_000 },
+    ).catch(() => null);
     await page.goto('/knowledge');
 
     // 页面标题
     await expect(page.getByRole('heading', { name: '知识库管理' })).toBeVisible({ timeout: 15_000 });
+
+    const resp = await kbResp;
+    if (resp) {
+      console.log('DIAG KB list API status:', resp.status());
+      const body = await resp.json().catch(() => null);
+      console.log('DIAG KB list body keys:', body ? Object.keys(body) : 'null');
+      if (body && Array.isArray(body.data)) {
+        console.log('DIAG KB list count:', body.data.length);
+        console.log('DIAG KB names:', body.data.map((kb: { name: string }) => kb.name));
+      }
+    } else {
+      console.log('DIAG KB list API: no response captured');
+    }
 
     // E2E seed 知识库可见（production 模式 DB-backed list）
     await expect(page.getByText('E2E产品知识库')).toBeVisible({ timeout: 15_000 });

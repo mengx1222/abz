@@ -95,7 +95,7 @@ describe('KnowledgePage（知识库管理）', () => {
     clearToasts();
     vi.spyOn(window, 'confirm').mockReturnValue(true);
     // getErrorMessage 默认透传 fallback（测试针对性覆盖 404/403 时单独设置）
-    mockedGetErrMsg.mockImplementation((_err, fallback) => fallback);
+    mockedGetErrMsg.mockImplementation((_err, fallback) => fallback ?? '操作失败');
   });
 
   afterEach(() => {
