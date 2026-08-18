@@ -20,6 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_asyn
 from sqlalchemy.pool import NullPool
 
 from app.ai.protocol import EmbedResponse
+from app.core.config import settings
 from app.models import (
     Base,
     Document,
@@ -157,6 +158,11 @@ async def _count(session, model, **filters) -> int:
 
 
 class TestProductionIngestion:
+    @pytest_asyncio.fixture(autouse=True)
+    async def _production_mode(self, monkeypatch):
+        """conftest 默认 DEMO_MODE=true；ingestion 测试必须走真实生产分支。"""
+        monkeypatch.setattr(settings, "DEMO_MODE", False)
+
     async def test_index_persists_document_and_chunks(self, session):
         """文档创建 + 解析 + chunk + embedding + metadata 全部持久化。"""
         data = await _seed_kb(session)
@@ -212,7 +218,9 @@ class TestProductionIngestion:
             select(DocumentChunk).where(DocumentChunk.document_id == uuid.UUID(doc_id))
         )).scalars().all()
         assert len(chunks) >= 1
-        assert all(c.embedding == list(VEC_PATTERN) for c in chunks)
+        # pgvector 以 float4 存储 → 与 gateway 输出近似相等（abs=1e-3）
+        for c in chunks:/n            assert len(c.embedding) == DIM
+            assert c.embedding == pytest.approx(list(VEC_PATTERN), abs=1e-3)
 
     async def test_new_document_retrievable_after_index(self, session):
         """新导入文档 → PG/pgvector → Retriever 命中 → SearchResult（citation 基础）。"""
