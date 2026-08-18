@@ -39,17 +39,27 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 
     Demo 模式下如果数据库不可连接，返回 None 以便 Service 层
     通过 DEMO_MODE 分支使用内存数据。
+
+    Task 24 (P2-2) 修复：会话已成功建立后的异常（含依赖 teardown 的 athrow，
+    如 get_current_user 抛出的 HTTPException）必须重新抛出 —— 此前 except
+    分支对任何异常都再次 yield None，导致 "generator didn't stop after athrow()"
+    RuntimeError，把认证失败 401 变成 500（前端 401 登出跳转静默失效）。
+    降级 None 仅限「会话尚未建立」的失败。
     """
     if settings.DEMO_MODE:
+        session: AsyncSession | None = None
         try:
             async with async_session_factory() as session:
-                try:
-                    yield session
-                finally:
-                    await session.close()
+                yield session
         except Exception:
-            logger.debug("demo_mode_db_unavailable", msg="Database unavailable in demo mode, services will use in-memory data")
-            yield None  # type: ignore[misc]
+            if session is None:
+                logger.debug(
+                    "demo_mode_db_unavailable",
+                    msg="Database unavailable in demo mode, services will use in-memory data",
+                )
+                yield None
+                return
+            raise
     else:
         async with async_session_factory() as session:
             try:
