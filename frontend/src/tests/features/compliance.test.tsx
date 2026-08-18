@@ -170,7 +170,7 @@ describe('CompliancePage（合规中心）', () => {
       expect(screen.getByText('话术：医疗险推荐')).toBeInTheDocument();
     });
     expect(screen.getByText('待审核')).toBeInTheDocument();
-    expect(screen.getByText('张三')).toBeInTheDocument();
+    expect(screen.getByText(/作者：张三/)).toBeInTheDocument();
   });
 
   it('reviews approve：通过审核调用 processReview 并 toast 成功', async () => {

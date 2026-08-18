@@ -6,6 +6,7 @@
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
+import { MemoryRouter } from 'react-router-dom';
 import { DashboardPage } from '../../features/dashboard/DashboardPage';
 import { getDashboard } from '../../services/dashboardService';
 
@@ -53,10 +54,18 @@ describe('DashboardPage（仪表盘）', () => {
     vi.restoreAllMocks();
   });
 
+  function renderPage() {
+    return render(
+      <MemoryRouter>
+        <DashboardPage />
+      </MemoryRouter>
+    );
+  }
+
   it('loading：渲染骨架屏', async () => {
     let resolve!: (v: typeof baseOverview) => void;
     mockedGetDashboard.mockReturnValue(new Promise((r) => (resolve = r)));
-    const { container } = render(<DashboardPage />);
+    const { container } = renderPage();
 
     expect(container.querySelector('.animate-pulse')).not.toBeNull();
     resolve(baseOverview);
@@ -67,7 +76,7 @@ describe('DashboardPage（仪表盘）', () => {
 
   it('error：展示错误消息与重试按钮', async () => {
     mockedGetDashboard.mockRejectedValue(new Error('网络错误'));
-    render(<DashboardPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText('网络错误')).toBeInTheDocument();
@@ -77,7 +86,7 @@ describe('DashboardPage（仪表盘）', () => {
 
   it('data：渲染问候语、快捷操作、今日统计与 AI 建议', async () => {
     mockedGetDashboard.mockResolvedValue(baseOverview);
-    render(<DashboardPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText('上午好，林思远')).toBeInTheDocument();
@@ -91,7 +100,7 @@ describe('DashboardPage（仪表盘）', () => {
 
   it('empty：无 AI 建议时不渲染该区块', async () => {
     mockedGetDashboard.mockResolvedValue({ ...baseOverview, ai_suggestions: [] });
-    render(<DashboardPage />);
+    renderPage();
 
     await waitFor(() => {
       expect(screen.getByText('上午好，林思远')).toBeInTheDocument();
