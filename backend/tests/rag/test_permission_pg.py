@@ -21,7 +21,7 @@ import uuid
 
 import pytest
 import pytest_asyncio
-from sqlalchemy import select, text
+from sqlalchemy import delete, select, text
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from sqlalchemy.pool import NullPool
 
@@ -78,7 +78,14 @@ async def _seed(session: AsyncSession) -> dict:
 
     幂等约束：角色按 code 复用（roles_code_key 唯一）；用户 phone 带随机后缀；
     组织/KB 名称带随机后缀（每次调用独立数据，测试间不互相污染）。
+
+    前置清理：CI `scripts.seed` 创建的共享知识库 organization_id=NULL（全局可见语义，
+    见审计文档附录 N8）会进入任何用户的检索集合，污染权限断言 → 先删除 org=NULL 的
+    knowledge_bases（FK 级联删 documents/document_chunks）。
     """
+    await session.execute(delete(KnowledgeBase).where(KnowledgeBase.organization_id.is_(None)))
+    await session.flush()
+
     suffix = uuid.uuid4().hex[:6]
     org_a = Organization(name=f"组织A-{suffix}", type=OrgType.BRANCH)
     org_b = Organization(name=f"组织B-{suffix}", type=OrgType.BRANCH)

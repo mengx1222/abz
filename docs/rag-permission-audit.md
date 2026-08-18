@@ -118,6 +118,7 @@ if accessible_org_ids and "__ALL__" not in accessible_org_ids:
 | N5 | `docs/rag.md` 中 `metadata.permission` 标签检索设计（§5.2）未实现 | docs 设计 vs 实现 | 与 N4 同源，KB 级权限为本次落地粒度 |
 | N6 | CI `backend-pg` job 仅跑 `tests/unit/test_pg_integration.py` | `.github/workflows/backend-tests.yml` | 本次已追加 `tests/rag/test_permission_pg.py`；其余 RAG 生产路径仍只在 unit 层 mock |
 | N7 | `authorization.py` 缺 `settings` 导入：`_collect_child_org_ids` 内 `settings.DEMO_MODE`（185 行）NameError | `core/authorization.py` | 既有 bug：生产模式 HQ_ADMIN/BRANCH_ADMIN/TEAM_LEADER 调 `filter_accessible_org_ids()` 组织树收集必崩。`authorization.py` 不在 Task 17B 允许修改范围 → 本次仅记录；PG 测试 monkeypatch 子树收集绕过。建议后续任务补 `from app.core.config import settings`（一行修复） |
+| N8 | CI `scripts.seed` 创建的共享知识库 `organization_id=NULL`（全局可见语义）会进入任何用户检索集合，污染权限断言 | `backend/scripts/seed.py` | 业务语义：org=NULL=未限定组织的共享知识库（全员可见，设计如此）。测试侧处理：`test_permission_pg._seed` 前置删除 org=NULL KB（级联），保证权限矩阵断言纯净。seed 脚本本身不在本任务范围 |
 
 ---
 
