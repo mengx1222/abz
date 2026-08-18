@@ -117,6 +117,7 @@ if accessible_org_ids and "__ALL__" not in accessible_org_ids:
 | N4 | `knowledge_permissions` 细粒度表（docs/rag.md §5.3 设计）未建 | docs 设计 vs 实现 | 当前按 KB 级 allowed_roles + org 范围隔离，任务范围内够用 |
 | N5 | `docs/rag.md` 中 `metadata.permission` 标签检索设计（§5.2）未实现 | docs 设计 vs 实现 | 与 N4 同源，KB 级权限为本次落地粒度 |
 | N6 | CI `backend-pg` job 仅跑 `tests/unit/test_pg_integration.py` | `.github/workflows/backend-tests.yml` | 本次已追加 `tests/rag/test_permission_pg.py`；其余 RAG 生产路径仍只在 unit 层 mock |
+| N7 | `authorization.py` 缺 `settings` 导入：`_collect_child_org_ids` 内 `settings.DEMO_MODE`（185 行）NameError | `core/authorization.py` | 既有 bug：生产模式 HQ_ADMIN/BRANCH_ADMIN/TEAM_LEADER 调 `filter_accessible_org_ids()` 组织树收集必崩。`authorization.py` 不在 Task 17B 允许修改范围 → 本次仅记录；PG 测试 monkeypatch 子树收集绕过。建议后续任务补 `from app.core.config import settings`（一行修复） |
 
 ---
 

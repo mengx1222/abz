@@ -181,15 +181,24 @@ class TestPermissionBoundary:
         )
         assert _hit_kb_ids(bm25_hits) == {str(data["kb_a"])}, f"BM25路径越权: {_hit_kb_ids(bm25_hits)}"
 
-    async def test_rag_perm_pg_hq_admin_a_hits_only_kb_b(self, session):
+    async def test_rag_perm_pg_hq_admin_a_hits_only_kb_b(self, session, monkeypatch):
         """HQ_ADMIN@A → 仅命中 KB-B。
 
         任务 §2.3.3 硬约束：allowed_roles 为精确角色匹配（role_code ∈ 数组），
         HQ_ADMIN ∉ ["AGENT"] → KB-A 不命中（与段4 矩阵文字冲突，以硬约束为准，见审计文档）。
+
+        注：authorization._collect_child_org_ids 存在既有 settings 导入缺失 bug
+        （见审计文档附录 N7，非本任务修改范围），此处 monkeypatch 子树收集
+        返回本机构，聚焦验证 SQL 层权限过滤本身。
         """
+        from app.core.authorization import DataPermissionChecker
         data = await _seed(session)
         retriever = Retriever(db_session=session)
         user = data["hq_a"]
+        monkeypatch.setattr(
+            DataPermissionChecker, "_collect_child_org_ids",
+            lambda self, root: [str(root)],
+        )
 
         vec_hits = await retriever.search(
             query="医疗险 保障范围", query_embedding=VEC_HIT, top_k=8,

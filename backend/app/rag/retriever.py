@@ -384,6 +384,7 @@ class Retriever:
                 DocumentChunk.__table__.c.document_id,
                 DocumentChunk.__table__.c.content,
                 DocumentChunk.__table__.c["metadata"],
+                Document.knowledge_base_id.label("kb_id"),
                 KnowledgeBase.allowed_roles.label("kb_allowed_roles"),
                 KnowledgeBase.organization_id.label("kb_org_id"),
                 # 1 - cosine_distance 作为相似度分数
@@ -434,6 +435,8 @@ class Retriever:
                         # 携带 KB 权限元数据供召回后二次校验（_filter_by_permission）
                         "kb_allowed_roles": row.kb_allowed_roles,
                         "kb_org_id": str(row.kb_org_id) if row.kb_org_id else None,
+                        # 归属知识库（RRF 融合 / citation 依赖）
+                        "knowledge_base_id": str(row.kb_id) if row.kb_id else "",
                     },
                     "score": float(row.score),
                 }
@@ -469,6 +472,7 @@ class Retriever:
                 DocumentChunk.__table__.c.document_id,
                 DocumentChunk.__table__.c.content,
                 DocumentChunk.__table__.c["metadata"],
+                Document.knowledge_base_id.label("kb_id"),
                 KnowledgeBase.allowed_roles.label("kb_allowed_roles"),
                 KnowledgeBase.organization_id.label("kb_org_id"),
                 func.ts_rank(search_col, search_text).label("score"),
@@ -518,6 +522,8 @@ class Retriever:
                         # 携带 KB 权限元数据供召回后二次校验（_filter_by_permission）
                         "kb_allowed_roles": row.kb_allowed_roles,
                         "kb_org_id": str(row.kb_org_id) if row.kb_org_id else None,
+                        # 归属知识库（RRF 融合 / citation 依赖）
+                        "knowledge_base_id": str(row.kb_id) if row.kb_id else "",
                     },
                     "score": float(row.score),
                 }
