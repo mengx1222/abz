@@ -178,10 +178,18 @@ class TestKnowledgeBaseCrud:
         )
         await session.commit()
 
+        # ---- 诊断：确认数据与过滤行为 ----
+        from sqlalchemy import text as sa_text
+        diag = (await session.execute(sa_text(
+            "SELECT name, allowed_roles IS NULL AS rn, organization_id::text FROM knowledge_bases"
+        ))).fetchall()
+        print("DIAG kbs:", diag)
+
         records, total = await repo.list_knowledge_bases(
             user_roles=["AGENT"],
             accessible_org_ids=[str(data["org_a"].id)],
         )
+        print("DIAG filtered:", [(r.name, r.allowed_roles, str(r.organization_id)) for r in records], "total", total)
         ids = {str(r.id) for r in records}
         assert str(kb_a.id) in ids, "org A KB 应可见"
         assert shared is not None and str(shared.id) in ids, "共享 KB（org=NULL）应可见"

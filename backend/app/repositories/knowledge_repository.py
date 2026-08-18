@@ -177,9 +177,10 @@ class KnowledgeBaseRepository(BaseRepository[KnowledgeBase]):
         """应用 Task 17B 可见性语义（角色 + 组织范围）。"""
         conds = []
         if user_roles:
+            # 与 retriever._permission_conditions 完全一致的写法（PG jsonb ? 操作符）
             role_conds = [KnowledgeBase.allowed_roles.is_(None)]
             for role in user_roles:
-                role_conds.append(KnowledgeBase.allowed_roles.has_key(role))
+                role_conds.append(KnowledgeBase.allowed_roles.op("?")(role))
             conds.append(or_(*role_conds))
         if accessible_org_ids:
             if "__ALL__" in accessible_org_ids:
