@@ -63,17 +63,30 @@ VEC_OTHER_A = [0.9 if i % 2 == 0 else 0.1 for i in range(DIM)]
 VEC_OTHER_B = [0.3 if i % 2 == 0 else 0.7 for i in range(DIM)]
 
 
+async def _get_or_create_role(session: AsyncSession, code: str, name: str) -> Role:
+    """幂等获取/创建角色（CI seed 已建 AGENT/HQ_ADMIN，避免 roles_code_key 冲突）。"""
+    role = (await session.execute(select(Role).where(Role.code == code))).scalars().first()
+    if role is None:
+        role = Role(code=code, name=name, level=1)
+        session.add(role)
+        await session.flush()
+    return role
+
+
 async def _seed(session: AsyncSession) -> dict:
-    """创建 org A/B、角色、用户、KB-A/B/C（各 1 doc + 3 chunk）。"""
-    org_a = Organization(name=f"组织A{uuid.uuid4().hex[:6]}", type=OrgType.BRANCH)
-    org_b = Organization(name=f"组织B{uuid.uuid4().hex[:6]}", type=OrgType.BRANCH)
+    """创建 org A/B、角色、用户、KB-A/B/C（各 1 doc + 3 chunk）。
+
+    幂等约束：角色按 code 复用（roles_code_key 唯一）；用户 phone 带随机后缀；
+    组织/KB 名称带随机后缀（每次调用独立数据，测试间不互相污染）。
+    """
+    suffix = uuid.uuid4().hex[:6]
+    org_a = Organization(name=f"组织A-{suffix}", type=OrgType.BRANCH)
+    org_b = Organization(name=f"组织B-{suffix}", type=OrgType.BRANCH)
     session.add_all([org_a, org_b])
     await session.flush()
 
-    role_agent = Role(code="AGENT", name="代理人", level=1)
-    role_hq = Role(code="HQ_ADMIN", name="总部管理员", level=1)
-    session.add_all([role_agent, role_hq])
-    await session.flush()
+    role_agent = await _get_or_create_role(session, "AGENT", "代理人")
+    role_hq = await _get_or_create_role(session, "HQ_ADMIN", "总部管理员")
 
     def _user(phone: str, role, org) -> User:
         u = User(
@@ -84,9 +97,9 @@ async def _seed(session: AsyncSession) -> dict:
         session.add(u)
         return u
 
-    agent_a = _user("13800770001", role_agent, org_a)
-    hq_a = _user("13800770002", role_hq, org_a)
-    agent_b = _user("13800770003", role_agent, org_b)
+    agent_a = _user(f"1380077{suffix[:4]}01", role_agent, org_a)
+    hq_a = _user(f"1380077{suffix[:4]}02", role_hq, org_a)
+    agent_b = _user(f"1380077{suffix[:4]}03", role_agent, org_b)
     await session.flush()
 
     def _kb(name: str, roles, org, docs: list[tuple[str, list[float], str]]) -> KnowledgeBase:
