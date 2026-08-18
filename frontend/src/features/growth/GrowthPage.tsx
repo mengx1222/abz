@@ -528,7 +528,7 @@ export function GrowthPage() {
               <div className="flex items-center justify-center py-10 text-muted text-sm">加载中...</div>
             ) : courseDetail ? (
               <div className="space-y-2">
-                {courseDetail.lessons.map((lesson, idx) => (
+                {courseDetail.lessons.map((lesson) => (
                   <div
                     key={lesson.id}
                     className={`flex items-center gap-3 py-2 px-3 rounded-lg ${

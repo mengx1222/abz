@@ -4,10 +4,9 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { Card, CardTitle, CardHeader } from '../../components/ui/Card';
+import { Card } from '../../components/ui/Card';
 import {
   startSession,
-  getSession,
   streamTrainingMessage,
   streamTrainingScore,
   type TrainingSession,
@@ -18,10 +17,6 @@ import {
 
 // ---- Constants ----
 
-const DIFFICULTY_CONFIG: Record<string, { label: string; variant: 'success' | 'warning' | 'error' }> = {
-  easy: { label: '入门', variant: 'success' },
-  medium: { label: '进阶', variant: 'warning' },
-  hard: { label: '挑战', variant: 'error' },
 };
 
 const ROLE_CONFIG: Record<string, { label: string; align: string; bg: string; avatar: string; avatarBg: string }> = {
@@ -48,8 +43,6 @@ export function TrainingChatPage() {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
-  const abortRef = useRef<AbortController | null>(null);
-
   // Load session
   useEffect(() => {
     if (!scenarioId) return;
@@ -209,7 +202,6 @@ export function TrainingChatPage() {
   }
 
   const scenario = session?.scenario_title || '';
-  const difficulty = session?.scenario_id ? '' : '';
   const persona = (session as unknown as Record<string, unknown>)?.customer_persona as Record<string, string> | undefined;
 
   return (
