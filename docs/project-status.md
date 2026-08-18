@@ -74,7 +74,7 @@
 
 | Release Status | **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md) + [release-verification.md](release-verification.md)） |
 
-| Backend Tests | **270 passed, 10 skipped**（Task 17B-Hotfix 后全量，本地；CI green @ 6da4ba8） |
+| Backend Tests | **270 passed, 18 skipped**（Task 20 后全量云端验证：+8 ingestion 用例在无 PG 环境 skip） |
 
 | **RAG 权限加固（Task 17B）** | **Role Filtering + Organization Filtering + Citation/SSE 防泄漏 + 拒答不降级 全部 Implemented + Tested**（tests/rag/ 35 用例 + PG 集成 5 用例；详见 [rag-permission-audit.md](rag-permission-audit.md)） |
 
