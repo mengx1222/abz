@@ -178,12 +178,18 @@ class TestKnowledgeBaseCrud:
         )
         await session.commit()
 
-        # ---- 诊断：确认数据与过滤行为 ----
+        # ---- 诊断：落库 + 过滤行为 ----
         from sqlalchemy import text as sa_text
-        diag = (await session.execute(sa_text(
-            "SELECT name, allowed_roles IS NULL AS rn, organization_id::text FROM knowledge_bases"
+        cnt = (await session.execute(sa_text("SELECT count(*) FROM knowledge_bases"))).scalar()
+        print("DIAG count:", cnt)
+        rows_isnull = (await session.execute(sa_text(
+            "SELECT name FROM knowledge_bases WHERE allowed_roles IS NULL"
         ))).fetchall()
-        print("DIAG kbs:", diag)
+        print("DIAG IS NULL rows:", rows_isnull)
+        rows_orga = (await session.execute(sa_text(
+            "SELECT name FROM knowledge_bases WHERE organization_id::text = :o"
+        ), {"o": str(data["org_a"].id)})).fetchall()
+        print("DIAG org_a rows:", rows_orga)
 
         records, total = await repo.list_knowledge_bases(
             user_roles=["AGENT"],
