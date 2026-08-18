@@ -17,8 +17,6 @@ import {
 
 // ---- Constants ----
 
-};
-
 const ROLE_CONFIG: Record<string, { label: string; align: string; bg: string; avatar: string; avatarBg: string }> = {
   agent: { label: '我', align: 'justify-end', bg: 'bg-accent text-white', avatar: '我', avatarBg: 'bg-accent' },
   customer: { label: '客户', align: 'justify-start', bg: 'bg-card border border-border', avatar: '客', avatarBg: 'bg-rose-100 text-rose-600' },
