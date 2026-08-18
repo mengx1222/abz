@@ -423,6 +423,8 @@ RAG（检索增强生成）模块在检索知识库内容时，必须确保用�
 - **知识条目权限标签**：知识库中的每条知识条目经 `KnowledgeBase → Document → DocumentChunk` 继承父级权限（`allowed_roles` / `organization_id` 定义在 KnowledgeBase，检索时 JOIN 继承），确保权限范围外的内容不会被检索到。
 - **检索日志审计**：每次知识库检索操作均记录审计日志，包括检索者、检索查询内容（脱敏后）、命中的知识条目列表、检索时间等信息，便于安全审计和异常检测。
 
+- **Production Ingestion 权限继承（Task 20）**：管理员上传的新文档在入库时从所属知识库继承 `allowed_roles` / `organization_id` 并写入 chunk/document metadata，检索端（SQL WHERE 层）与召回后二次校验共同保证新知识同样受角色/组织边界约束——错误角色/组织无法通过 RAG context、citation、SSE、日志正文获得越权知识。
+
 ### 7.3 模型输出安全
 
 AI 模型的输出在返回给用户之前，需要经过多层安全检查和合规处理：

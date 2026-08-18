@@ -1096,3 +1096,41 @@ User → Auth(JWT) → RBAC → Org Scope(DataPermissionChecker) → KB Scope(ro
 - 调用方：`ProductQaService._real_chat/_demo_chat`、`ScriptService._production_generate_scripts` 均补传 `user_roles` / `org_id` / `accessible_org_ids`；无用户上下文时 `user_roles=[]`（全拒）。
 - Demo 模式：`DemoRetriever` 实现等价过滤（chunk 携带 `kb_allowed_roles` / `kb_org_id`）。
 - 偏差记录：任务段4 矩阵假设"HQ_ADMIN 命中 allowed_roles=['AGENT'] 的 KB"，与 §2.3.3 精确匹配硬约束冲突 → 以硬约束（精确匹配）为准，详见审计文档 §2 偏差记录。
+
+
+---
+
+## 7. Production Ingestion（Task 20）
+
+> 状态：**Implemented + Tested**（PG 集成 tests/rag/test_ingestion_pg.py，CI backend-pg 纳入）
+
+### 7.1 真实链路
+
+```
+管理员/系统上传 → POST /api/v1/knowledge-bases/{kb_id}/documents/upload
+  → DocumentParser.parse → chunk_document → AIGateway.embed（真实 embedding，1536 维）
+  → Document + DocumentChunk(embedding) 写入 PostgreSQL + pgvector
+  → metadata（document_id/document_title/section/product_type/organization_id/
+     allowed_roles/version/effective dates/status）→ status=published
+  → Retriever（SQL WHERE 层权限过滤）→ RAG context → Citation
+```
+
+### 7.2 关键保证
+
+| 项 | 实现 |
+|----|------|
+| 持久化 | `pipeline._persist_production`：Document / DocumentChunk / embedding（Vector 1536）全部落库 |
+| 事务安全 | 解析/embedding/DB 任一失败 → `session.rollback()` 后抛出，不残留 document 或部分 chunks |
+| 空文档 | 解析后无有效内容 → ValueError（400），不留半成品 |
+| 重复索引 | 同 document_id 重复 index → 删除旧 chunks 重建（幂等），KB document_count 不重复累加 |
+| 权限 metadata | chunk/document metadata 继承 KB 的 allowed_roles / organization_id，与 Task 17B SQL WHERE 层过滤一致 |
+| embedding 复用 | 经 AIGateway/provider 契约（不绑定 SDK），维度与 pgvector 列（1536）一致 |
+| 产品边界 | product_type 写入 metadata，检索按产品过滤（错误产品不召回） |
+
+### 7.3 边界（如实声明）
+
+- 已实现/已验证：新文档经真实 ingestion 后可被 Retriever 在 PG/pgvector 检索命中，
+  权限边界（AGENT@A 可见 / HQ_ADMIN 角色拒绝 / AGENT@B 组织拒绝）由集成测试固化。
+- 未实现：知识库 CRUD（list/create/update）仍为 Demo 内存实现（N1）；上传需知识库
+  已存在于 DB（seed/生产创建）；"管理员上传链路"与"已有 seed 知识可检索"是两件事，
+  前者为本次闭环（接口 + 持久化 + 检索 + 测试），后者为 Task 12/13 既有能力。

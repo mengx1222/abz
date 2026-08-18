@@ -1934,3 +1934,16 @@ SELECT * FROM pg_extension WHERE extname = 'vector';
 > **文档版本**：v1.0
 > **最后更新**：2025年
 > **维护者**：安诊保 AI 副驾 技术团队
+
+
+---
+
+## Production Ingestion 持久化（Task 20）
+
+- 上传链路：`POST /api/v1/knowledge-bases/{kb_id}/documents/upload`（生产模式）
+- 写入：`knowledge_bases`（document_count/total_chunks 递增）→ `documents`（status=published、
+  content_text、chunk_count、published_at、metadata_）→ `document_chunks`（content、search_text、
+  embedding Vector(1536)、metadata_ 含 document_id/document_title/section/product_type/
+  organization_id/allowed_roles/version/effective dates/status）
+- 事务：同一 AsyncSession 内 Document+Chunks 一次 commit；失败整体 rollback（不残留半成品）
+- 幂等：document_id 已存在 → 删旧 chunks 重建（re-index）
