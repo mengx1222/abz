@@ -5,12 +5,19 @@
  * - RulesTab: loading / error / empty / 列表渲染 / toggle mutation（toast + loading 防重复）
  * - ReviewsTab: 列表渲染 / approve mutation / error
  * 策略：vi.mock adminService.complianceApi（不触真实网络），断言 UI 与 toast。
+ *
+ * 注意：complianceApi 方法返回 AxiosResponse（页面内 res.data.data 解包），
+ * mock resolved value 必须包 { data: ... } 形状（helper axiosRes）。
  */
 import { describe, it, expect, beforeEach, vi, afterEach } from 'vitest';
 import { render, screen, waitFor, fireEvent } from '@testing-library/react';
 import { useToastStore } from '../../hooks/useToast';
 import { CompliancePage } from '../../features/admin/CompliancePage';
-import { complianceApi } from '../../services/adminService';
+import {
+  complianceApi,
+  type ComplianceRule,
+  type ComplianceReview,
+} from '../../services/adminService';
 
 vi.mock('../../services/adminService', () => ({
   complianceApi: {
@@ -26,7 +33,12 @@ const mockedUpdateRule = vi.mocked(complianceApi.updateRule);
 const mockedListReviews = vi.mocked(complianceApi.listReviews);
 const mockedProcessReview = vi.mocked(complianceApi.processReview);
 
-const mockRule = {
+/** 将纯数据包装为 axios response 形状（mock 专用；返回 never 以兼容任意泛型）。 */
+function axiosRes(data: unknown): never {
+  return { data } as never;
+}
+
+const mockRule: ComplianceRule = {
   id: 'rule-1',
   name: '严禁承诺收益',
   description: '禁止向客户承诺确定收益',
@@ -38,7 +50,7 @@ const mockRule = {
   is_active: true,
 };
 
-const mockReview = {
+const mockReview: ComplianceReview = {
   id: 'rv-1',
   type: 'script',
   type_label: '话术',
@@ -54,12 +66,21 @@ function clearToasts() {
   useToastStore.setState({ toasts: [] });
 }
 
-function mockPageData() {
+function rulesPageData() {
   return {
     success: true,
     data: [mockRule],
     pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
     request_id: 'req-1',
+  };
+}
+
+function reviewsPageData() {
+  return {
+    success: true,
+    data: [mockReview],
+    pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
+    request_id: 'req-2',
   };
 }
 
@@ -93,7 +114,7 @@ describe('CompliancePage（合规中心）', () => {
   });
 
   it('rules empty：无规则时展示空状态', async () => {
-    mockedListRules.mockResolvedValue({ ...mockPageData(), data: [] });
+    mockedListRules.mockResolvedValue(axiosRes({ ...rulesPageData(), data: [] }));
     render(<CompliancePage />);
 
     await waitFor(() => {
@@ -102,7 +123,7 @@ describe('CompliancePage（合规中心）', () => {
   });
 
   it('rules list：渲染规则卡片（名称/严重级别/启用状态）', async () => {
-    mockedListRules.mockResolvedValue(mockPageData());
+    mockedListRules.mockResolvedValue(axiosRes(rulesPageData()));
     render(<CompliancePage />);
 
     await waitFor(() => {
@@ -113,13 +134,13 @@ describe('CompliancePage（合规中心）', () => {
   });
 
   it('rules toggle：停用规则调用 updateRule 并 toast 成功', async () => {
-    mockedListRules.mockResolvedValue(mockPageData());
-    mockedUpdateRule.mockResolvedValue({ success: true, data: mockRule });
+    mockedListRules.mockResolvedValue(axiosRes(rulesPageData()));
+    mockedUpdateRule.mockResolvedValue(axiosRes({ success: true, data: mockRule }));
     render(<CompliancePage />);
 
     await waitFor(() => screen.getByText('严禁承诺收益'));
 
-    // 开关按钮（含 translate-x-4 span 的 button）
+    // 开关按钮（含 relative inline-flex class 的 button）
     const toggle = screen.getAllByRole('button').find((b) =>
       b.className.includes('relative inline-flex')
     );
@@ -138,13 +159,8 @@ describe('CompliancePage（合规中心）', () => {
   // ---- ReviewsTab ----
 
   it('reviews list：切到审核列表并渲染待审核内容', async () => {
-    mockedListRules.mockResolvedValue({ ...mockPageData(), data: [] });
-    mockedListReviews.mockResolvedValue({
-      success: true,
-      data: [mockReview],
-      pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
-      request_id: 'req-2',
-    });
+    mockedListRules.mockResolvedValue(axiosRes({ ...rulesPageData(), data: [] }));
+    mockedListReviews.mockResolvedValue(axiosRes(reviewsPageData()));
     render(<CompliancePage />);
 
     await waitFor(() => screen.getByText('暂无合规规则'));
@@ -158,14 +174,9 @@ describe('CompliancePage（合规中心）', () => {
   });
 
   it('reviews approve：通过审核调用 processReview 并 toast 成功', async () => {
-    mockedListRules.mockResolvedValue({ ...mockPageData(), data: [] });
-    mockedListReviews.mockResolvedValue({
-      success: true,
-      data: [mockReview],
-      pagination: { page: 1, page_size: 20, total: 1, total_pages: 1 },
-      request_id: 'req-3',
-    });
-    mockedProcessReview.mockResolvedValue({ success: true, data: mockReview });
+    mockedListRules.mockResolvedValue(axiosRes({ ...rulesPageData(), data: [] }));
+    mockedListReviews.mockResolvedValue(axiosRes(reviewsPageData()));
+    mockedProcessReview.mockResolvedValue(axiosRes({ success: true, data: mockReview }));
     render(<CompliancePage />);
 
     await waitFor(() => screen.getByText('暂无合规规则'));
@@ -182,7 +193,7 @@ describe('CompliancePage（合规中心）', () => {
   });
 
   it('reviews error：加载失败展示错误', async () => {
-    mockedListRules.mockResolvedValue({ ...mockPageData(), data: [] });
+    mockedListRules.mockResolvedValue(axiosRes({ ...rulesPageData(), data: [] }));
     mockedListReviews.mockRejectedValue(new Error('boom'));
     render(<CompliancePage />);
 

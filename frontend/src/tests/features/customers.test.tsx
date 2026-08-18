@@ -15,6 +15,7 @@ import { CustomersPage } from '../../features/customers/CustomersPage';
 import {
   listCustomers,
   deleteCustomer,
+  type Customer,
 } from '../../services/customerService';
 
 vi.mock('../../services/customerService', () => ({
@@ -28,24 +29,25 @@ vi.mock('../../services/customerService', () => ({
 const mockedListCustomers = vi.mocked(listCustomers);
 const mockedDeleteCustomer = vi.mocked(deleteCustomer);
 
-const mockCustomer = {
+const mockCustomer: Customer = {
   id: 'c-1',
   name: '张先生',
   age: 42,
-  gender: 'male' as const,
+  gender: 'male',
   phone: '13900001111',
-  customer_type: 'active' as const,
+  customer_type: 'active',
   tags: ['VIP'],
   insurance_type: '医疗险',
   current_stage: 'needs_analysis',
   intention_level: 3,
   source_channel: '转介绍',
   notes: null,
+  assigned_to: null,
   created_at: '2026-01-01T00:00:00Z',
   updated_at: '2026-01-02T00:00:00Z',
 };
 
-function listResult(items: unknown[], total: number, totalPages: number) {
+function listResult(items: Customer[], total: number, totalPages: number) {
   return { items, total, page: 1, pageSize: 20, totalPages };
 }
 
