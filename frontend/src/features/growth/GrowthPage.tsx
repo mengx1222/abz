@@ -62,7 +62,8 @@ export function GrowthPage() {
   // --- Leaderboard state ---
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
   const [lbPeriod, setLbPeriod] = useState('week');
-  const [lbLoading, setLbLoading] = useState(true);
+  // 初始 false：切到排行榜 Tab 时由 effect 触发加载（初始 true 会阻止 effect fetch，卡 loading）
+  const [lbLoading, setLbLoading] = useState(false);
   const [lbError, setLbError] = useState<string | null>(null);
 
   // --- Achievements state ---
