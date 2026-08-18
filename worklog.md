@@ -2151,3 +2151,26 @@ Stage Summary:
 
 - RAG 权限全栈生效：User→Auth→RBAC→Org Scope→KB Scope(role)→Retrieval(SQL WHERE)→Confidence Gate→LLM→Citation→Compliance
 - 无权限用户物理上无法通过召回/citation/SSE/日志获得越权知识；拒答不降级
+
+---
+
+Task ID: 38
+
+Agent: main
+
+Task: Task 18 — Growth E2E 覆盖 (Playwright Stage 3)
+
+Work Log:
+
+- 段0 基线：HEAD=origin/main=6da4ba8（Task 17B-Hotfix 后，CI/Prod 全绿）
+- 段1 页面审计：路由 `/growth` → GrowthPage（features/growth/GrowthPage.tsx）；服务 growthService.ts（overview/courses/:id/leaderboard/achievements）；后端 growth.py → growth_service（生产 learning_courses=[]、get_course_detail 返回 None = P1-3 确认）；demo 模式有课程/排行/成就数据
+- 段2 实现：
+  - 前端微调 GrowthPage.tsx（任务 2.1 允许）：① learning_courses 空 → 「暂无学习课程，敬请期待」空状态；② course_detail 返回 None → modal 显示「该课程详情暂未开放，敬请期待」（此前静默无反应）
+  - 新增 frontend/e2e/growth.spec.ts（5 用例 G-1~G-5）：概览加载（统计卡片）/ 课程列表（课程卡片 or P1-3 空状态）/ 课程详情（有课程→点击 modal；无课程→空状态不崩溃）/ 排行榜（Tab+周期按钮）/ 成就（已解锁/未解锁分组）；条件断言兼容 demo（有课程）与生产（无课程）双环境；复用 watchPage 监控
+- 段3 验证：本地 demo 后端 + vite dev 环境跑 E2E 因本地环境折腾（用户指示停止本地验证，一切云端验证）；本地已确认 vite build ✓ + vitest 27 passed；E2E 由 CI e2e-playwright workflow 云端验证（growth.spec.ts 命中 e2e paths 自动触发）
+- 段4 文档：project-status（Current Snapshot E2E 13→18/18 Stage 1+2+3 Growth；P1-3 说明保持）、worklog（本记录）
+
+Stage Summary:
+
+- Growth 模块 UI 行为被 E2E 锁定（G-1~G-5），防止未来重构退化
+- P1-3（course_detail 生产 None）前端空状态友好处理已被测试覆盖

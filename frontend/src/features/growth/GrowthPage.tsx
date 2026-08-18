@@ -56,6 +56,8 @@ export function GrowthPage() {
   // --- Course detail modal state ---
   const [courseDetail, setCourseDetail] = useState<CourseDetail | null>(null);
   const [courseDetailLoading, setCourseDetailLoading] = useState(false);
+  // P1-3：后端课程表未落库，生产模式 course_detail 返回 None → 显示空状态
+  const [courseDetailEmpty, setCourseDetailEmpty] = useState(false);
 
   // --- Leaderboard state ---
   const [leaderboard, setLeaderboard] = useState<LeaderboardResponse | null>(null);
@@ -132,17 +134,28 @@ export function GrowthPage() {
   // --- Course detail modal ---
   const openCourseDetail = async (courseId: string) => {
     setCourseDetailLoading(true);
+    setCourseDetailEmpty(false);
     try {
       const detail = await getCourseDetail(courseId);
-      setCourseDetail(detail);
+      if (detail) {
+        setCourseDetail(detail);
+      } else {
+        // P1-3：课程详情未开放（生产返回 None）→ 友好空状态，不崩溃
+        setCourseDetail(null);
+        setCourseDetailEmpty(true);
+      }
     } catch {
-      /* silent */
+      setCourseDetail(null);
+      setCourseDetailEmpty(true);
     } finally {
       setCourseDetailLoading(false);
     }
   };
 
-  const closeCourseDetail = () => setCourseDetail(null);
+  const closeCourseDetail = () => {
+    setCourseDetail(null);
+    setCourseDetailEmpty(false);
+  };
 
   // --- Helpers ---
   const expPercent = overview
@@ -286,6 +299,10 @@ export function GrowthPage() {
               <CardTitle>学习进度</CardTitle>
               <CardDescription>AI推荐的学习课程</CardDescription>
             </CardHeader>
+            {overview.learning_courses.length === 0 ? (
+              /* P1-3：课程表未落库（生产 learning_courses 为空）→ 友好空状态 */
+              <p className="text-sm text-muted py-6 text-center">暂无学习课程，敬请期待</p>
+            ) : (
             <div className="space-y-3 mt-2">
               {overview.learning_courses.map((course) => (
                 <div
@@ -310,6 +327,7 @@ export function GrowthPage() {
                 </div>
               ))}
             </div>
+            )}
           </Card>
         </div>
       </div>
@@ -457,7 +475,7 @@ export function GrowthPage() {
 
   // ==================== COURSE DETAIL MODAL ====================
   const renderCourseDetailModal = () => {
-    if (!courseDetail && !courseDetailLoading) return null;
+    if (!courseDetail && !courseDetailLoading && !courseDetailEmpty) return null;
 
     return (
       <div
@@ -541,7 +559,12 @@ export function GrowthPage() {
                   </div>
                 ))}
               </div>
-            ) : null}
+            ) : (
+              /* P1-3：详情未开放（生产返回 None）→ 友好空状态，不崩溃 */
+              <p className="text-sm text-muted py-10 text-center">
+                该课程详情暂未开放，敬请期待
+              </p>
+            )}
           </div>
         </div>
       </div>

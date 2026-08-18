@@ -4,7 +4,7 @@
 
 > 最后更新: 2026-08-18
 
-> Git HEAD（Current main，Task 17B 验证时）: 见 GitHub main（Task 18 修复 fe32aa8 之后为 Task 17B 提交链）
+> Git HEAD（Current main，Task 18 验证时）: 见 GitHub main（Task 17B-Hotfix 之后为 Task 18 Growth E2E 提交）
 
 > Release Baseline Content（Task 15）: `9befe4b`（v0.1.0 Internal Pilot Candidate 基线）
 
@@ -12,7 +12,7 @@
 
 > 发布就绪状态: **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md)）
 
-> 上一轮 Task: Task 17B（RAG 知识库角色权限过滤 + 组织范围隔离）
+> 上一轮 Task: Task 18（Growth E2E 覆盖 · Playwright Stage 3）
 
 ---
 
@@ -30,23 +30,23 @@
 
 
 
-## Current Snapshot（2026-08-18 · HEAD Task 17B）
+## Current Snapshot（2026-08-18 · HEAD Task 18）
 
 | 项 | 当前真实状态 |
 |----|-------------|
 | Release Version | **v0.1.0**（pyproject / package.json / README 一致） |
 | Release Status | **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md) + [release-verification.md](release-verification.md)） |
-| Backend Tests | **265 passed, 5 skipped**（本地 Task 17B 全量；CI 待确认） |
+| Backend Tests | **270 passed, 10 skipped**（Task 17B-Hotfix 后全量，本地；CI green @ 6da4ba8） |
 | **RAG 权限加固（Task 17B）** | **Role Filtering + Organization Filtering + Citation/SSE 防泄漏 + 拒答不降级 全部 Implemented + Tested**（tests/rag/ 35 用例 + PG 集成 5 用例；详见 [rag-permission-audit.md](rag-permission-audit.md)） |
-| PG 集成测试（真实 PG16+pgvector） | **5 passed**（含 RAG 产品边界）→ 新增 RAG 权限边界 5 用例（CI backend-pg 纳入） |
+| PG 集成测试（真实 PG16+pgvector） | **10 passed**（含 RAG 产品边界 5 + RAG 权限边界 5） |
 | Frontend Tests / Build | **27 passed（3 files）** + `vite build` ✓ |
-| Playwright E2E | **13/13 passed**（Stage 1 + Stage 2 + **Stage 3 Training**，2026-08-17） |
+| Playwright E2E | **18/18 passed**（Stage 1 + Stage 2 + Stage 3：Training 13 + **Growth 5**，2026-08-18） |
 | Real AI Smoke（DashScope/Qwen） | **8/8 PASS**（真实，非 Mock） |
 | Production Validation | **PASS** |
 | Docker | dev + prod compose 均通过 Production Validation |
 | Repository | CLEAN（Task 14：268 blob，无过程产物/Secret） |
 | P0 | 无 |
-| P1 | P1-3（growth course_detail Demo Only）、P1-6（前端 tsc 硬门禁） |
+| P1 | P1-3（growth course_detail Demo Only，前端空状态友好处理已 E2E 覆盖）、P1-6（前端 tsc 硬门禁） |
 | P2 | P2-1~P2-4（CSRF / Demo 401 / 组件测试 / seed 集成） |
 | Current Next Tasks | 见「Current Next Tasks」节（Training/Growth E2E、TS 清理、AI Sales Agent） |
 
