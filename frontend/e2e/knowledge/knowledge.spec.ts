@@ -40,35 +40,10 @@ test.describe('知识库管理（Knowledge Admin）', () => {
 
   test('K-1 知识库列表加载（production API）', async ({ page }) => {
     const watcher = watchPage(page);
-    // 诊断：捕获 KB list API 响应状态
-    const kbResp = page.waitForResponse(
-      (r) => r.url().includes('/admin/knowledge-bases') && r.request().method() === 'GET',
-      { timeout: 20_000 },
-    ).catch(() => null);
     await page.goto('/knowledge');
 
     // 页面标题
     await expect(page.getByRole('heading', { name: '知识库管理' })).toBeVisible({ timeout: 15_000 });
-
-    const resp = await kbResp;
-    if (resp) {
-      console.log('DIAG KB list API status:', resp.status());
-      const body = await resp.json().catch(() => null);
-      console.log('DIAG KB list body keys:', body ? Object.keys(body) : 'null');
-      if (body && Array.isArray(body.data)) {
-        console.log('DIAG KB list count:', body.data.length);
-        console.log('DIAG KB names:', body.data.map((kb: { name: string }) => kb.name));
-      }
-    } else {
-      console.log('DIAG KB list API: no response captured');
-    }
-
-    // 诊断：等待 React 渲染后打印页面正文与错误
-    await page.waitForTimeout(3_000);
-    const bodyText = await page.locator('body').innerText().catch(() => '');
-    console.log('DIAG body text:', bodyText.slice(0, 2000).replace(/\n/g, ' | '));
-    console.log('DIAG page errors:', JSON.stringify(watcher.errors));
-    console.log('DIAG api errors:', JSON.stringify(watcher.apiErrors));
 
     // E2E seed 知识库可见（production 模式 DB-backed list）
     await expect(page.getByText('E2E产品知识库')).toBeVisible({ timeout: 15_000 });
@@ -84,8 +59,8 @@ test.describe('知识库管理（Knowledge Admin）', () => {
     await page.getByText('E2E产品知识库').click();
 
     // seed 文档渲染（production API list）
-    await expect(page.getByText('安诊保百万医疗险产品手册')).toBeVisible({ timeout: 15_000 });
-    await expect(page.getByText('安诊保重疾险产品手册')).toBeVisible();
+    await expect(page.getByText('安诊保百万医疗险产品手册', { exact: true })).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText('安诊保重疾险产品手册', { exact: true })).toBeVisible();
 
     watcher.assert();
   });
@@ -96,8 +71,8 @@ test.describe('知识库管理（Knowledge Admin）', () => {
 
     await expect(page.getByText('E2E产品知识库')).toBeVisible({ timeout: 15_000 });
     await page.getByText('E2E产品知识库').click();
-    await expect(page.getByText('安诊保百万医疗险产品手册')).toBeVisible({ timeout: 15_000 });
-    await page.getByText('安诊保百万医疗险产品手册').click();
+    await expect(page.getByText('安诊保百万医疗险产品手册', { exact: true })).toBeVisible({ timeout: 15_000 });
+    await page.getByText('安诊保百万医疗险产品手册', { exact: true }).click();
 
     // 详情视图（production API detail）：元信息面板渲染，不崩溃
     await expect(page.getByText('文件名')).toBeVisible({ timeout: 15_000 });
