@@ -48,6 +48,13 @@ class KnowledgeBase(Base):
     allowed_roles: Mapped[list | None] = mapped_column(
         JSONB, nullable=True, comment="允许访问的角色列表，null表示全员"
     )
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        ForeignKey("organizations.id", ondelete="SET NULL"),
+        nullable=True,
+        index=True,
+        comment="所属组织（null=未限定组织的共享知识库，仍受角色约束）",
+    )
     version: Mapped[int] = mapped_column(
         Integer, nullable=False, default=1, server_default="1", comment="版本号"
     )

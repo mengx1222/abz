@@ -68,6 +68,7 @@ class DemoRetriever:
         knowledge_base_ids: list[str] | None = None,
         user_roles: list[str] | None = None,
         org_id: str | None = None,
+        accessible_org_ids: list[str] | None = None,
         effective_only: bool = True,
         product_type: str | None = None,
     ) -> list[SearchResult]:
@@ -79,6 +80,10 @@ class DemoRetriever:
         3. 按总分排序
         4. 可选日期有效性过滤
         5. 可选产品边界过滤（product_type 元数据精确匹配，缺失时按标题回退）
+        6. 权限过滤（与生产检索器同语义）：
+           - allowed_roles：chunk 携带 kb_allowed_roles（None=全员；非 None=角色须在数组内）
+           - 组织范围：chunk 携带 kb_org_id（None=未限定组织的共享知识库；非 None 须命中
+             accessible_org_ids / org_id），`["__ALL__"]` 表示全量
         """
         query_lower = query.lower()
         # 提取查询中的关键词
@@ -96,6 +101,27 @@ class DemoRetriever:
             # 跳过被知识库ID过滤的
             if knowledge_base_ids and chunk.get("knowledge_base_id") not in knowledge_base_ids:
                 continue
+
+            # ---- 权限过滤（与生产 SQL WHERE 层同语义） ----
+            # 角色过滤：空角色列表 = 无任何角色被允许 → 全拒；
+            # kb_allowed_roles None → 全员；非 None → 用户角色须命中
+            if user_roles is not None:
+                if not user_roles:
+                    continue
+                kb_roles = chunk.get("kb_allowed_roles")
+                if kb_roles is not None and not any(r in kb_roles for r in user_roles):
+                    continue
+            # 组织范围过滤：kb_org_id None → 未限定组织的共享知识库（仍受角色约束）；
+            # 非 None → 必须命中可访问组织集合（__ALL__ 表示全量）。
+            if accessible_org_ids is not None and "__ALL__" not in accessible_org_ids:
+                kb_org = chunk.get("kb_org_id")
+                if kb_org and kb_org not in accessible_org_ids:
+                    continue
+            elif org_id is not None:
+                # 兼容：未传 accessible_org_ids 时按单组织匹配
+                kb_org = chunk.get("kb_org_id")
+                if kb_org and kb_org != org_id:
+                    continue
 
             # 产品边界过滤：明确请求产品时，仅保留产品匹配的 chunk。
             # 有 product_type 元数据 → 精确匹配；缺失 → 按文档标题包含产品名回退，
@@ -150,6 +176,9 @@ class DemoRetriever:
                 metadata={
                     "heading": chunk.get("heading", ""),
                     "search_method": "demo_keyword",
+                    # 携带 KB 权限元数据（与生产检索器一致，供 citation/二次校验）
+                    "kb_allowed_roles": chunk.get("kb_allowed_roles"),
+                    "kb_org_id": chunk.get("kb_org_id"),
                 },
             ))
 
@@ -197,6 +226,7 @@ class Retriever:
         knowledge_base_ids: list[str] | None = None,
         user_roles: list[str] | None = None,
         org_id: str | None = None,
+        accessible_org_ids: list[str] | None = None,
         product_type: str | None = None,
     ) -> list[SearchResult]:
         """执行混合检索。
@@ -204,9 +234,16 @@ class Retriever:
         1. 向量检索 (cosine similarity)
         2. BM25 全文检索
         3. RRF 融合
-        4. 权限过滤
+        4. 权限过滤（SQL WHERE 层主过滤 + 召回后二次校验）
         5. 文档版本日期过滤
         6. 产品边界过滤（product_type，仅保留产品匹配的知识依据）
+
+        权限语义：
+        - user_roles：角色白名单。为 None 时不限制角色；空列表 `[]` 表示
+          「无任何角色被允许」→ 全部拒答（调用方无法提供用户上下文时使用）。
+        - accessible_org_ids：`DataPermissionChecker.filter_accessible_org_ids()`
+          产出，`["__ALL__"]` 表示全量可见（SYSTEM_ADMIN）。
+        - org_id：兼容参数（单组织快捷方式），仅当 accessible_org_ids 未传时生效。
         """
         if self.db is None:
             logger.warning("retriever_no_db_session")
@@ -218,22 +255,30 @@ class Retriever:
         vector_results = await self._vector_search(
             query_embedding, top_k=VECTOR_SEARCH_TOP_K,
             knowledge_base_ids=knowledge_base_ids,
-            effective_now=now, org_id=org_id, product_type=product_type,
+            effective_now=now, org_id=org_id,
+            accessible_org_ids=accessible_org_ids,
+            user_roles=user_roles,
+            product_type=product_type,
         )
 
         # Step 2: BM25检索
         bm25_results = await self._bm25_search(
             query, top_k=BM25_SEARCH_TOP_K,
             knowledge_base_ids=knowledge_base_ids,
-            effective_now=now, org_id=org_id, product_type=product_type,
+            effective_now=now, org_id=org_id,
+            accessible_org_ids=accessible_org_ids,
+            user_roles=user_roles,
+            product_type=product_type,
         )
 
         # Step 3: RRF融合
         fused = self._rrf_fusion(vector_results, bm25_results)
 
-        # Step 4: 权限过滤
-        if user_roles:
-            fused = self._filter_by_permission(fused, user_roles)
+        # Step 4: 权限二次校验（纵深防御，防任何绕过 SQL 条件的路径）
+        # SQL 层已按 user_roles / accessible_org_ids 过滤，此处基于召回结果携带的
+        # KB 权限元数据再校验一次；user_roles=[]（空角色）时直接拒绝全部。
+        if user_roles is not None:
+            fused = self._filter_by_permission(fused, user_roles, accessible_org_ids)
 
         # Step 5: 取 top_k
         return fused[:top_k]
@@ -254,6 +299,58 @@ class Retriever:
             ),
         )
 
+    @staticmethod
+    def _permission_conditions(
+        user_roles: list[str] | None,
+        accessible_org_ids: list[str] | None,
+        org_id: str | None = None,
+    ) -> list:
+        """构造 RAG 权限 SQL WHERE 条件（与 product_boundary / effective_date 同级）。
+
+        - 角色：`allowed_roles IS NULL`（全员）或 `allowed_roles ? role_code`（jsonb 存在）；
+          逐角色 OR 组合；user_roles=[]（空列表）→ 返回 `false()`（物理上全拒）。
+        - 组织：`organization_id IS NULL`（未限定组织的共享知识库）或
+          `organization_id IN (accessible_org_ids)`；`["__ALL__"]` 跳过组织条件。
+          仅当 accessible_org_ids 未传时回退 org_id 单组织匹配。
+
+        该方法纯构造，不执行查询，便于单元测试编译断言。
+        """
+        conditions: list = []
+
+        # ---- 角色过滤（allowed_roles） ----
+        if user_roles is not None:
+            if not user_roles:
+                # 空角色列表：无任何角色被允许 → 恒假条件（全拒）
+                conditions.append(text("false"))
+            else:
+                role_cond = or_(
+                    KnowledgeBase.allowed_roles.is_(None),
+                    or_(
+                        *(KnowledgeBase.allowed_roles.op("?")(role) for role in user_roles)
+                    ),
+                )
+                conditions.append(role_cond)
+
+        # ---- 组织范围过滤（organization_id） ----
+        org_ids = None
+        if accessible_org_ids is not None:
+            if "__ALL__" not in accessible_org_ids:
+                org_ids = [uuid.UUID(o) for o in accessible_org_ids if o]
+        elif org_id:
+            try:
+                org_ids = [uuid.UUID(org_id)]
+            except (ValueError, TypeError):
+                org_ids = None
+        if org_ids is not None:
+            conditions.append(
+                or_(
+                    KnowledgeBase.organization_id.is_(None),
+                    KnowledgeBase.organization_id.in_(org_ids),
+                )
+            )
+
+        return conditions
+
     async def _vector_search(
         self,
         embedding: list[float] | None,
@@ -261,9 +358,15 @@ class Retriever:
         knowledge_base_ids: list[str] | None,
         effective_now: datetime | None = None,
         org_id: str | None = None,
+        accessible_org_ids: list[str] | None = None,
+        user_roles: list[str] | None = None,
         product_type: str | None = None,
     ) -> list[dict]:
-        """pgvector cosine距离检索。"""
+        """pgvector cosine距离检索。
+
+        权限过滤在 SQL WHERE 层完成（JOIN KnowledgeBase + 角色/组织条件），
+        禁止"先召回全部再 Python 过滤"。
+        """
         if embedding is None:
             return []
 
@@ -281,6 +384,8 @@ class Retriever:
                 DocumentChunk.__table__.c.document_id,
                 DocumentChunk.__table__.c.content,
                 DocumentChunk.__table__.c["metadata"],
+                KnowledgeBase.allowed_roles.label("kb_allowed_roles"),
+                KnowledgeBase.organization_id.label("kb_org_id"),
                 # 1 - cosine_distance 作为相似度分数
                 (1 - func.cosine_distance(DocumentChunk.embedding, embedding_literal)).label("score"),
             )
@@ -288,6 +393,7 @@ class Retriever:
             .where(~Document.is_deleted)
             .where(Document.status == "published")
             .join(Document, DocumentChunk.document_id == Document.id)
+            .join(KnowledgeBase, Document.knowledge_base_id == KnowledgeBase.id)
         )
 
         # 文档版本过滤：生效/失效日期
@@ -299,15 +405,9 @@ class Retriever:
                 or_(Document.expiry_date.is_(None), Document.expiry_date > effective_now)
             )
 
-        # org_id 过滤（预留组织级隔离）
-        if org_id:
-            try:
-                org_uuid = uuid.UUID(org_id)
-                stmt = stmt.where(Document.knowledge_base_id.in_(
-                    select(KnowledgeBase.id).where(KnowledgeBase.id == org_uuid)
-                ))
-            except (ValueError, TypeError):
-                pass
+        # 权限过滤（角色 + 组织范围）：SQL WHERE 层
+        for cond in self._permission_conditions(user_roles, accessible_org_ids, org_id):
+            stmt = stmt.where(cond)
 
         # knowledge_base_ids 过滤
         if knowledge_base_ids:
@@ -329,7 +429,12 @@ class Retriever:
                     "chunk_id": str(row.id),
                     "document_id": str(row.document_id),
                     "content": row.content,
-                    "metadata": row._mapping.get("metadata") or {},
+                    "metadata": {
+                        **(row._mapping.get("metadata") or {}),
+                        # 携带 KB 权限元数据供召回后二次校验（_filter_by_permission）
+                        "kb_allowed_roles": row.kb_allowed_roles,
+                        "kb_org_id": str(row.kb_org_id) if row.kb_org_id else None,
+                    },
                     "score": float(row.score),
                 }
                 for row in rows
@@ -345,9 +450,14 @@ class Retriever:
         knowledge_base_ids: list[str] | None,
         effective_now: datetime | None = None,
         org_id: str | None = None,
+        accessible_org_ids: list[str] | None = None,
+        user_roles: list[str] | None = None,
         product_type: str | None = None,
     ) -> list[dict]:
-        """PostgreSQL 全文检索 (tsvector + GIN)。"""
+        """PostgreSQL 全文检索 (tsvector + GIN)。
+
+        权限过滤在 SQL WHERE 层完成（JOIN KnowledgeBase + 角色/组织条件）。
+        """
         # 使用 plainto_tsquery 进行简单查询
         search_text = func.plainto_tsquery("simple", query)
         # search_text 列是纯文本（Text），@@ / ts_rank 需要 tsvector —— 查询时转换
@@ -359,12 +469,15 @@ class Retriever:
                 DocumentChunk.__table__.c.document_id,
                 DocumentChunk.__table__.c.content,
                 DocumentChunk.__table__.c["metadata"],
+                KnowledgeBase.allowed_roles.label("kb_allowed_roles"),
+                KnowledgeBase.organization_id.label("kb_org_id"),
                 func.ts_rank(search_col, search_text).label("score"),
             )
             .where(search_col.op("@@")(search_text))
             .where(~Document.is_deleted)
             .where(Document.status == "published")
             .join(Document, DocumentChunk.document_id == Document.id)
+            .join(KnowledgeBase, Document.knowledge_base_id == KnowledgeBase.id)
         )
 
         # 文档版本过滤：生效/失效日期
@@ -376,15 +489,9 @@ class Retriever:
                 or_(Document.expiry_date.is_(None), Document.expiry_date > effective_now)
             )
 
-        # org_id 过滤（预留组织级隔离）
-        if org_id:
-            try:
-                org_uuid = uuid.UUID(org_id)
-                stmt = stmt.where(Document.knowledge_base_id.in_(
-                    select(KnowledgeBase.id).where(KnowledgeBase.id == org_uuid)
-                ))
-            except (ValueError, TypeError):
-                pass
+        # 权限过滤（角色 + 组织范围）：SQL WHERE 层
+        for cond in self._permission_conditions(user_roles, accessible_org_ids, org_id):
+            stmt = stmt.where(cond)
 
         # knowledge_base_ids 过滤
         if knowledge_base_ids:
@@ -406,7 +513,12 @@ class Retriever:
                     "chunk_id": str(row.id),
                     "document_id": str(row.document_id),
                     "content": row.content,
-                    "metadata": row._mapping.get("metadata") or {},
+                    "metadata": {
+                        **(row._mapping.get("metadata") or {}),
+                        # 携带 KB 权限元数据供召回后二次校验（_filter_by_permission）
+                        "kb_allowed_roles": row.kb_allowed_roles,
+                        "kb_org_id": str(row.kb_org_id) if row.kb_org_id else None,
+                    },
                     "score": float(row.score),
                 }
                 for row in rows
@@ -483,10 +595,40 @@ class Retriever:
     def _filter_by_permission(
         results: list[SearchResult],
         user_roles: list[str],
+        accessible_org_ids: list[str] | None = None,
     ) -> list[SearchResult]:
-        """根据用户角色过滤检索结果。"""
-        # 如果知识库设置了 allowed_roles，检查用户是否在其中
-        return results  # TODO: 实现权限过滤逻辑
+        """根据用户角色/组织范围过滤检索结果（召回后二次校验）。
+
+        主过滤在 SQL WHERE 层完成；本方法作为纵深防御，基于召回结果携带的
+        KB 权限元数据（metadata.kb_allowed_roles / metadata.kb_org_id）再次校验，
+        防止任何绕过 SQL 条件的路径把越权文档带入最终集合。
+
+        - user_roles：空列表 → 全部拒绝（调用方无法提供用户上下文）。
+        - 未携带权限元数据的结果（如旧数据/外部构造）不额外拦截（SQL 层已保证）。
+        - 日志仅记录 filtered_count，不记录被过滤正文。
+        """
+        if not user_roles:
+            if results:
+                logger.warning("rag_permission_secondary_check", filtered_count=len(results))
+            return []
+
+        allowed = []
+        filtered = 0
+        for r in results:
+            kb_roles = r.metadata.get("kb_allowed_roles")
+            if kb_roles is not None and not any(role in kb_roles for role in user_roles):
+                filtered += 1
+                continue
+            if accessible_org_ids and "__ALL__" not in accessible_org_ids:
+                kb_org = r.metadata.get("kb_org_id")
+                if kb_org and kb_org not in accessible_org_ids:
+                    filtered += 1
+                    continue
+            allowed.append(r)
+
+        if filtered:
+            logger.info("rag_permission_secondary_check", filtered_count=filtered)
+        return allowed
 
 
 # 需要导入DocumentChunk、Document、KnowledgeBase
