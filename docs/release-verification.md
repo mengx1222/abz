@@ -84,9 +84,9 @@
 
 |--------|------|------|
 
-| Backend pytest（SQLite） | **265 passed, 5 skipped** | Task 17B 本地全量（基线 228 → 265） |
+| Backend pytest（SQLite） | **270 passed, 25 skipped**（+7 KB CRUD 用例无 PG 环境 skip） | CI `backend-tests` @ Task 21 |
 
-| Backend PG 集成（真实 PG16+pgvector） | **5 passed + 5 RAG 权限边界** | CI `backend-pg`（test_pg_integration.py + test_permission_pg.py） |
+| Backend PG 集成（真实 PG16+pgvector） | **25 passed**（pg_integration 5 + permission 5 + ingestion 8 + KB CRUD 7，Task 21） | CI `backend-pg`（test_pg_integration + test_permission_pg + test_ingestion_pg + test_kb_crud） |
 
 | Frontend Vitest | **27 passed（3 files）** | CI `frontend` @ 8050d0b |
 

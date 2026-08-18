@@ -1947,3 +1947,14 @@ SELECT * FROM pg_extension WHERE extname = 'vector';
   organization_id/allowed_roles/version/effective dates/status）
 - 事务：同一 AsyncSession 内 Document+Chunks 一次 commit；失败整体 rollback（不残留半成品）
 - 幂等：document_id 已存在 → 删旧 chunks 重建（re-index）
+
+
+---
+
+## Knowledge Base CRUD 生产化（Task 21）
+
+- 管理链路：`POST/GET/PUT/DELETE /api/v1/admin/knowledge-bases[/{kb_id}]`（生产模式走 Repository）
+- Repository：`backend/app/repositories/knowledge_repository.py`（create/get/list/update/delete + name_exists + 可见性过滤）
+- `knowledge_bases.allowed_roles` 列：`JSONB(none_as_null=True)` —— Python None 存 SQL NULL（全员语义，Task 17B）
+- `knowledge_bases.metadata` 列：新增（alembic 0009_kb_metadata），创建/更新时携带扩展元数据
+- 删除：物理删除（FK `ondelete=CASCADE` → documents → document_chunks）

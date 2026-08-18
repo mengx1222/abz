@@ -1134,3 +1134,37 @@ User → Auth(JWT) → RBAC → Org Scope(DataPermissionChecker) → KB Scope(ro
 - 未实现：知识库 CRUD（list/create/update）仍为 Demo 内存实现（N1）；上传需知识库
   已存在于 DB（seed/生产创建）；"管理员上传链路"与"已有 seed 知识可检索"是两件事，
   前者为本次闭环（接口 + 持久化 + 检索 + 测试），后者为 Task 12/13 既有能力。
+
+
+---
+
+## 8. Knowledge Base CRUD Production 化（Task 21）
+
+> 状态：**Implemented + Tested**（PG 集成 tests/knowledge/test_kb_crud.py 7 用例，CI backend-pg 纳入）
+
+### 8.1 CRUD 全链路 DB backed
+
+```
+管理员 → POST   /api/v1/admin/knowledge-bases          → DB insert（KnowledgeBaseRepository）
+      → GET    /api/v1/admin/knowledge-bases          → DB query（角色+组织可见性过滤）
+      → GET    /api/v1/admin/knowledge-bases/{kb_id}  → DB query（越权/不存在 → 404）
+      → PUT    /api/v1/admin/knowledge-bases/{kb_id}  → DB update（写权限：管理角色或创建者）
+      → DELETE /api/v1/admin/knowledge-bases/{kb_id}  → DB 物理删除（FK CASCADE 级联文档/chunk）
+```
+
+### 8.2 关键保证
+
+| 项 | 实现 |
+|----|------|
+| Repository 层 | `repositories/knowledge_repository.py`（SQLAlchemy async，API 层不直接操作 ORM） |
+| 可见性过滤 | `allowed_roles IS NULL OR ? role`（角色）+ `organization_id IS NULL OR IN accessible_org_ids`（组织），与 Task 17B 检索语义一致；SYSTEM_ADMIN `__ALL__` 跳过组织过滤 |
+| 权限继承 | 创建支持 `organization_id`/`allowed_roles`/`metadata`；显式指定组织需管理角色；写操作（update/delete）管理角色或创建者本人 |
+| 级联删除 | delete 物理删除，documents/document_chunks 由 FK CASCADE 清理（PG 集成验证） |
+| 同名处理 | 同组织范围内重名 → 409 DUPLICATE_NAME |
+| SQL NULL 语义 | `allowed_roles` 列 `JSONB(none_as_null=True)`：None → SQL NULL（`null` 表示全员，修复 asyncpg/IS NULL 语义） |
+| 兼容 | DEMO_MODE=true 保留内存行为；API path/response schema 未变（新增 request 可选字段） |
+
+### 8.3 边界
+
+- 已实现/已验证：KB CRUD 生产化 + 权限继承 + 级联删除 + 同名处理（PG 集成固化）。
+- 未处理：文档管理接口（list_documents/upload/publish/delete_document）的 CRUD 部分仍 Demo（upload 生产链路 Task 20 已闭环）；AI Sales Agent 等新功能不在范围。

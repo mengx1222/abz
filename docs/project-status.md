@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 20（Knowledge Base Production Ingestion）
+> 上一轮 Task: Task 21（Knowledge Base Management Productionization）
 
 
 
@@ -86,6 +86,7 @@
 
 | **TypeScript（Task 19）** | **`tsc -b` 0 errors** + **CI Hard Gate 恢复**（backend-tests frontend job 显式 typecheck 步骤 + `npm run build`；详见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)） |
 | **Knowledge Production Ingestion（Task 20）** | **Implemented + Tested**：index_document 生产分支持久化 Document/Chunk/Embedding（PG + pgvector，1536 维），权限/产品 metadata 继承 KB，事务 rollback、重复索引幂等、空文档拒绝；PG 集成 8 用例（test_ingestion_pg.py）；详见 [rag.md](rag.md) §7 |
+| **Knowledge Base CRUD Production（Task 21）** | **Implemented + Tested**：KB list/create/detail/update/delete 全链路 DB backed（repositories/knowledge_repository.py + API production 分支），组织/角色/metadata 权限继承（Task 17B 语义）、级联删除、同名 409；PG 集成 7 用例（test_kb_crud.py）；审计见 [knowledge-crud-audit.md](knowledge-crud-audit.md) |
 
 | Real AI Smoke（DashScope/Qwen） | **8/8 PASS**（真实，非 Mock） |
 

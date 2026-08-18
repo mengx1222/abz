@@ -425,6 +425,8 @@ RAG（检索增强生成）模块在检索知识库内容时，必须确保用�
 
 - **Production Ingestion 权限继承（Task 20）**：管理员上传的新文档在入库时从所属知识库继承 `allowed_roles` / `organization_id` 并写入 chunk/document metadata，检索端（SQL WHERE 层）与召回后二次校验共同保证新知识同样受角色/组织边界约束——错误角色/组织无法通过 RAG context、citation、SSE、日志正文获得越权知识。
 
+- **Knowledge Base CRUD 权限（Task 21）**：KB 管理接口（list/detail）按用户角色与可访问组织范围过滤（越权/不存在 404）；update/delete 仅管理角色（SYSTEM_ADMIN/HQ_ADMIN/BRANCH_ADMIN/TEAM_LEADER）或创建者本人（越权 403）；创建可绑定 `organization_id`/`allowed_roles`/`metadata`，显式指定组织需管理角色。KB 层面与检索层面（Task 17B/20）使用同一套角色+组织可见性语义。
+
 ### 7.3 模型输出安全
 
 AI 模型的输出在返回给用户之前，需要经过多层安全检查和合规处理：
