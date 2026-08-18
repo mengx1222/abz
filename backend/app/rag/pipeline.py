@@ -123,15 +123,22 @@ class RAGPipeline:
         document_id: str = "",
         kb_allowed_roles: list[str] | None = None,
         kb_org_id: str | None = None,
+        product_type: str | None = None,
     ) -> dict:
-        """文档入库流程：解析 → 分块 → 嵌入。
+        """文档入库流程：解析 → 分块 → 嵌入 → 持久化。
+
+        Demo 模式：解析 → 分块 → 内存检索器（伪向量，不落库）。
+        Production 模式：解析 → 分块 → AIGateway 真实 embedding → 写入
+        PostgreSQL + pgvector（Document / DocumentChunk，带权限与产品 metadata），
+        事务失败整体回滚，避免 document 已写入但 chunks/embeddings 不完整。
 
         Args:
-            kb_allowed_roles: 所属知识库的 allowed_roles（Demo 索引注入，检索权限过滤用）。
-            kb_org_id: 所属知识库的 organization_id（Demo 索引注入，组织范围过滤用）。
+            kb_allowed_roles: 所属知识库的 allowed_roles（检索权限过滤用，写入 chunk metadata）。
+            kb_org_id: 所属知识库的 organization_id（组织范围过滤用，写入 chunk metadata）。
+            product_type: 产品边界（如"医疗险"），写入 chunk/document metadata 供检索过滤。
 
         Returns:
-            {"chunks_count": int, "chunks": list[dict]}
+            {"document_id": str, "title": str, "chunks_count": int, "sections_count": int}
         """
         # Step 1: 解析
         parsed: ParsedDocument = DocumentParser.parse(
@@ -174,18 +181,161 @@ class RAGPipeline:
             for chunk, embedding in zip(chunks, embed_resp.embeddings):
                 chunk.metadata["embedding"] = embedding
 
-            # TODO: 存储到数据库
-            logger.info(
-                "document_indexed",
-                title=parsed.title,
-                chunks_count=len(chunks),
+            await self._persist_production(
+                parsed=parsed,
+                chunks=chunks,
+                knowledge_base_id=knowledge_base_id,
+                document_id=document_id,
+                product_type=product_type,
             )
 
         return {
+            "document_id": str(uuid.UUID(document_id)) if document_id else "",
             "title": parsed.title,
             "chunks_count": len(chunks),
             "sections_count": len(parsed.sections),
         }
+
+    async def _persist_production(
+        self,
+        parsed: ParsedDocument,
+        chunks: list[Chunk],
+        knowledge_base_id: str,
+        document_id: str = "",
+        product_type: str | None = None,
+    ) -> str:
+        """Production 持久化：Document + DocumentChunk(embedding) → PostgreSQL + pgvector。
+
+        - 空文档/解析为空 → ValueError（整体拒绝，不留半成品）
+        - 知识库不存在 → ValueError
+        - embedding 失败 / DB 失败 → rollback 后抛出（不残留 document 或部分 chunks）
+        - 幂等：document_id 已存在 → 删除旧 chunks 重建（re-index），KB 文档计数不重复累加
+        - chunk metadata 携带 document_id/document_title/section/product_type/
+          organization_id/allowed_roles/version/effective dates/status —— 与检索权限边界一致
+        """
+        from datetime import datetime, timezone
+
+        from sqlalchemy import delete as sa_delete, select as sa_select
+
+        from app.models.knowledge import (
+            Document as DocModel,
+            DocumentChunk as ChunkModel,
+            KnowledgeBase as KBModel,
+        )
+
+        if self.db is None:
+            raise RuntimeError("production index_document requires an AsyncSession (db)")
+
+        try:
+            # 0. 空文档拒绝（解析后无有效内容）
+            if not parsed.content or not parsed.content.strip():
+                raise ValueError("document content is empty after parsing")
+
+            # 1. 校验知识库存在（权限/组织 metadata 继承来源）
+            kb_uuid = uuid.UUID(knowledge_base_id) if knowledge_base_id else None
+            if kb_uuid is None:
+                raise ValueError("knowledge_base_id is required in production mode")
+            kb_row = (
+                await self.db.execute(sa_select(KBModel).where(KBModel.id == kb_uuid))
+            ).scalar_one_or_none()
+            if kb_row is None:
+                raise ValueError(f"knowledge_base not found: {knowledge_base_id}")
+
+            # 2. 幂等：document_id 已存在 → 删除旧 chunks（re-index）
+            doc_uuid = uuid.UUID(document_id) if document_id else uuid.uuid4()
+            existing_doc = (
+                await self.db.execute(sa_select(DocModel).where(DocModel.id == doc_uuid))
+            ).scalar_one_or_none()
+            if existing_doc is not None:
+                await self.db.execute(
+                    sa_delete(ChunkModel).where(ChunkModel.document_id == doc_uuid)
+                )
+                doc = existing_doc
+            else:
+                doc = DocModel(
+                    id=doc_uuid,
+                    knowledge_base_id=kb_uuid,
+                    title=parsed.title,
+                    file_name=parsed.file_name or f"{parsed.title}.{parsed.file_type}",
+                    file_type=parsed.file_type,
+                    file_size=len(parsed.content or ""),
+                    content_text=parsed.content,
+                    status="parsing",
+                    version_number=1,
+                )
+                self.db.add(doc)
+
+            # 3. embedding（AIGateway 真实嵌入；失败 → 下方 rollback + raise）
+            texts = [c.content for c in chunks]
+            if not texts:
+                raise ValueError("document produced no chunks")
+            embed_resp = await self.gateway.embed(texts=texts)
+            if len(embed_resp.embeddings) != len(chunks):
+                raise ValueError(
+                    f"embedding count mismatch: {len(embed_resp.embeddings)} != {len(chunks)}"
+                )
+
+            # 4. chunk 持久化（带权限/产品/版本/日期 metadata）
+            now = datetime.now(timezone.utc)
+            for idx, (chunk, embedding) in enumerate(zip(chunks, embed_resp.embeddings)):
+                chunk_meta: dict = {
+                    "document_id": str(doc_uuid),
+                    "document_title": parsed.title,
+                    "section": chunk.heading,
+                    "heading": chunk.heading,
+                    "split_method": (chunk.metadata or {}).get("split_method"),
+                    "product_type": product_type,
+                    "organization_id": str(kb_row.organization_id) if kb_row.organization_id else None,
+                    "allowed_roles": kb_row.allowed_roles,
+                    "version": doc.version_number or 1,
+                    "effective_date": doc.effective_date.isoformat() if doc.effective_date else None,
+                    "expiry_date": doc.expiry_date.isoformat() if doc.expiry_date else None,
+                    "status": "published",
+                }
+                self.db.add(
+                    ChunkModel(
+                        document_id=doc_uuid,
+                        chunk_index=idx,
+                        content=chunk.content,
+                        token_count=len(chunk.content),
+                        embedding=list(embedding),
+                        search_text=chunk.content,
+                        metadata_=chunk_meta,
+                    )
+                )
+
+            # 5. 文档发布 + 计数
+            doc.status = "published"
+            doc.chunk_count = len(chunks)
+            doc.content_text = parsed.content
+            doc.published_at = now
+            doc.metadata_ = {
+                "product_type": product_type,
+                "organization_id": str(kb_row.organization_id) if kb_row.organization_id else None,
+                "allowed_roles": kb_row.allowed_roles,
+                "version": doc.version_number or 1,
+                "status": "published",
+            }
+            if existing_doc is None:
+                kb_row.document_count = (kb_row.document_count or 0) + 1
+            kb_row.total_chunks = (kb_row.total_chunks or 0) - (
+                existing_doc.chunk_count if existing_doc else 0
+            ) + len(chunks)
+
+            await self.db.commit()
+            logger.info(
+                "document_indexed",
+                document_id=str(doc_uuid),
+                title=parsed.title,
+                chunks_count=len(chunks),
+                knowledge_base_id=str(kb_uuid),
+            )
+            return str(doc_uuid)
+        except Exception as e:
+            # 事务回滚：不残留 document 或部分 chunks/embeddings
+            await self.db.rollback()
+            logger.error("document_index_error", error=str(e), title=parsed.title)
+            raise
 
     async def query(
         self,

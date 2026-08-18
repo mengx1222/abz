@@ -10,6 +10,7 @@ import uuid
 from typing import Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Query, Request, UploadFile
+from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from structlog import get_logger
 
@@ -330,13 +331,74 @@ async def upload_document(
     file: UploadFile = File(..., description="上传文件"),
     title: str = Form("", description="文档标题"),
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse:
-    """上传文档并自动解析、分块。
+    """上传文档并自动解析、分块、入库。
 
     支持 TXT、Markdown、JSON 格式文件。
+    Demo 模式：写入内存检索器（演示）。
+    Production 模式：解析 → 分块 → AIGateway 嵌入 → 持久化到 PostgreSQL + pgvector
+    （Document / DocumentChunk，带权限与产品 metadata），事务失败整体回滚。
     """
     request_id = getattr(request.state, "request_id", None)
 
+    if not settings.DEMO_MODE:
+        # ---- 生产模式：真实入库 ----
+        from sqlalchemy import select as sa_select
+        from app.models.knowledge import KnowledgeBase as KBModel
+
+        try:
+            kb_uuid = uuid.UUID(kb_id)
+        except (ValueError, TypeError):
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "知识库不存在"})
+        kb_row = (
+            await db.execute(sa_select(KBModel).where(KBModel.id == kb_uuid))
+        ).scalar_one_or_none()
+        if kb_row is None:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "知识库不存在"})
+
+        content_bytes = await file.read()
+        try:
+            content = content_bytes.decode("utf-8")
+        except UnicodeDecodeError:
+            content = content_bytes.decode("gbk", errors="replace")
+        file_name = file.filename or "unknown.txt"
+        file_type = file_name.rsplit(".", 1)[-1] if "." in file_name else "txt"
+        doc_title = title or file_name.rsplit(".", 1)[0]
+
+        pipeline = RAGPipeline(db=db)
+        try:
+            result = await pipeline.index_document(
+                content=content,
+                file_type=file_type,
+                title=doc_title,
+                file_name=file_name,
+                knowledge_base_id=kb_id,
+                kb_allowed_roles=kb_row.allowed_roles,
+                kb_org_id=str(kb_row.organization_id) if kb_row.organization_id else None,
+            )
+        except ValueError as e:
+            raise HTTPException(
+                status_code=400,
+                detail={"code": "INGESTION_ERROR", "message": f"文档入库失败: {e}"},
+            )
+
+        logger.info(
+            "document_uploaded",
+            kb_id=kb_id,
+            doc_id=result["document_id"],
+            title=doc_title,
+            chunks=result["chunks_count"],
+        )
+        return SuccessResponse(data={
+            "document_id": result["document_id"],
+            "title": result["title"],
+            "status": "published",
+            "chunks_count": result["chunks_count"],
+            "message": f"文档上传成功，已入库 {result['chunks_count']} 个知识块",
+        }, request_id=request_id)
+
+    # ---- Demo 模式（内存演示） ----
     await _ensure_demo_data()
 
     # 检查知识库是否存在
