@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { cn } from '../../utils/cn';
 import { useToast } from '../../hooks/useToast';
 import { adminScriptApi, type AdminScript } from '../../services/adminService';
 
@@ -226,7 +225,7 @@ export function ScriptManagePage() {
                               拒绝
                             </Button>
                           )}
-                          {script.status === 'approved' && script.status !== 'pending' && script.status !== 'rejected' && (
+                          {script.status === 'approved' && (
                             <span className="text-xs text-muted">--</span>
                           )}
                         </div>

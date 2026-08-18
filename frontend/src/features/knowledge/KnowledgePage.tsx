@@ -47,7 +47,6 @@ const STATUS_VARIANTS: Record<string, 'default' | 'success' | 'warning' | 'dange
 };
 
 export function KnowledgePage() {
-  const { user } = useAuthStore();
   const { toast: showToast } = useToast();
   const [knowledgeBases, setKnowledgeBases] = useState<KnowledgeBase[]>([]);
   const [selectedKB, setSelectedKB] = useState<KnowledgeBase | null>(null);

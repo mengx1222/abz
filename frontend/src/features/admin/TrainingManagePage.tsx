@@ -5,7 +5,6 @@ import { Card, CardTitle, CardDescription } from '../../components/ui/Card';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../hooks/useToast';
 import { adminScenarioApi, type AdminScenario } from '../../services/adminService';
-import { cn } from '../../utils/cn';
 
 // ----------- Constants -----------
 

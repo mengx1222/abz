@@ -49,7 +49,7 @@ const PRIORITY_LABEL_MAP: Record<string, string> = {
 // ----------- Page -----------
 
 export function CompliancePage() {
-  const { toast } = useToast();
+  useToast();
   const [activeTab, setActiveTab] = useState<TabKey>('rules');
 
   return (
@@ -92,7 +92,7 @@ export function CompliancePage() {
 // ----------- Rules Tab -----------
 
 function RulesTab() {
-  const { toast } = useToast();
+  useToast();
   const [rules, setRules] = useState<ComplianceRule[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -208,7 +208,7 @@ function RulesTab() {
 // ----------- Reviews Tab -----------
 
 function ReviewsTab() {
-  const { toast } = useToast();
+  useToast();
   const [reviews, setReviews] = useState<ComplianceReview[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);

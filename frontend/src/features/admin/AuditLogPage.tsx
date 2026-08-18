@@ -1,9 +1,8 @@
 import { useState, useEffect, useCallback } from 'react';
-import { Card, CardTitle, CardDescription } from '../../components/ui/Card';
+import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
-import { cn } from '../../utils/cn';
 import { auditLogApi, type AuditLog } from '../../services/adminService';
 
 const actionOptions = [

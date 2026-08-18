@@ -11,7 +11,6 @@ import {
   getScript,
   toggleFavorite,
   deleteScript,
-  checkCompliance,
   type CustomerContext,
   type Script,
   type ComplianceResult,

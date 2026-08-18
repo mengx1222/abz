@@ -10,7 +10,6 @@ import {
   type PostListItem,
   type PostDetail,
   type CommentItem,
-  type PaginatedData,
 } from '../../services/communityService';
 
 // ---- Time formatting ----
@@ -75,7 +74,7 @@ function PostCard({
         </div>
       </CardHeader>
       <CardDescription className="line-clamp-2 ml-12 text-sm">
-        {post.summary || post.content?.slice(0, 100) || ''}
+        {post.summary || ''}
       </CardDescription>
       <div className="flex items-center justify-between mt-3 pt-3 border-t border-border ml-12">
         <div className="flex gap-1.5 flex-wrap">
@@ -132,8 +131,6 @@ function PostDetailModal({
   const [isGeneratingSummary, setIsGeneratingSummary] = useState(false);
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
-  const user = useAuthStore((s) => s.user);
-
   useEffect(() => {
     loadDetail();
   }, [postId]);

@@ -2,7 +2,6 @@ import { useCallback, useEffect, useState } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../hooks/useToast';
 import { adminCommunityApi, type AdminPost } from '../../services/adminService';
