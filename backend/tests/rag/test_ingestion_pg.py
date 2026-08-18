@@ -219,7 +219,8 @@ class TestProductionIngestion:
         )).scalars().all()
         assert len(chunks) >= 1
         # pgvector 以 float4 存储 → 与 gateway 输出近似相等（abs=1e-3）
-        for c in chunks:/n            assert len(c.embedding) == DIM
+        for c in chunks:
+            assert len(c.embedding) == DIM
             assert c.embedding == pytest.approx(list(VEC_PATTERN), abs=1e-3)
 
     async def test_new_document_retrievable_after_index(self, session):
