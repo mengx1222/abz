@@ -22,10 +22,10 @@ async function loginAsSystemAdmin(): Promise<{
   token: string;
   user: Record<string, unknown>;
 }> {
-  const api = await pwRequest.newContext({ baseURL: API_BASE });
-  // 注意：Playwright baseURL 按 URL 语义拼接，路径前导 / 会丢弃 baseURL 的 path
-  // （/api/v1）→ 必须用相对路径 auth/login
-  const res = await api.post('auth/login', {
+  // 不依赖 request context 的 baseURL（其相对路径解析会把 auth/login 拼成
+  // /api/auth/login）——直接字符串拼接完整 URL（与 global-setup 同款写法）
+  const api = await pwRequest.newContext();
+  const res = await api.post(`${API_BASE}/auth/login`, {
     data: { phone: '13800138003', password: '888888' },
   });
   if (res.status() !== 200) {
@@ -33,7 +33,7 @@ async function loginAsSystemAdmin(): Promise<{
   }
   const body = await res.json();
   const token = body.data.access_token;
-  const me = await api.get('auth/me', {
+  const me = await api.get(`${API_BASE}/auth/me`, {
     headers: { Authorization: `Bearer ${token}` },
   });
   const user = (await me.json()).data as Record<string, unknown>;
