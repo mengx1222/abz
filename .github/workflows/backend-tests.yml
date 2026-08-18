@@ -42,13 +42,13 @@ jobs:
       - name: Run vitest
         run: npm test
       - name: TypeScript typecheck (tsc -b)
-        # Task 19: TypeScript Hard Gate 恢复 —— 0 errors 才通过，exit code != 0 → job failed
+        # Task 19: TypeScript Hard Gate —— 0 errors 才通过（Task 19 已将 32 errors 清零）
         run: npx tsc -b
       - name: Build (Vite)
         # Task 19: tsc 门禁恢复后走完整 build（tsc -b && vite build）
         run: npm run build
 
-    backend-pg:
+  backend-pg:
     name: Backend tests (PostgreSQL + pgvector)
     runs-on: ubuntu-latest
     defaults:
@@ -61,7 +61,7 @@ jobs:
           python-version: "3.12"
           cache: "pip"
       # 2026-08-18 GitHub Actions services 机制对 pgvector 镜像报 invalid reference format
-      # （workflow 行尾污染为 \r\r\n 所致）→ 规范化 LF + 显式 docker run（验证语义不变）
+      # （workflow 行尾曾污染为 CRLF）→ 规范化 LF + 显式 docker run（验证语义不变）
       - name: Start PostgreSQL (pgvector) container
         run: |
           docker run -d --name pgvector-test -p 5432:5432 \
@@ -77,7 +77,6 @@ jobs:
             sleep 2
           done
           docker exec pgvector-test pg_isready -U postgres
-      - name: Install backend dependencies
       - name: Install backend dependencies
         run: pip install -e ".[dev]"
       - name: Run alembic migrations on PostgreSQL
