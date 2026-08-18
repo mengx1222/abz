@@ -86,7 +86,7 @@ export async function listKnowledgeBases(params?: {
   if (params?.status) query.set('status', params.status);
 
   const res = await api.get(`/admin/knowledge-bases?${query.toString()}`);
-  return res.data;
+  return res.data.data;
 }
 
 export async function createKnowledgeBase(data: {
@@ -96,12 +96,12 @@ export async function createKnowledgeBase(data: {
   is_public?: boolean;
 }): Promise<KnowledgeBase> {
   const res = await api.post('/admin/knowledge-bases', data);
-  return res.data;
+  return res.data.data;
 }
 
 export async function getKnowledgeBase(kbId: string): Promise<KnowledgeBase> {
   const res = await api.get(`/admin/knowledge-bases/${kbId}`);
-  return res.data;
+  return res.data.data;
 }
 
 export async function updateKnowledgeBase(
@@ -109,7 +109,7 @@ export async function updateKnowledgeBase(
   data: Partial<Pick<KnowledgeBase, 'name' | 'description' | 'category' | 'is_public' | 'status'>>
 ): Promise<KnowledgeBase> {
   const res = await api.put(`/admin/knowledge-bases/${kbId}`, data);
-  return res.data;
+  return res.data.data;
 }
 
 export async function deleteKnowledgeBase(kbId: string): Promise<void> {
@@ -126,7 +126,7 @@ export async function listDocuments(
   if (params?.status) query.set('status', params.status);
 
   const res = await api.get(`/admin/knowledge-bases/${kbId}/documents?${query.toString()}`);
-  return res.data;
+  return res.data.data;
 }
 
 export async function getKnowledgeDocument(
@@ -134,7 +134,7 @@ export async function getKnowledgeDocument(
   docId: string
 ): Promise<KnowledgeDocument> {
   const res = await api.get(`/admin/knowledge-bases/${kbId}/documents/${docId}`);
-  return res.data;
+  return res.data.data;
 }
 
 export async function uploadDocument(
@@ -149,7 +149,7 @@ export async function uploadDocument(
   const res = await api.post(`/admin/knowledge-bases/${kbId}/documents/upload`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return res.data;
+  return res.data.data;
 }
 
 export async function publishDocument(
@@ -157,7 +157,7 @@ export async function publishDocument(
   docId: string
 ): Promise<KnowledgeDocument> {
   const res = await api.post(`/admin/knowledge-bases/${kbId}/documents/${docId}/publish`);
-  return res.data;
+  return res.data.data;
 }
 
 export async function unpublishDocument(
@@ -165,7 +165,7 @@ export async function unpublishDocument(
   docId: string
 ): Promise<KnowledgeDocument> {
   const res = await api.post(`/admin/knowledge-bases/${kbId}/documents/${docId}/unpublish`);
-  return res.data;
+  return res.data.data;
 }
 
 export async function deleteDocument(
