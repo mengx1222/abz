@@ -67,6 +67,7 @@
 | AI Sales Agent | 未实现（文档标注 Planned） | 不阻塞本期发布 |
 | ~~知识库 CRUD（list/create/update/delete）~~ | **已生产化（Task 21）**：DB backed + 权限继承（org/role/metadata）+ 级联删除 + 同名 409，PG 集成 7 用例（test_kb_crud.py） | — |
 | ~~文档管理（list/detail/publish/unpublish/delete）~~ | **已生产化（Task 22）**：DB backed + 继承 KB 权限 + FK CASCADE 无孤儿，PG 集成 7 用例（test_document_management.py） | — |
+| ~~Admin 前端 KB/Document 管理~~ | **已生产化（Task 23）**：对接真实 Production API（detail/unpublish/update/404-403 语义/loading 防重复），vitest 13 用例 + E2E K-1~K-3 | — |
 
 
 

@@ -88,7 +88,7 @@
 
 | Backend PG 集成（真实 PG16+pgvector） | **32 passed**（pg 5 + permission 5 + ingestion 8 + KB CRUD 7 + Document 7，Task 22） | CI `backend-pg`（test_pg_integration + test_permission_pg + test_ingestion_pg + test_kb_crud + test_document_management） |
 
-| Frontend Vitest | **27 passed（3 files）** | CI `frontend` @ 8050d0b |
+| Frontend Vitest | **40 passed（4 files：utils 3 + KnowledgePage 组件 13）** | CI `frontend` @ Task 23 |
 
 | Frontend build | `vite build` ✓ | CI `frontend` @ 8050d0b |
 

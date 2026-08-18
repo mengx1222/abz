@@ -139,3 +139,14 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 - CI frontend job 含显式 **TypeScript typecheck** 步骤（`npx tsc -b`，exit code != 0 → job failed）+ Build 使用 `npm run build`（`tsc -b && vite build`）
 - 独立 `frontend-typecheck.yml` 快速验证 workflow（frontend/** 变更触发）
 - 基线 32 errors → 0 errors 的完整分类与修复见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)
+
+
+---
+
+## 7. Admin 前端 Production 测试（Task 23）
+
+- **组件测试**：`frontend/src/tests/features/knowledge.test.tsx`（vitest + testing-library，mock knowledgeService，13 用例）——
+  KB list/empty/error/403、Document list/empty/detail/404、publish/unpublish、delete（confirm/403）、KB delete
+- **E2E**：`frontend/e2e/knowledge/knowledge.spec.ts`（K-1 KB 列表 / K-2 文档列表 / K-3 文档详情，production 后端 + e2e_seed_knowledge 数据）
+- **根因修复**：service 原返回 SuccessResponse 包装对象 → 页面 `knowledgeBases.map` 崩溃白屏
+  （既有 bug，E2E K-1 暴露）→ 全部 `res.data.data` 解包

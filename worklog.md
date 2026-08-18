@@ -2305,3 +2305,45 @@ Stage Summary:
 - KnowledgeBase → Document 完整生产管理闭环：KB CRUD（Task 21）+ Document list/detail/publish/unpublish/
   delete（Task 22）全 DB backed，权限继承（org/role）、级联删除无孤儿、计数一致，PG 集成固化；
   RAG 算法与权限模型未改动
+---
+
+Task ID: 43
+
+Agent: main
+
+Task: Task 23 — Knowledge Base + Document Admin Frontend Productionization（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@fb297f0（Task 22 后 CI 全绿）；备份分支 backup/task-23-20260819-0004
+- 审计（docs/admin-frontend-production-audit.md）：前端 service 已对接大部分 API，但缺
+  getKnowledgeDocument（detail）与 unpublishDocument；错误语义统一「XX失败」不展示后端
+  detail.message；publish/delete 无 loading/防重复；「演示模式」Badge 硬编码；无页面测试/无 E2E
+- 实现：
+  · service：补 detail/unpublish + parse_error 类型 + getErrorMessage（后端 detail.message 提取）
+  · KnowledgePage：文档详情视图、取消发布、知识库编辑（update）、404/403 语义 toast、
+    mutation loading/防重复、demo badge 按 VITE_APP_ENV 显示、文档行整行可点
+  · vitest：tests/features/knowledge.test.tsx（13 用例：KB list/empty/error/403、Document
+    list/empty/detail/404、publish/unpublish/delete/403、KB delete）
+  · E2E：e2e/knowledge/knowledge.spec.ts（K-1 KB 列表 / K-2 文档列表 / K-3 文档详情）
+- 排障（日志驱动）：
+  ① TS2322：mockImplementation fallback 可选参数（string|undefined）→ ?? '操作失败'
+  ② **service 未解包 SuccessResponse**（res.data 是 {success,data,request_id} 包装对象）
+    → 页面 knowledgeBases.map 崩溃白屏（API 200 但列表不渲染）→ 全部 res.data.data
+    —— 既有 bug（Task 21 前已存在），E2E K-1 首次暴露
+  ③ E2E strict mode violation：文档标题与文件名都含文档名 → getByText exact: true
+- 验证：**6d3a086 全绿**——E2E 22 passed（原 19 + K-1~K-3）、vitest 40 passed（4 files）、
+  tsc -b 0 errors、vite build、backend 270/32 skipped、backend-pg 32 passed、Prod Validation ✅
+- 文档：admin-frontend-production-audit.md（新建）、project-status（Task 23）、release-verification
+  （vitest 40/E2E 22）、release-readiness（Admin 前端边界清零）、testing（§7）、worklog
+- 提交链：6c5d110（feat service+page）→ 6ab3412（test vitest）→ d190d93（e2e spec）→
+  ef65502（TS fix+diag）→ 8c26416（**SuccessResponse 解包根因修复**）→ 3b85f90/6d3a086
+  （diag/strict fix）→ 待 docs
+- 未接入项（记录）：Document detail 响应不含 content_text（后端 contract）；KB/Document
+  分页 UI 未用；KB allowed_roles/organization_id 创建参数前端表单未暴露（缺省当前用户组织）
+- 边界：未改后端（Task 21/22 能力直接复用）；未动 RAG/权限模型；Demo 模式保持兼容
+
+Stage Summary:
+
+- Admin KB/Document 管理在 Production 模式真实 DB/API backed（修复 SuccessResponse 解包
+  既有 bug 后页面正常渲染）；404/403 语义、loading/防重复、测试矩阵、E2E 全链路云端验证
