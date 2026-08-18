@@ -46,7 +46,7 @@ class KnowledgeBase(Base):
         Boolean, nullable=False, default=True, server_default="true", comment="是否公开（全员可见）"
     )
     allowed_roles: Mapped[list | None] = mapped_column(
-        JSONB, nullable=True, comment="允许访问的角色列表，null表示全员"
+        JSONB(none_as_null=True), nullable=True, comment="允许访问的角色列表，null表示全员"
     )
     organization_id: Mapped[uuid.UUID | None] = mapped_column(
         UUID(as_uuid=True),
