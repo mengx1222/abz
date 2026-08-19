@@ -1,7 +1,7 @@
 import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
-import { MemoryRouter } from 'react-router-dom';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
 import { SalesAgentPage } from '../../features/sales-agent/SalesAgentPage';
 import {
   AgentHttpError,
@@ -64,7 +64,9 @@ const COMPLETE_OK = agentEvent('agent_complete', {
 function renderPage() {
   return render(
     <MemoryRouter initialEntries={['/sales-agent/11111111-1111-1111-1111-111111111111']}>
-      <SalesAgentPage />
+      <Routes>
+        <Route path="/sales-agent/:customerId?" element={<SalesAgentPage />} />
+      </Routes>
     </MemoryRouter>
   );
 }
