@@ -257,8 +257,10 @@ export function SalesAgentPage() {
       }
       case 'message_delta': {
         if (typeof data.content === 'string' && data.content) {
-          const cur = messagesRef.current.get(id);
-          patchAssistant(id, { content: (cur?.content || '') + data.content });
+          // updater 内追加，避免 messagesRef 滞后导致流式内容互相覆盖
+          setMessages((prev) =>
+            prev.map((m) => (m.id === id ? { ...m, content: m.content + data.content } : m))
+          );
         }
         break;
       }
@@ -269,19 +271,28 @@ export function SalesAgentPage() {
       case 'agent_complete': {
         const complete = data as unknown as AgentCompleteData;
         const msg = typeof complete.message === 'string' ? complete.message : '';
-        const citations = Array.isArray(complete.citations) ? complete.citations : [];
-        // agent_complete 未携带 compliance 时保留 tool 阶段已收到的结果（不覆盖）
-        const cur = messagesRef.current.get(id);
-        const compliance =
-          (complete.compliance as ComplianceResult | null) ?? cur?.compliance ?? null;
-        const ragStatus = typeof complete.rag_status === 'string' ? complete.rag_status : null;
-        patchAssistant(id, {
-          status: complete.status === 'refused' ? 'refused' : 'completed',
-          content: msg,
-          citations,
-          compliance,
-          ragStatus,
-        });
+        // updater 内合并：agent_complete 未携带的字段保留 tool 阶段已收到的结果
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === id
+              ? {
+                  ...m,
+                  status: complete.status === 'refused' ? 'refused' : 'completed',
+                  content: msg || m.content,
+                  citations:
+                    Array.isArray(complete.citations) && complete.citations.length
+                      ? complete.citations
+                      : m.citations,
+                  compliance:
+                    (complete.compliance as ComplianceResult | null) ?? m.compliance ?? null,
+                  ragStatus:
+                    typeof complete.rag_status === 'string'
+                      ? complete.rag_status
+                      : m.ragStatus,
+                }
+              : m
+          )
+        );
         break;
       }
       case 'error': {
@@ -334,14 +345,18 @@ export function SalesAgentPage() {
       })) {
         handleEvent(assistantId, event);
       }
-      // 流正常结束（未收到 agent_complete/error 的兜底）
-      const cur = messagesRef.current.get(assistantId);
-      if (cur && cur.status === 'streaming') {
-        patchAssistant(assistantId, {
-          status: cur.content ? 'completed' : 'error',
-          errorMessage: cur.content ? undefined : 'Agent 未返回结果，请重试。',
-        });
-      }
+      // 流正常结束兜底（updater 内判断，避免 messagesRef 滞后误覆盖已完成状态）
+      setMessages((prev) =>
+        prev.map((m) =>
+          m.id === assistantId && m.status === 'streaming'
+            ? {
+                ...m,
+                status: m.content ? 'completed' : 'error',
+                errorMessage: m.content ? undefined : 'Agent 未返回结果，请重试。',
+              }
+            : m
+        )
+      );
     } catch (err) {
       if (err instanceof AgentHttpError) {
         if (err.status === 401) {
