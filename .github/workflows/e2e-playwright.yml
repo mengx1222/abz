@@ -115,8 +115,9 @@ jobs:
       - name: Install frontend deps + Playwright browsers
         run: |
           cd frontend
-          npm install
-          npx playwright install --with-deps chromium
+          # npm install 偶发网络卡死（Task 25 / Task 29 已见 >30min 卡住）→ 10min 超时 + 自动重试一次
+          timeout 600 npm install || { echo "npm install timed out, retrying once"; timeout 600 npm install; }
+          timeout 600 npx playwright install --with-deps chromium
 
       - name: Run Playwright E2E
         run: |
