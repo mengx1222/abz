@@ -23,6 +23,7 @@ const mainNav: NavGroup = {
     { label: '工作台', path: '/dashboard', icon: '🏠', roles: 'all' },
     { label: 'AI产品专家', path: '/product-qa', icon: '🤖', roles: 'all' },
     { label: '客户360', path: '/customers', icon: '👥', roles: 'all' },
+    { label: 'AI销售副驾', path: '/sales-agent', icon: '🚀', roles: 'all' },
     { label: 'AI话术', path: '/scripts', icon: '💬', roles: 'all' },
     { label: 'AI陪练', path: '/training', icon: '🎯', roles: 'all' },
     { label: 'AI社区', path: '/community', icon: '🌐', roles: 'all' },

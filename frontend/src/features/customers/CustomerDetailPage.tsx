@@ -500,6 +500,13 @@ export function CustomerDetailPage() {
 
           <div className="flex gap-2 flex-wrap">
             <Button
+              variant="primary"
+              size="sm"
+              onClick={() => navigate(`/sales-agent/${customer.id}`)}
+            >
+              AI 销售副驾
+            </Button>
+            <Button
               variant="secondary"
               size="sm"
               onClick={() => setShowInteractionForm(true)}

@@ -42,6 +42,10 @@ const CustomerDetailPage = lazyNamed(
   () => import('../features/customers/CustomerDetailPage'),
   'CustomerDetailPage'
 );
+const SalesAgentPage = lazyNamed(
+  () => import('../features/sales-agent/SalesAgentPage'),
+  'SalesAgentPage'
+);
 const ScriptsPage = lazyNamed(
   () => import('../features/scripts/ScriptsPage'),
   'ScriptsPage'
@@ -128,6 +132,7 @@ export const router = createBrowserRouter([
       { path: 'product-qa', element: <ProductQaPage /> },
       { path: 'customers', element: <CustomersPage /> },
       { path: 'customers/:id', element: <CustomerDetailPage /> },
+      { path: 'sales-agent/:customerId?', element: <SalesAgentPage /> },
       { path: 'scripts', element: <ScriptsPage /> },
       { path: 'training', element: <TrainingPage /> },
       { path: 'training/chat/:scenarioId', element: <TrainingChatPage /> },
