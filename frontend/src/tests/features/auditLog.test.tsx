@@ -81,7 +81,7 @@ describe('AuditLogPage（审计日志）', () => {
     await waitFor(() => {
       expect(screen.getByText('林思远')).toBeInTheDocument();
     });
-    expect(screen.getByText('创建客户')).toBeInTheDocument();
+    expect(screen.getAllByText('创建客户').length).toBeGreaterThan(0);
     expect(screen.getByText('customers')).toBeInTheDocument();
   });
 });

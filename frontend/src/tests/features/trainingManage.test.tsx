@@ -99,7 +99,11 @@ describe('TrainingManagePage（陪练场景管理）', () => {
   });
 
   it('publish mutation：点击发布调用 publish 并 toast 成功', async () => {
-    mockedList.mockResolvedValue(axiosRes(pageData()));
+    // 发布按钮仅在 draft 场景显示
+    mockedList.mockResolvedValue(axiosRes({
+      ...pageData(),
+      data: [{ ...mockScenario, status: 'draft' }],
+    }));
     mockedPublish.mockResolvedValue(axiosRes({ success: true, data: { id: 'scn-1' } }));
     render(<TrainingManagePage />);
     await waitFor(() => screen.getByText('"太贵了" — 重疾险价格犹豫'));
