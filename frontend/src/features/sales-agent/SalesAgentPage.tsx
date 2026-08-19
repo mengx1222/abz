@@ -243,7 +243,10 @@ export function SalesAgentPage() {
       case 'tool_planned': {
         const action = typeof data.action === 'string' ? data.action : '';
         if (action) {
-          patchAssistant(id, { toolLog: [...(messagesRef.current.get(id)?.toolLog || []), action] });
+          // updater 内追加，避免 messagesRef 滞后导致工具状态互相覆盖
+          setMessages((prev) =>
+            prev.map((m) => (m.id === id ? { ...m, toolLog: [...m.toolLog, action] } : m))
+          );
         }
         break;
       }
@@ -307,11 +310,6 @@ export function SalesAgentPage() {
     }
   }
 
-  // messagesRef 供事件回调内读取最新状态
-  const messagesRef = useRef<Map<string, AgentMessage>>(new Map());
-  useEffect(() => {
-    messagesRef.current = new Map(messages.map((m) => [m.id, m]));
-  }, [messages]);
 
   async function handleSend(text?: string) {
     const q = (text ?? input).trim();
@@ -370,12 +368,18 @@ export function SalesAgentPage() {
             errorMessage: err.detailMessage || '客户不存在或无权访问。',
           });
         } else if (err.status === 0) {
-          // 用户主动中止
-          const cur = messagesRef.current.get(assistantId);
-          patchAssistant(assistantId, {
-            status: cur?.content ? 'completed' : 'error',
-            errorMessage: cur?.content ? undefined : '已中止。',
-          });
+          // 用户主动中止（updater 内判断已有内容，避免 messagesRef 滞后）
+          setMessages((prev) =>
+            prev.map((m) =>
+              m.id === assistantId && m.status === 'streaming'
+                ? {
+                    ...m,
+                    status: m.content ? 'completed' : 'error',
+                    errorMessage: m.content ? undefined : '已中止。',
+                  }
+                : m
+            )
+          );
         } else {
           patchAssistant(assistantId, {
             status: 'error',
