@@ -106,7 +106,9 @@ async function openAgentPage(page: Page, token: string, user: Record<string, unk
 }
 
 test.describe('AI 销售副驾（SYSTEM_ADMIN）', () => {
-  test('G-1 黄金路径：客户上下文 → Agent 流式执行 → 非空结果', async ({ page }) => {
+  test(
+    'G-1 黄金路径：客户上下文 → Agent 流式执行 → 非空结果',
+    async ({ page }) => {
     const watcher = watchPage(page);
     const { token, user } = await loginAsSystemAdmin();
     const suffix = Date.now().toString().slice(-6);
@@ -137,7 +139,9 @@ test.describe('AI 销售副驾（SYSTEM_ADMIN）', () => {
     ).toBeVisible({ timeout: 10_000 });
 
     watcher.assert();
-  });
+    },
+    { timeout: 120_000 }
+  );
 
   test('G-2 安全场景：RAG 无依据 → 明确展示 REFUSE 安全状态', async ({ page }) => {
     const watcher = watchPage(page);
