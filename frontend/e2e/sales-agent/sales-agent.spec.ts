@@ -127,7 +127,8 @@ test.describe('AI 销售副驾（SYSTEM_ADMIN）', () => {
     await page.getByRole('button', { name: '发送' }).click();
 
     // Agent 流式执行：安全状态说明（tool_planned 确定性事件）
-    await expect(page.getByText('正在查询客户信息')).toBeVisible({ timeout: 20_000 });
+    // tool_planned 状态出现在气泡+左侧执行状态卡（两处）→ .first()
+    await expect(page.getByText('正在查询客户信息').first()).toBeVisible({ timeout: 20_000 });
 
     // 最终结果非空：等待发送按钮恢复（isStreaming 结束）且用户消息可见
     await expect(page.getByRole('button', { name: '发送' })).toBeVisible({ timeout: 60_000 });
