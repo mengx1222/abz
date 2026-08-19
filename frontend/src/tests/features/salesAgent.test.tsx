@@ -126,9 +126,12 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
       });
       expect(screen.getAllByText('张三').length).toBeGreaterThan(0);
 
-      fireEvent.change(screen.getByPlaceholderText('输入销售场景或客户诉求...'), {
-        target: { value: '客户想了解医疗险' },
-      });
+      const input = screen.getByPlaceholderText(
+        '输入销售场景或客户诉求...'
+      ) as HTMLInputElement;
+      fireEvent.input(input, { target: { value: '客户想了解医疗险' } });
+      await act(async () => {});
+      expect(input.value).toBe('客户想了解医疗险');
       fireEvent.click(screen.getByRole('button', { name: '发送' }));
 
       await waitFor(
@@ -137,7 +140,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
         },
         { timeout: 3000 }
       );
-      expect(screen.getByText('正在查询客户信息')).toBeInTheDocument();
+      expect(screen.getAllByText('正在查询客户信息').length).toBeGreaterThan(0);
       expect(screen.getByText('百万医疗险产品手册')).toBeInTheDocument();
       expect(screen.getByText('保障范围')).toBeInTheDocument();
       expect(screen.getByText('合规通过')).toBeInTheDocument();

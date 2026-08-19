@@ -270,7 +270,10 @@ export function SalesAgentPage() {
         const complete = data as unknown as AgentCompleteData;
         const msg = typeof complete.message === 'string' ? complete.message : '';
         const citations = Array.isArray(complete.citations) ? complete.citations : [];
-        const compliance = (complete.compliance as ComplianceResult | null) || null;
+        // agent_complete 未携带 compliance 时保留 tool 阶段已收到的结果（不覆盖）
+        const cur = messagesRef.current.get(id);
+        const compliance =
+          (complete.compliance as ComplianceResult | null) ?? cur?.compliance ?? null;
         const ragStatus = typeof complete.rag_status === 'string' ? complete.rag_status : null;
         patchAssistant(id, {
           status: complete.status === 'refused' ? 'refused' : 'completed',
