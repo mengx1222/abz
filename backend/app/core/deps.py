@@ -140,7 +140,10 @@ async def get_current_user(
             select(User)
             .where(User.id == user_id, User.is_deleted == False)
             .options(
-                selectinload(User.organization).selectinload(Organization.children),
+                # org → children（Branch）→ children（Team，孙级）
+                selectinload(User.organization)
+                .selectinload(Organization.children)
+                .selectinload(Organization.children),
                 selectinload(User.team),
             )
         )

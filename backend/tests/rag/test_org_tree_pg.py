@@ -122,7 +122,10 @@ async def _load_user(session: AsyncSession, user_id: uuid.UUID) -> User:
             select(User)
             .where(User.id == user_id)
             .options(
-                selectinload(User.organization).selectinload(Organization.children),
+                # 与 get_current_user 一致：org → children（Branch）→ children（Team）
+                selectinload(User.organization)
+                .selectinload(Organization.children)
+                .selectinload(Organization.children),
                 selectinload(User.team),
             )
         )
