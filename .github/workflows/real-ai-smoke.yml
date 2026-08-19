@@ -13,6 +13,8 @@ on:
     paths:
       - ".github/workflows/real-ai-smoke.yml"
       - "backend/scripts/phase9_real_ai_smoke.py"
+      - "backend/scripts/phase10_ai_sales_agent_smoke.py"
+      - "backend/app/agent/**"
 
 env:
   # 显式开关：普通 CI 不需要付费 API（默认关闭）
@@ -124,6 +126,18 @@ jobs:
         run: |
           cd backend
           python scripts/phase9_real_ai_smoke.py
+
+      - name: Phase 10 — Real AI Sales Agent Smoke Test（黄金链）
+        if: steps.key_check.outputs.skip != 'true'
+        env:
+          AZB_BASE_URL: http://127.0.0.1:8000
+          AZB_AI_PROVIDER: ${{ secrets.AZB_AI_PROVIDER || 'deepseek' }}
+          AZB_AI_API_KEY: ${{ secrets.AZB_AI_API_KEY }}
+          AZB_AI_BASE_URL: ${{ secrets.AZB_AI_BASE_URL }}
+          AZB_AI_MODEL: ${{ secrets.AZB_AI_MODEL }}
+        run: |
+          cd backend
+          python scripts/phase10_ai_sales_agent_smoke.py
 
       - name: Show backend log tail on failure
         if: failure() && steps.key_check.outputs.skip != 'true'
