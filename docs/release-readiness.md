@@ -38,7 +38,7 @@
 
 | Playwright E2E | ✅ | 阶段一 + 阶段二，11/11 PASS |
 
-| Frontend | ✅ | Vitest + Vite build 通过 |
+| Frontend | ✅ | Vitest **70 passed（9 files）** + Vite build + `tsc -b` 0 errors（Task 25：Admin 页面组件测试覆盖 5 页） |
 
 | Backend | ✅ | pytest 全绿（单元/集成/PG） |
 

@@ -2396,3 +2396,44 @@ Stage Summary:
 - P2-1~P2-4 全部收敛：CSRF（架构评估 + 防御回归）、Demo 401（3 真实 bug 修复，含后端
   500→401 根因）、组件测试 +18、seed 确定性 + 幂等测试；安全修复均有测试证据；
   TypeScript 0 errors、全验证矩阵绿、文档与源码一致
+
+
+---
+
+Task ID: 45
+
+Agent: main
+
+Task: Task 25 — Admin Frontend Quality & Test Coverage Hardening（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@73caad6（Task 24 全绿）；备份分支 backup/task-25-20260819-0158
+- 审计（docs/admin-frontend-quality-audit.md）：Task 24 已覆盖 Dashboard(4)/Compliance(8)/Customers(6)，
+  Knowledge 13（Task 23）；CommunityManage/ScriptManage 零测试；Admin 管理 API（/admin/community|scripts|
+  compliance|users|analytics|settings）全部 _DEMO_* Demo-only（production 后端下仍返回 demo 数据）→
+  Existing Limitation（后端范围，不修）；ScriptManage error 分支无重试按钮（UX 差异，记录）
+- 实现：
+  ① test(admin)：communityManage.test.tsx（6）+ scriptManage.test.tsx（6）—— loading/error/empty/
+    list/pin+delete mutation/approve+reject mutation（axiosRes mock 包装，Task 24 模式）
+  ② test(e2e)：e2e/admin/admin-community.spec.ts（A-1 列表加载 + A-2 置顶 toggle 闭环，
+    SYSTEM_ADMIN 13800138003 API 登录注入 localStorage —— 管理端点 require_role 需管理角色）
+- 排障（日志驱动）：
+  ① strict-mode violation：「知识分享/专业/合规/待审核/已发布」同时出现在筛选下拉与 badge →
+    getAllByText().length > 0（68→70 passed）
+  ② E2E admin login 404：Playwright request baseURL 按 URL 语义拼接，路径前导 / 丢弃 baseURL 的
+    /api/v1 path → 相对路径 auth/login（22+2 E2E）
+- 验证（39f471d 全绿）：vitest 70（9 files）、tsc 0、build、backend 无回归、backend-pg 无回归、
+  E2E 24（+A-1/A-2，admin-community spec）、Prod ✅；E2E 排障含 GitHub runner 依赖安装卡死
+  （d7777b1 110min+）→ e2e workflow 加 timeout-minutes: 30 工程修正
+- 文档：admin-frontend-quality-audit.md（新建）、project-status（Task 25）、release-verification
+  （vitest 70/E2E 24）、release-readiness（测试覆盖）、worklog
+- 未解决（记录）：Admin 管理 API Demo-only（后续 Admin Management Productionization 任务）；
+  TrainingManage/Users/Analytics/AuditLog/Settings 组件测试未覆盖（Demo-only 低价值）；用户侧复杂页面
+  （CommunityPage/ScriptsPage）由既有 E2E 兜底
+- 边界：未开发新业务功能；未改 API contract；未改后端；未 force push；未改 Knowledge 既有测试/功能
+
+Stage Summary:
+
+- Admin 前端测试覆盖从 3 页面扩至 5 页面（+CommunityManage/ScriptManage），Vitest 58→70、
+  E2E 22→24（首个 Admin 管理页面真实浏览器验证）；Knowledge 13/3 回归无回归；全程云端验证

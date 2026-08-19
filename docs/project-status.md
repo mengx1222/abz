@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 24（Security & Engineering Hardening — P2 收敛）
+> 上一轮 Task: Task 25（Admin Frontend Quality & Test Coverage Hardening）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-19 · HEAD Task 24）
+## Current Snapshot（2026-08-19 · HEAD Task 25）
 
 
 
@@ -80,9 +80,9 @@
 
 | PG 集成测试（真实 PG16+pgvector） | **35 passed**（含 RAG 产品边界 5 + RAG 权限边界 5 + ingestion 8 + KB CRUD 7 + Document 7 + E2E seed 幂等 3） |
 
-| Frontend Tests / Build | **58 passed（7 files）** + `tsc -b` 0 errors + `vite build` ✓ |
+| Frontend Tests / Build | **70 passed（9 files）** + `tsc -b` 0 errors + `vite build` ✓ |
 
-| Playwright E2E | **22/22 passed**（Task 23 后含 Knowledge K-1~K-3；Task 24 前端改动验证全绿） |
+| Playwright E2E | **24/24 passed**（Task 25 +A-1/A-2 Admin 社区管理） |
 
 | **TypeScript（Task 19）** | **`tsc -b` 0 errors** + **CI Hard Gate 恢复**（backend-tests frontend job 显式 typecheck 步骤 + `npm run build`；详见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)） |
 | **Knowledge Production Ingestion（Task 20）** | **Implemented + Tested**：index_document 生产分支持久化 Document/Chunk/Embedding（PG + pgvector，1536 维），权限/产品 metadata 继承 KB，事务 rollback、重复索引幂等、空文档拒绝；PG 集成 8 用例（test_ingestion_pg.py）；详见 [rag.md](rag.md) §7 |

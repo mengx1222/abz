@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 24 提交链（HEAD=6ffa82b，P2 收敛完成）** |
+| Git HEAD（验证时 Current main） | **Task 25 提交链（HEAD=39f471d，Admin Frontend Quality）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -88,11 +88,11 @@
 
 | Backend PG 集成（真实 PG16+pgvector） | **35 passed**（pg 5 + permission 5 + ingestion 8 + KB CRUD 7 + Document 7 + **E2E seed 幂等 3**） | CI `backend-pg` @ Task 24 |
 
-| Frontend Vitest | **58 passed（7 files：utils 3 + KnowledgePage 13 + Dashboard 4 + Compliance 8 + Customers 6）** | CI `frontend` @ Task 24 |
+| Frontend Vitest | **70 passed（9 files：utils 3 + Knowledge 13 + Dashboard 4 + Compliance 8 + Customers 6 + CommunityManage 6 + ScriptManage 6）** | CI `frontend` @ Task 25 |
 
 | Frontend build | `tsc -b` 0 errors + `vite build` ✓ | CI `frontend` @ Task 24 |
 
-| Playwright E2E | **22 passed**（含 Growth 5 + Knowledge K-1~K-3） | CI `e2e-playwright` @ Task 24 |
+| Playwright E2E | **24 passed**（+A-1/A-2 Admin 社区管理） | CI `e2e-playwright` @ Task 25 |
 
 | Real AI Smoke | **8/8 PASS** | CI `real-ai-smoke` run 31866434810（commit 94ce52f） |
 
