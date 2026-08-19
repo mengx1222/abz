@@ -339,3 +339,47 @@ class TestKnowledgeBaseCrud:
         repo = KnowledgeBaseRepository(session)
         assert await repo.name_exists("同名知识库", data["org_a"].id) is True
         assert await repo.name_exists("不存在的名字", data["org_a"].id) is False
+
+    # 8. upload document permission（Task 31 P1-1 回归：非创建者 403 / 创建者 200）
+    async def test_upload_document_permission(self, session, api):
+        data = await _seed(session)
+        await session.commit()
+
+        async def _as_user(user):
+            async def _cu():
+                return user
+            app.dependency_overrides[get_current_user] = _cu
+
+        # 创建者 agent_a 创建 KB
+        await _as_user(data["agent_a"])
+        resp = await api.post("/api/v1/admin/knowledge-bases", json={
+            "name": "上传权限测试库", "description": "", "category": "training",
+        })
+        assert resp.status_code == 200, resp.text
+        kb_id = resp.json()["data"]["id"]
+
+        # 同组织另一 AGENT（非创建者）upload → 403 FORBIDDEN（修复前为 200：越权上传）
+        other = User(
+            id=uuid.uuid4(), phone="17" + str(uuid.uuid4().int)[:11], name="其他代理人",
+            password_hash=None, role_id=data["agent_a"].role_id,
+            organization_id=data["org_a"].id, status="active", demo_mode=False,
+        )
+        other.role = data["agent_a"].role
+        other.organization = data["org_a"]
+        await _as_user(other)
+        resp = await api.post(
+            f"/api/v1/admin/knowledge-bases/{kb_id}/documents/upload",
+            files={"file": ("越权测试.txt", "安诊保百万医疗险保障范围包括住院医疗费用。", "text/plain")},
+            data={"title": "越权测试"},
+        )
+        assert resp.status_code == 403, resp.text
+        assert resp.json()["detail"]["code"] == "FORBIDDEN"
+
+        # 创建者 upload → 200（正常路径不受影响）
+        await _as_user(data["agent_a"])
+        resp = await api.post(
+            f"/api/v1/admin/knowledge-bases/{kb_id}/documents/upload",
+            files={"file": ("正常测试.txt", "安诊保百万医疗险保障范围包括住院医疗费用。", "text/plain")},
+            data={"title": "正常测试"},
+        )
+        assert resp.status_code == 200, resp.text
