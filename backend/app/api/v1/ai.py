@@ -8,6 +8,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
 from app.ai.service import ProductQaService
+from app.agent.orchestrator import SalesAgentService
+from app.agent.schemas import SalesAgentChatRequest
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
@@ -105,6 +107,87 @@ async def product_qa_chat(
             import json
             error_data = json.dumps(
                 {"event": "error", "data": {"message": "服务异常，请稍后重试"}},
+                ensure_ascii=False,
+            )
+            yield f"data: {error_data}\n\n"
+
+    return StreamingResponse(
+        event_stream(),
+        media_type="text/event-stream",
+        headers={
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+            "X-Accel-Buffering": "no",
+        },
+    )
+
+
+@router.post(
+    "/sales-agent/chat",
+    summary="AI Sales Agent（SSE 流式）",
+)
+async def sales_agent_chat(
+    body: SalesAgentChatRequest,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> StreamingResponse:
+    """AI Sales Agent SSE 流式接口（第一阶段：后端编排 + 工具链）。
+
+    事件类型：
+    - connected: 连接成功
+    - agent_start: Agent 开始（request_id/session_id）
+    - tool_planned: 计划执行工具（安全状态说明，非思维链）
+    - tool_start / tool_result: 工具执行
+    - rag_context / citation: RAG 依据与引用
+    - message_delta: 最终回复流式输出
+    - compliance: 合规检查结果
+    - agent_complete: Agent 结束（status/message/tool_sequence）
+    - error: 错误
+
+    安全：
+    - 所有工具携带当前用户，底层 Service/RAG 再次执行 RBAC/组织范围检查
+    - RAG REFUSE 时不生成产品事实；Provider 失败不 fallback Mock
+    - 不输出/持久化模型隐藏推理过程与内部 prompt
+    """
+    request_id = getattr(request.state, "request_id", str(uuid.uuid4()))
+    session_id = body.session_id or str(uuid.uuid4())
+
+    logger.info(
+        "sales_agent_chat_start",
+        user_id=str(current_user.id),
+        customer_id=body.customer_id,
+        session_id=session_id,
+        product_type=body.product_type,
+        sales_stage=body.sales_stage,
+        message=body.message[:100],
+        request_id=request_id,
+    )
+
+    async def event_stream() -> AsyncGenerator[str, None]:
+        yield f"event: connected\ndata: {{\"request_id\": \"{request_id}\", \"session_id\": \"{session_id}\"}}\n\n"
+        try:
+            service = SalesAgentService(db=db)
+            async for event_json in service.chat(
+                user=current_user,
+                customer_id=body.customer_id,
+                message=body.message,
+                product_type=body.product_type,
+                sales_stage=body.sales_stage,
+                session_id=session_id,
+                request_id=request_id,
+            ):
+                yield f"data: {event_json}\n\n"
+        except Exception as e:
+            logger.error(
+                "sales_agent_chat_error",
+                user_id=str(current_user.id),
+                error=str(e),
+                request_id=request_id,
+            )
+            import json
+            error_data = json.dumps(
+                {"event": "error", "data": {"message": "销售助手服务异常，请稍后重试"}},
                 ensure_ascii=False,
             )
             yield f"data: {error_data}\n\n"
