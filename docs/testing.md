@@ -158,9 +158,10 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 
 ## 8. Security & Engineering Hardening（Task 24）
 
-### 8.1 安全态势回归（`backend/tests/api/test_security_posture.py`，7 用例）
+### 8.1 安全态势回归（`backend/tests/api/test_security_posture.py`，12 用例）
 
 - **CSRF posture（P2-1，4 用例）**：登录/受保护端点响应无 Set-Cookie（无 cookie 会话 → CSRF 攻击面不存在）；状态修改端点（POST/PUT/DELETE）无 Bearer → 401；无效 token / refresh 类型错误 → 401 语义码。防御性回归：未来若引入 cookie 会话，CI 立即失败提示重新评估。
+- **CSRF 回归（Task 34，5 用例，TestCsrfSecurityRegression）**：GET/POST + Bearer 无 CSRF token 正常（JWT Header 模式无攻击面证明）/ demo 登录兼容（token 下发 + 无 Set-Cookie）/ 安全头不回归（nosniff/X-Frame-Options DENY/Referrer-Policy）/ 上传大小限制 demo 分支 413。
 - **Auth 错误语义契约（P2-2，3 用例）**：login 失败 → 统一 `ErrorResponse{success:false,error:{code,message}}`；get_current_user 拒绝 → `{detail:{code,message}}`；refresh 失败格式。
 - **根因修复验证**：`ErrorHandlerMiddleware` 曾吞 HTTPException → 受保护端点认证失败返回 500（前端 401 登出静默失效）——修复后 401 用例全绿。
 
@@ -253,3 +254,21 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 - 实现（仅防御性 UI 基建，不改业务逻辑/API contract）：类组件 ErrorBoundary（getDerivedStateFromError + componentDidCatch），fallback = 「页面出现异常」+ 重新加载按钮 + 返回首页链接；`app/App.tsx` 全局包裹（ErrorBoundary → QueryClientProvider → RouterProvider）。
 - 测试（`tests/components/ErrorBoundary.test.tsx`，4 用例）：无错误正常渲染 / 子组件抛错 fallback（不白屏）/ 抛错后不渲染 children / 自定义 onError 回调（error + errorInfo）。
 - 验证（045f87d 全矩阵）：Vitest **107 passed（16 files）**、tsc -b 0、build ✓、Backend 291/44、backend-pg 44、E2E 27、Prod ✅。
+
+---
+
+## 14. 安全收敛（Task 34）
+
+### 14.1 CSRF 复核（P2-1 already resolved）
+
+- 审计（docs/csrf-security-audit.md）：认证 = JWT Bearer header（HTTPBearer），无 cookie 会话（登录响应无 Set-Cookie、前端 axios 无 withCredentials、token 存 localStorage）→ **无 CSRF 攻击面**；不引入 CSRF token/中间件（与 Bearer 架构冲突，避免无效 CSRF）。
+- 新增回归（`TestCsrfSecurityRegression`，5 用例）：GET+JWT 200 / POST+JWT 200（无需 CSRF token）/ demo 登录兼容 / 安全头不回归 / 上传大小限制 demo 分支 413。
+
+### 14.2 KB 文档上传大小限制（P2 收敛）
+
+- `config.py::MAX_UPLOAD_SIZE_MB`（默认 10MB）；`knowledge.py::upload_document` Content-Length 预检（超限立即 413，不读 body）+ 读取后权威校验（防伪造 Content-Length）；demo/production 分支同享。
+- 测试：`test_kb_crud.py::test_upload_document_size_limit`（backend-pg，PG 45 passed：超限 413 / 正常 200）。
+
+### 14.3 验证（9dea567 全矩阵）
+
+- Backend pytest **296 passed / 45 skipped**；backend-pg **45 passed**；Frontend Vitest **107（16 files）**、tsc 0、build ✓；Production Validation ✅（E2E 未触发：无 frontend/src 变更）。

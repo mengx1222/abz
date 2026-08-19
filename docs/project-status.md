@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 33（Admin Component Test Audit + ErrorBoundary）
+> 上一轮 Task: Task 34（CSRF Security Audit + Upload Size Limit）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-20 · HEAD Task 33）
+## Current Snapshot（2026-08-20 · HEAD Task 34）
 
 
 
@@ -74,11 +74,11 @@
 
 | Release Status | **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md) + [release-verification.md](release-verification.md)） |
 
-| Backend Tests | **278 passed, 35 skipped**（Task 24 后全量云端验证：+7 安全态势，seed 幂等 3 无 PG 环境 skip） |
+| Backend Tests | **296 passed, 45 skipped**（Task 34 后全量云端验证：+5 CSRF 回归，上传大小限制测试含 PG skip） |
 
 | **RAG 权限加固（Task 17B）** | **Role Filtering + Organization Filtering + Citation/SSE 防泄漏 + 拒答不降级 全部 Implemented + Tested**（tests/rag/ 35 用例 + PG 集成 5 用例；详见 [rag-permission-audit.md](rag-permission-audit.md)） |
 
-| PG 集成测试（真实 PG16+pgvector） | **43 passed**（+Agent RAG 权限/黄金链/IDOR 5，Task 27） |
+| PG 集成测试（真实 PG16+pgvector） | **45 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34） |
 
 | Frontend Tests / Build | **107 passed（16 files）**（+Admin 22 Task 32；+ErrorBoundary 4 Task 33） + `tsc -b` 0 errors + `vite build` ✓ |
 
@@ -103,7 +103,7 @@
 
 | P1 | P1-3（growth course_detail Demo Only，前端空状态友好处理已 E2E 覆盖；**P1-6 TypeScript hard gate 已 RESOLVED（Task 19）**） |
 
-| P2 | P2-1~P2-4 已收敛（Task 24/32）；ErrorBoundary 已收敛（Task 33）；剩余：health/detail 无鉴权、上传大小、token localStorage、环境 badge、Redis no-op（Task 31 记录，均不修复） |
+| P2 | P2-1~P2-4 已收敛（Task 24/32）；ErrorBoundary 已收敛（Task 33）；上传大小限制已收敛（Task 34）；剩余：health/detail 无鉴权（有意开放）、token localStorage、环境 badge、Redis no-op（Task 31 记录，均不修复） |
 
 | Current Next Tasks | 见「Current Next Tasks」节（Training/Growth E2E、TS 清理、AI Sales Agent） |
 

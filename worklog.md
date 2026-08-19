@@ -2777,3 +2777,29 @@ Stage Summary:
 
 - P2-3 审计复核确认已完成（8/8 Admin 页面，不重复开发）；转入并收敛下一个最高优先级 P2
   （全局 ErrorBoundary：整页白屏 → 可恢复 fallback），全矩阵云端验证通过，Vitest 103→107
+
+---
+
+Task ID: 54
+
+Agent: main
+
+Task: Task 34 — CSRF Security Audit（P2-1 复核）+ 上传大小限制（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@6be6244（Task 33 全绿：Vitest 107、Backend 291/44、PG 44、E2E 27、Prod ✅）；备份分支 backup/task-34-20260820-0438
+- 审计（docs/csrf-security-audit.md）：认证=JWT Bearer header（HTTPBearer）无 cookie 会话（登录无 Set-Cookie、前端 axios 无 withCredentials、token 存 localStorage、全仓库无 cookie 解析）；无 CSRF 中间件且**无需引入**（Bearer 无法被跨站自动附带）→ **P2-1 already resolved（Task 24 已判定 + 本任务复核确认），不重复实现**；安全头/限流/CORS 白名单审计 PASS；TrustedHost 未启用（纵深防御建议，记录）
+- 下一个未完成安全 P2：**上传无大小限制**（Task 31 记录）——upload_document 无任何限制，超大文件整读内存 + 触发嵌入（DoS 向量）；且 docs/security.md §8.2 文档表述超前于实现（校准为实际）
+- 实现（最小修复，不改 API contract/业务逻辑）：config.py 新增 MAX_UPLOAD_SIZE_MB=10；knowledge.py upload_document Content-Length 预检（413 不读 body）+ 读取后权威校验（防伪造 Content-Length）；demo/production 同享；413 FILE_TOO_LARGE 语义契约
+- 测试（3）：test_security_posture.py 新增 TestCsrfSecurityRegression 5 用例（GET+JWT 200 / POST+JWT 200 无 CSRF token / demo 登录兼容 / 安全头不回归 / demo 上传 413）；test_kb_crud.py 新增 test_upload_document_size_limit（PG：超限 413 / 正常 200）
+- 提交链（4，无 squash/force push）：8aa97ff(audit) → c75b739(fix) → 9dea567(test) → docs(待)
+- 验证（9dea567 云端全绿）：Backend pytest **296 passed / 45 skipped**（+5 CSRF 回归）、backend-pg **45 passed**（+1 上传大小）、Frontend Vitest **107（16 files）**、tsc 0、build ✓、Prod ✅（E2E 未触发：无 frontend/src 变更）
+- 文档同步：project-status / security / testing / release-verification / release-readiness / worklog
+- P2 收敛：P2-1 CSRF 复核确认已解决；上传无大小限制 → RESOLVED（P2 清单再减 1 项）；health/detail 无鉴权确认为有意开放（healthcheck 依赖）
+- 剩余 P1：B1 数据库备份 NOT IMPLEMENTED、B2 Audit Log 未落库（Task 30，正式生产阻塞，不在本任务范围）
+
+Stage Summary:
+
+- CSRF 审计确认 P2-1 已解决（JWT Bearer 架构无攻击面，不重复实现，新增 5 用例回归固化）；
+  收敛下一个安全 P2：KB 文档上传大小限制（10MB + 413 + 双重校验），全矩阵云端验证通过

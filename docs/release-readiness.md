@@ -40,7 +40,7 @@
 
 | Frontend | ✅ | Vitest **107 passed（16 files）** + Vite build + `tsc -b` 0 errors（Task 32：Admin 8 页面全覆盖 +22 用例；Task 33：全局 ErrorBoundary +4 用例） |
 
-| Backend | ✅ | pytest 全绿（291/43；backend-pg 43 passed，含 Task 27 Agent 集成） |
+| Backend | ✅ | pytest 全绿（296/45；backend-pg 45 passed，含 Task 27 Agent 集成 + Task 34 上传大小限制） |
 
 | Docker 部署 | ✅ | 开发 + 生产 compose 均通过 Production Validation |
 
@@ -64,11 +64,13 @@
 
 | ~~Seed 手动执行（P2-4）~~ | **已 RESOLVED（Task 24）**：e2e_seed_knowledge 确定性加固（settings DB URL / embedding fail-fast / 计数不一致 WARN）+ 幂等测试 3 用例 | — |
 
-| ~~CSRF 显式防护（P2-1）~~ | **已收敛（Task 24）**：Bearer header + 无 cookie → 架构无 CSRF 攻击面（ACCEPTED LIMITATION）；防御性回归测试 4 用例 + 文档修正 | — |
+| ~~CSRF 显式防护（P2-1）~~ | **已收敛（Task 24；Task 34 复核确认已解决，不重复实现）**：Bearer header + 无 cookie → 架构无 CSRF 攻击面（ACCEPTED LIMITATION）；防御性回归测试 4+5 用例（Task 34 新增 TestCsrfSecurityRegression）+ 文档修正 | — |
 
 | ~~Demo 401 语义（P2-2）~~ | **已 RESOLVED（Task 24）**：ErrorHandlerMiddleware 放行 HTTPException（受保护端点认证失败 500→401 真实 bug）、前端 /auth 401 豁免、login 真实错误透传；测试 3 用例 | — |
 
 | ~~无 ErrorBoundary（P2）~~ | **已 RESOLVED（Task 33）**：全局 ErrorBoundary（App.tsx 接线）+ 组件测试 4 用例；任意子树渲染错误降级为可恢复 fallback（重新加载/返回首页） | — |
+
+| ~~上传无大小限制（P2）~~ | **已 RESOLVED（Task 34）**：MAX_UPLOAD_SIZE_MB（默认 10MB）+ Content-Length 预检 + 读取后权威校验 → 413 FILE_TOO_LARGE（demo/production 同享）；测试：demo 分支 413 + PG production 分支 413/200 | — |
 
 | Golden Business Flow | **✅ E2E 验收通过（Task 29）**：浏览器级完整黄金链（登录→Customer360→Agent→RAG/Citation→Compliance→Training→Growth 数据连续），真实 AI provider，27 passed；Real AI phase11 opt-in |
 | AI Sales Agent | **后端 + 前端已实现（Task 27/28）** | ToolRegistry + Orchestrator + SSE + RBAC + RAG/Citation + Compliance；前端页面/路由/SSE 流式/Citation/Compliance/REFUSE/错误重试；长期记忆、自动对外销售动作未做（Planned） |
@@ -82,7 +84,7 @@
 
 - **P0**：无
 - **P1**：~~P1-1 KB 上传越权~~ **已修复（Task 31）**：upload_document 补 _can_manage_kb + 回归测试
-- **P2**：health/detail 无鉴权、上传无大小限制、token localStorage、~~AuthGuard 无角色守卫~~（Task 33 复核已解决：RoleGuard 已接线 AppLayout + roleRoutes 13 用例）、~~无 ErrorBoundary~~ **已收敛（Task 33）**、无环境 badge、Redis no-op
+- **P2**：health/detail 无鉴权（有意开放，compose healthcheck 依赖）、~~上传无大小限制~~ **已收敛（Task 34）**、token localStorage、~~AuthGuard 无角色守卫~~（Task 33 复核已解决：RoleGuard 已接线 AppLayout + roleRoutes 13 用例）、~~无 ErrorBoundary~~ **已收敛（Task 33）**、无环境 badge、Redis no-op
 
 ---
 

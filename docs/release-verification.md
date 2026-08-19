@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 33（Admin Audit + ErrorBoundary）** |
+| Git HEAD（验证时 Current main） | **Task 34（CSRF Audit + Upload Size Limit）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -84,9 +84,9 @@
 
 |--------|------|------|
 
-| Backend pytest（SQLite） | **278 passed, 35 skipped**（含安全态势 7：CSRF posture + Auth 语义契约；seed 幂等 3 无 PG 环境 skip） | CI `backend-tests` @ Task 24（6ffa82b） |
+| Backend pytest（SQLite） | **296 passed, 45 skipped**（含安全态势 12：CSRF posture + Auth 语义契约 + CSRF 回归 5；上传大小限制 demo 分支） | CI `backend-tests` @ Task 34（9dea567） |
 
-| Backend PG 集成（真实 PG16+pgvector） | **43 passed**（+Agent RAG 权限/黄金链/IDOR 5） | CI `backend-pg` @ Task 27 |
+| Backend PG 集成（真实 PG16+pgvector） | **45 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34） | CI `backend-pg` @ Task 34（9dea567） |
 
 | Frontend Vitest | **107 passed（16 files）**（含 ErrorBoundary 4，Task 33；Admin 8/8 页面组件全覆盖） | CI `backend-tests` frontend job @ Task 33（045f87d） |
 
@@ -122,13 +122,15 @@
 
 | ~~P1-6~~ | ~~前端既有 TypeScript 类型错误，CI 暂用 `vite build` 绕过 tsc 硬门禁~~ | ✅ **RESOLVED（Task 19）**：`tsc -b` 0 errors + CI Hard Gate 恢复 |
 
-| ~~P2-1~~ | ~~无 CSRF 显式防护~~ | ✅ **收敛（Task 24）**：Bearer 架构无 CSRF 攻击面（ACCEPTED LIMITATION）+ 防御测试 4 |
+| ~~P2-1~~ | ~~无 CSRF 显式防护~~ | ✅ **收敛（Task 24；Task 34 复核确认已解决，不重复实现）**：Bearer 架构无 CSRF 攻击面（ACCEPTED LIMITATION）+ 防御测试 4 + CSRF 回归 5（Task 34） |
 
 | ~~P2-2~~ | ~~Demo 模式无 Token 返回 200~~ | ✅ **RESOLVED（Task 24）**：3 Confirmed Bug 修复（含受保护端点 500→401 真实 bug）+ 测试 3 |
 
 | ~~P2-3~~ | ~~前端页面组件无测试~~ | ✅ **RESOLVED（Task 24/32/33）**：Admin 8/8 页面组件测试全覆盖（Task 32 +22 用例）；Task 33 审计复核见 [admin-component-test-audit.md](admin-component-test-audit.md) |
 
 | 无 ErrorBoundary（P2） | 全局错误边界缺失，页面渲染错误整页白屏 | ✅ **RESOLVED（Task 33）**：ErrorBoundary 全局接线（App.tsx）+ 组件测试 4 用例；Vitest 107 passed |
+
+| 上传无大小限制（P2） | KB 文档上传无限制，超大文件整读内存（DoS 向量） | ✅ **RESOLVED（Task 34）**：MAX_UPLOAD_SIZE_MB=10 + Content-Length 预检 + 读取后校验 → 413 FILE_TOO_LARGE；PG 45 passed |
 
 | ~~P2-4~~ | ~~Seed 未集成到迁移~~ | ✅ **RESOLVED（Task 24）**：e2e seed 确定性加固 + 幂等测试 3 |
 

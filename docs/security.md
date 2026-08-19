@@ -334,10 +334,14 @@ API 是系统与外部交互的唯一通道，也是攻击面最集中的区域�
 
 **风险判断**：CSRF 攻击依赖浏览器自动携带认证凭据（cookie/session）。Bearer header 无法被跨站请求（form/img/script）自动附带，因此**当前架构不存在可利用的 CSRF 漏洞**，无需 CSRF Token / SameSite Cookie 配置，也**不引入 CSRF 中间件**（与 Bearer 认证架构冲突且无防护收益）。
 
-**防御性回归**（`backend/tests/api/test_security_posture.py`）：
+**防御性回归**（`backend/tests/api/test_security_posture.py`，Task 24 4 用例 + Task 34 5 用例）：
 - 登录/受保护端点响应无 Set-Cookie（无 cookie 会话）
 - 状态修改端点（POST/PUT/DELETE）无 Bearer → 401（写操作强制 Bearer）
+- GET/POST + Bearer 无 CSRF token 正常（JWT Header 模式读写路径回归，Task 34）
+- 安全头不回归（nosniff / X-Frame-Options DENY / Referrer-Policy）
 - 若未来引入 cookie 会话认证，必须重新评估并补 CSRF 防护，CI 会因上述测试失败而提示。
+
+> **Task 34 复核**（docs/csrf-security-audit.md）：P2-1 **already resolved**——全仓库无 Set-Cookie/cookie 解析（router/audit/health/admin 扫描确认），无 CSRF 中间件需求，不重复实现。
 
 **CORS 说明**：production 仅允许 `FRONTEND_URL` 白名单；DEBUG/DEMO 追加 `localhost:5173` + `*`（demo 有意的宽松，`allow_credentials=True` 下 Starlette 回显 Origin）。
 
@@ -466,19 +470,25 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 
 - **类型验证**：不仅检查文件扩展名，还通过读取文件头部魔数（Magic Number）验证文件真实类型，防止通过修改扩展名绕过白名单。例如，将 `.exe` 文件改名为 `.pdf` 会被魔数检测拦截。
 
-### 8.2 文件大小限制
+### 8.2 文件大小限制（Task 34 校准为实际实现）
 
-不同类型的文件设定不同的大小上限，防止磁盘空间耗尽和内存溢出攻击：
+**当前唯一上传入口**：知识库文档上传（`POST /api/v1/admin/knowledge-bases/{kb_id}/documents/upload`，支持 TXT/MD/JSON）。
 
-| 文件类型 | 大小限制 | 说明 |
+**实际实现（Task 34 收敛，原文档表述超前于实现——此前无任何大小限制）**：
+
+- 统一上限 `AZB_MAX_UPLOAD_SIZE_MB`（默认 **10 MB**），超出返回 **413** `{detail:{code:"FILE_TOO_LARGE",message}}`。
+- 双重校验：`Content-Length` 预检（超限立即拒绝，不读 body）+ 读取后权威校验（防伪造 Content-Length）。
+- demo 与 production 分支同享限制；正常大小上传不受影响。
+- 测试：demo 分支 413（`test_security_posture.py`）+ production 分支 413/200（`test_kb_crud.py`，backend-pg）。
+
+> 下表为**设计目标**（多类型分级上限 + 前端预拦截），待后续附件/图片上传功能落地时按此实现；当前单一上传入口按统一 10MB 上限执行。
+
+| 文件类型（未来） | 大小限制 | 说明 |
 |----------|----------|------|
 | PDF 文件 | ≤ 50 MB | 体检报告、保险合同等扫描件 |
 | DOCX/DOC 文件 | ≤ 20 MB | 文字类业务文档 |
 | XLSX/XLS 文件 | ≤ 20 MB | 数据表格 |
 | 图片文件 | ≤ 10 MB | 客户证件照片、产品图片 |
-| 其他允许类型 | ≤ 10 MB | 其他业务文件 |
-
-超出大小限制的文件在上传前即被前端拦截，后端也进行二次校验，防止绕过前端限制。
 
 ### 8.3 文件名消毒
 
