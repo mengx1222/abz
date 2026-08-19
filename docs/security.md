@@ -673,3 +673,14 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 - Prompt Injection（HIGH）→ 拒答；RAG REFUSE → 禁止模型编造产品条款。
 - Provider 失败（429/401/超时）→ 确定错误模型，禁止 fallback Mock。
 - 隐私：发送给 Provider 的客户字段为最小化集合（不含 phone/notes/证件号）；日志不记录 API Key/完整 prompt/敏感资料。
+
+
+---
+
+## Task 30 Security Gate 复核（Production Readiness Review）
+
+- 认证/RBAC/Org Scope/RAG allowed_roles/Customer ownership/IDOR：**PASS**（代码 + test_agent_pg/test_permission_pg 等）
+- CSRF：**ACCEPTED RISK**（Bearer header 无 cookie 会话 → 架构无攻击面 + 防御性测试 4 用例）
+- CORS：**PARTIAL（P2）**——生产白名单；Demo 模式 `*`+credentials（仅演示环境）
+- Security Headers / Rate Limit / Prompt Injection / REFUSE / Citation 防泄漏 / Secrets / 日志敏感信息 / 生产禁 Mock fallback：**PASS**
+- 结论：无未解决安全 P0/P1；正式生产上线前建议渗透测试复审

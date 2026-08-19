@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 29 提交链（Golden Business Flow E2E）** |
+| Git HEAD（验证时 Current main） | **Task 30（Release Candidate=3244c5a，代码最终 2f183e3）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -194,3 +194,5 @@
 | Real AI Sales Agent Smoke | **opt-in / workflow_dispatch**（phase10 黄金链，需 Secrets；无 key 时 NOT RUN） | CI `real-ai-smoke` |
 
 | Real AI Golden Flow Smoke | **phase11 新增（opt-in）**：登录→客户→Agent(RAG/Citation/Compliance)→Training(评分)→Growth(数据连续)；真实 Provider；需手动 workflow_dispatch | CI `real-ai-smoke` @ Task 29 |
+
+| Production Readiness Review | **READY FOR INTERNAL PILOT（Task 30）**：Security/Data/AI/RAG/Frontend/E2E/Deployment Gate PASS；Backup NOT IMPLEMENTED（P1）；Observability/Audit PARTIAL；详见 [production-readiness-review.md](production-readiness-review.md) |

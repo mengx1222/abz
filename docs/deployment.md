@@ -879,3 +879,15 @@ LOG_LEVEL=INFO
 LOG_LEVEL=WARNING
 ```
 
+
+
+---
+
+## Task 30 Deployment Gate 复核（Production Readiness Review）
+
+- docker-compose.prod.yml（PG16+pgvector / Redis7 / Backend / Frontend）：**PASS** —— healthcheck + depends_on healthy + 持久卷 + 资源限制 + `restart: always`
+- Production Validation（compose 全栈 build/up/ready/alembic/seed/phase7/phase8/pytest-on-PG/vitest/build/tsc）：**PASS**（Task 29 最终代码 2f183e3 ✅）
+- **滚动/零停机部署：NOT IMPLEMENTED**（PILOT 可接受；正式生产需蓝绿/滚动 + 迁移窗口）
+- **多实例水平扩展：PARTIAL（P2）**（uvicorn --workers 4 单容器；多容器需 Redis 化 rate limit/session）
+- **数据库备份：NOT IMPLEMENTED（P1）**——无 pg_dump 自动化；正式生产必须补
+- 结论：内部试点级部署就绪；正式生产上线前需补备份、滚动部署、监控告警（详见 production-readiness-review.md）

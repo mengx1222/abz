@@ -76,13 +76,17 @@
 
 
 
-## 3. 剩余 P0 / P1 / P2
+## 3. 剩余 P0 / P1 / P2（Task 30 Production Readiness Review 复核）
 
 
 
 - **P0**：无
 
-- **P1**：P1-3（course_detail Demo Only）
+- **P1**：B1 数据库备份 NOT IMPLEMENTED（正式生产部署可恢复性；内部试点 PILOT ACCEPTED RISK）、
+  B2 Audit Log 未 DB 持久化（仅 structlog）、P1-3（course_detail Demo Only，低影响）
+
+- **P2**：Redis 化 rate limit/多实例、Agent 内存 session、Demo CORS 放宽、无外部监控告警、
+  无滚动部署、Migration 回滚未演练、无额度告警、无性能基准
 
 - **P2**：~~P2-1~P2-4~~ **全部收敛（Task 24）** —— 详见 [p2-hardening-audit.md](p2-hardening-audit.md)
 
@@ -100,13 +104,13 @@ Real Redis:                 PASS
 
 Real DashScope / Qwen:      PASS
 
-Real AI Smoke:              8/8 PASS
+Real AI Smoke:              8/8 PASS（phase9/10）；phase11 Golden Flow opt-in（Task 29）
 
-Playwright:                 Stage 1 PASS, Stage 2 PASS (11/11)
+Playwright:                 27/27 PASS（Task 29，含 GF-1 Golden Business Flow）
 
-Production Validation:      PASS
+Production Validation:      PASS（Task 29 最终代码 2f183e3）
 
-Known:                      Frontend TypeScript hard gate still pending (P1-6)
+Known:                      无 P0；P1：B1 数据库备份 NOT IMPLEMENTED、B2 Audit Log 未落库（Task 30）
 
 ```
 
@@ -124,7 +128,7 @@ Known:                      Frontend TypeScript hard gate still pending (P1-6)
 
 | READY FOR INTERNAL DEMO | 可演示 | — |
 
-| **READY FOR INTERNAL PILOT** | 内部试点：真实环境核心链路全验证，剩余项为低风险改进 | ✅ **当前状态** |
+| **READY FOR INTERNAL PILOT** | 内部试点：真实环境核心链路全验证，剩余项为低风险改进 | ✅ **当前状态（Task 30 复核确认）** |
 
 | PRODUCTION READY | 生产上线：需完成 P1/P2 收敛、生产 Secret 管理、安全加固复审 | 未达到 |
 
