@@ -383,3 +383,40 @@ class TestKnowledgeBaseCrud:
             data={"title": "正常测试"},
         )
         assert resp.status_code == 200, resp.text
+
+    # 9. upload size limit（Task 34 P2：Content-Length 预检 413 / 正常文件不受影响）
+    async def test_upload_document_size_limit(self, session, api, monkeypatch):
+        data = await _seed(session)
+        await session.commit()
+        monkeypatch.setattr(settings, "MAX_UPLOAD_SIZE_MB", 1)
+
+        async def _as_user(user):
+            async def _cu():
+                return user
+            app.dependency_overrides[get_current_user] = _cu
+
+        await _as_user(data["agent_a"])
+        resp = await api.post("/api/v1/admin/knowledge-bases", json={
+            "name": "上传大小测试库", "description": "", "category": "training",
+        })
+        assert resp.status_code == 200, resp.text
+        kb_id = resp.json()["data"]["id"]
+
+        # 超大文件 → 413 FILE_TOO_LARGE（Content-Length 预检，未触发读取/嵌入）
+        big = "x" * (1 * 1024 * 1024 + 256)
+        resp = await api.post(
+            f"/api/v1/admin/knowledge-bases/{kb_id}/documents/upload",
+            files={"file": ("big.txt", big, "text/plain")},
+            data={"title": "big"},
+        )
+        assert resp.status_code == 413, resp.text
+        assert resp.json()["detail"]["code"] == "FILE_TOO_LARGE"
+        assert "最大 1MB" in resp.json()["detail"]["message"]
+
+        # 正常大小文件 → 200（限制不影响正常路径）
+        resp = await api.post(
+            f"/api/v1/admin/knowledge-bases/{kb_id}/documents/upload",
+            files={"file": ("ok.txt", "安诊保百万医疗险保障范围包括住院医疗费用。", "text/plain")},
+            data={"title": "ok"},
+        )
+        assert resp.status_code == 200, resp.text

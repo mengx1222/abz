@@ -14,6 +14,8 @@
 import pytest
 from httpx import AsyncClient
 
+from app.core.config import settings
+
 pytestmark = pytest.mark.integration
 
 
@@ -102,3 +104,52 @@ class TestAuthErrorSemantics:
         body = response.json()
         assert body["success"] is False
         assert body["error"]["code"] == "TOKEN_REFRESH_FAILED"
+
+
+class TestCsrfSecurityRegression:
+    """Task 34 — CSRF 回归：JWT Header 模式下读写正常路径 + 安全头不回归 + 上传大小限制。
+
+    结论（docs/csrf-security-audit.md）：Bearer-only + 无 cookie 会话 → 无 CSRF 攻击面，
+    无需 CSRF token。本组用例固化「无 CSRF token 时读写均正常」的事实；
+    若未来引入 cookie 会话/CSRF token，此组断言将暴露行为变化提示重新评估。
+    """
+
+    async def test_get_with_bearer_succeeds(self, client: AsyncClient, auth_headers):
+        """GET + 有效 JWT → 200（读操作无 CSRF 要求）。"""
+        response = await client.get("/api/v1/auth/me", headers=auth_headers)
+        assert response.status_code == 200
+        assert response.json()["data"]["phone"] == "13800138000"
+
+    async def test_post_with_bearer_succeeds_without_csrf_token(self, client: AsyncClient, auth_headers):
+        """POST + 有效 JWT → 200（写操作凭 Bearer 即可，无需 CSRF token —— Bearer 无法被跨站自动附带）。"""
+        response = await client.post("/api/v1/auth/logout", headers=auth_headers)
+        assert response.status_code == 200
+
+    async def test_demo_mode_login_compat(self, client: AsyncClient):
+        """Demo 模式登录保持兼容：token 下发且无 Set-Cookie。"""
+        response = await client.post("/api/v1/auth/login", json={
+            "phone": "13800138000",
+            "password": "888888",
+        })
+        assert response.status_code == 200
+        assert response.json()["data"]["access_token"]
+        assert "set-cookie" not in response.headers
+
+    async def test_security_headers_present(self, client: AsyncClient):
+        """安全头回归：nosniff / X-Frame-Options DENY / Referrer-Policy 必须存在。"""
+        response = await client.get("/api/v1/health")
+        assert response.headers.get("x-content-type-options") == "nosniff"
+        assert response.headers.get("x-frame-options") == "DENY"
+        assert "strict-origin-when-cross-origin" in response.headers.get("referrer-policy", "")
+
+    async def test_upload_size_limit_demo_mode(self, client: AsyncClient, auth_headers, monkeypatch):
+        """Demo 分支上传超限 → 413 FILE_TOO_LARGE（大小限制对 demo 分支同样生效）。"""
+        monkeypatch.setattr(settings, "MAX_UPLOAD_SIZE_MB", 1)
+        response = await client.post(
+            "/api/v1/admin/knowledge-bases/demo-kb-001/documents/upload",
+            headers=auth_headers,
+            files={"file": ("big.txt", b"x" * (1 * 1024 * 1024 + 256), "text/plain")},
+            data={"title": "big"},
+        )
+        assert response.status_code == 413, response.text
+        assert response.json()["detail"]["code"] == "FILE_TOO_LARGE"
