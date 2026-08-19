@@ -86,7 +86,7 @@
 
 | Backend pytest（SQLite） | **278 passed, 35 skipped**（含安全态势 7：CSRF posture + Auth 语义契约；seed 幂等 3 无 PG 环境 skip） | CI `backend-tests` @ Task 24（6ffa82b） |
 
-| Backend PG 集成（真实 PG16+pgvector） | **35 passed**（pg 5 + permission 5 + ingestion 8 + KB CRUD 7 + Document 7 + **E2E seed 幂等 3**） | CI `backend-pg` @ Task 24 |
+| Backend PG 集成（真实 PG16+pgvector） | **38 passed**（+组织树 production 递归 3，Task 26） | CI `backend-pg` @ Task 26 |
 
 | Frontend Vitest | **70 passed（9 files：utils 3 + Knowledge 13 + Dashboard 4 + Compliance 8 + Customers 6 + CommunityManage 6 + ScriptManage 6）** | CI `frontend` @ Task 25 |
 

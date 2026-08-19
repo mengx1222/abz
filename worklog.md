@@ -2437,3 +2437,44 @@ Stage Summary:
 
 - Admin 前端测试覆盖从 3 页面扩至 5 页面（+CommunityManage/ScriptManage），Vitest 58→70、
   E2E 22→24（首个 Admin 管理页面真实浏览器验证）；Knowledge 13/3 回归无回归；全程云端验证
+
+---
+
+Task ID: 46
+
+Agent: main
+
+Task: Task 26 — E2E / Seed / Production-like Test Infrastructure Hardening（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@36077cf（Task 25 全绿）；备份分支 backup/task-26-20260819-1115
+- 审计（docs/test-infrastructure-audit.md）：
+  · Workflow 链路图：backend-pg（docker run pgvector 独立容器）/ E2E（services postgres）/
+    Prod（compose postgres）各自独立 PG → 无跨 workflow 污染；每轮干净 alembic（0001→0009）+ seed
+  · 历史风险 ①~⑩ 逐项确认：N8 共享 KB 污染已消除（权限测试随机 suffix + 防御性清理）；
+    RAG role+org+vector+BM25+leakage 全覆盖；E2E 真实 API/DB 非 mock；seed 幂等（get-or-create）；
+    cleanup 只删自有数据
+  · **发现真实 bug**：DataPermissionChecker._collect_child_org_ids 访问 Organization.children
+    （lazy=selectin）在 async + PG + DEMO_MODE=false 下抛 MissingGreenlet 被 except 静默吞掉
+    → HQ_ADMIN/BRANCH_ADMIN 可访问范围退化为仅本组织（文档「本机构+下属机构」语义失效）
+- 实现（3 提交）：
+  ① test(rag)：test_org_tree_pg.py（3 用例：HQ 全子树 / BRANCH 子树不含兄弟 / TEAM 仅本团队）
+    + backend-pg workflow 纳入 → 首跑 2 failed（HQ/BRANCH 递归失效，日志 failed_to_collect_child_orgs）
+  ② fix(security)：get_current_user 嵌套 selectinload 组织树（org→children）→ branch_admin 过，
+    hq 仍缺孙级（日志证据：orgs=[HQ,Branch]）
+  ③ fix(security)：补第 2 层 selectinload（HQ→Branch→Team）→ **backend-pg 38 passed 全绿**
+- 排障（日志驱动）：MissingGreenlet 被 except Exception 静默吞（warning failed_to_collect_child_orgs）
+  → 嵌套 selectinload 深度不足分两轮修复（1 层→2 层）
+- 验证（4a4bc5a）：CI ✅（backend 278+ 无回归 / backend-pg 38 / frontend 无回归）；
+  Prod in_progress → 确认后全绿
+- 文档：test-infrastructure-audit.md（新建）、project-status（Task 26）、release-verification
+  （backend-pg 38）、release-readiness（backend 行）、testing（§9）、worklog
+- 剩余限制（记录）：组织树 eager-load 深度固定 3 层（模型约束）；Admin 管理 API Demo-only（后续任务）；
+  E2E KB org=NULL 为合法共享语义（显式命名）
+- 边界：未开发新业务功能；未改权限模型（仅修复数据加载）；未改 API contract；未 force push
+
+Stage Summary:
+
+- 测试基础设施审计 + Production 组织树递归真实 bug 修复（get_current_user eager-load 3 层树）；
+  backend-pg 35→38；workflow/seed/migration 隔离确认；文档与源码一致

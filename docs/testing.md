@@ -176,3 +176,22 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 | `features/dashboard.test.tsx` | 4 | loading / error+重试 / 数据渲染 / 空 AI 建议区块 |
 | `features/compliance.test.tsx` | 8 | rules loading/error/empty/list/toggle；reviews list/approve/error |
 | `features/customers.test.tsx` | 6 | loading / error / empty / list / delete mutation / pagination |
+
+
+---
+
+## 9. Test Infrastructure Hardening（Task 26）
+
+### 9.1 Production 组织树递归实测（`tests/rag/test_org_tree_pg.py`，3 用例，backend-pg）
+
+- **背景**：DataPermissionChecker._collect_child_org_ids 依赖 Organization.children（lazy=selectin）；真实 async + PG + DEMO_MODE=false 下访问抛 MissingGreenlet 被静默吞掉 → HQ_ADMIN/BRANCH_ADMIN 范围退化为仅本组织（真实 bug，本任务修复）。
+- **修复**：deps.py get_current_user 嵌套 selectinload 组织树（HQ→Branch→Team）；权限模型不变。
+- **用例**：HQ 全子树 / BRANCH 子树不含兄弟 / TEAM 仅本团队。
+- **验证**：backend-pg 38 passed（35 + 3）。
+
+### 9.2 Workflow 测试基础设施审计（docs/test-infrastructure-audit.md）
+
+- 各 workflow 独立 PG 容器（backend-pg docker run / E2E services / Prod compose）→ 无跨 workflow 污染
+- 干净 PG 每轮 alembic upgrade head（0001→0009）→ migration chain 有效
+- seed 幂等：scripts.seed get-or-create；e2e_seed_knowledge 存在即跳过（Task 24）
+- RAG 权限测试随机 suffix 隔离 + 防御性清理 org=NULL KB（N8 已消除）

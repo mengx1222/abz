@@ -40,7 +40,7 @@
 
 | Frontend | ✅ | Vitest **70 passed（9 files）** + Vite build + `tsc -b` 0 errors（Task 25：Admin 页面组件测试覆盖 5 页） |
 
-| Backend | ✅ | pytest 全绿（单元/集成/PG） |
+| Backend | ✅ | pytest 全绿（单元/集成/PG，backend-pg 38 passed，含 Task 26 组织树递归） |
 
 | Docker 部署 | ✅ | 开发 + 生产 compose 均通过 Production Validation |
 
