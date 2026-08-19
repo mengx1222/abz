@@ -200,7 +200,7 @@ export function SalesAgentPage() {
 
   // Auto-scroll
   useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+    chatEndRef.current?.scrollIntoView?.({ behavior: 'smooth' });
   }, [messages]);
 
   // 卸载时中止流
