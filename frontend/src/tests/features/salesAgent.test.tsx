@@ -334,7 +334,11 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
         throw new Error('网络异常，请检查连接后重试。');
       });
       mockedStream.mockImplementation(() =>
-        eventStream([agentEvent('message_delta', { content: '重试成功结果' }), COMPLETE_OK])
+        eventStream([
+          agentEvent('message_delta', { content: '重试成功结果' }),
+          // agent_complete 不带 message → 页面保留流式 delta 内容
+          agentEvent('agent_complete', { status: 'completed' }),
+        ])
       );
       renderPage();
       await act(async () => {
