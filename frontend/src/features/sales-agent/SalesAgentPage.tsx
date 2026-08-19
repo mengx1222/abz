@@ -138,7 +138,8 @@ function ToolStatusLog({ log }: { log: string[] }) {
 // ---- 主页面 ----
 
 export function SalesAgentPage() {
-  const { id: routeCustomerId } = useParams<{ id: string }>();
+  // 路由 param 名为 customerId（/sales-agent/:customerId?）
+  const { customerId: routeCustomerId } = useParams<{ customerId?: string }>();
   const navigate = useNavigate();
 
   const [customerId] = useState<string | null>(routeCustomerId || null);
