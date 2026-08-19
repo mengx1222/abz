@@ -113,7 +113,6 @@ async def seed(session: AsyncSession, monkeypatch) -> dict:
         customer_type="prospective",
         current_stage="needs_analysis",
         intention_level=4,
-        insurance_type="医疗险",
         organization_id=org.id,
     )
     other_customer = Customer(
@@ -224,7 +223,11 @@ async def test_registry_tool_timeout():
 @pytest.mark.asyncio
 async def test_chat_golden_chain(seed, session, monkeypatch):
     """完整黄金链：customer → activity → RAG(ALLOW) → script → compliance → 汇总。"""
-    _FakePipeline.results = [_fake_result("百万医疗险保障住院医疗费用，保额最高 600 万，含医保目录内外。")]
+    _FakePipeline.results = [
+        _fake_result("百万医疗险保障住院医疗费用，保额最高 600 万，含医保目录内外。"),
+        _fake_result("百万医疗险免赔额 1 万，医保目录内费用按比例赔付。", score=0.82),
+        _fake_result("百万医疗险支持线上理赔，资料齐全 3 个工作日结案。", score=0.78),
+    ]
     monkeypatch.setattr("app.rag.pipeline.RAGPipeline", _FakePipeline)
 
     service = SalesAgentService(db=session)
@@ -357,7 +360,11 @@ async def test_rag_refuse_skips_script_generation(seed, session, monkeypatch):
 @pytest.mark.asyncio
 async def test_compliance_red_block(seed, session, monkeypatch):
     """话术含收益承诺 → 真实 compliance engine 判 RED → 结构化透传 + 阻止标记可用。"""
-    _FakePipeline.results = [_fake_result("产品收益保证，稳赚不赔", score=0.9)]
+    _FakePipeline.results = [
+        _fake_result("产品收益保证，稳赚不赔", score=0.9),
+        _fake_result("产品收益稳定", score=0.85),
+        _fake_result("收益有保障", score=0.8),
+    ]
     monkeypatch.setattr("app.rag.pipeline.RAGPipeline", _FakePipeline)
 
     # 让 script 工具返回含违规词话术（script service 层已做 compliance，此处验证 agent 层透传）
@@ -478,7 +485,10 @@ async def test_script_tool_refuse_passthrough(seed, session, monkeypatch):
         _fake_generate_scripts,
     )
     # 强制走 script 工具（模拟 RAG ALLOW 后内部仍 REFUSE）
-    _FakePipeline.results = [_fake_result("医疗险保障信息", score=0.8)]
+    _FakePipeline.results = [
+        _fake_result("医疗险保障信息", score=0.8),
+        _fake_result("医疗险理赔流程", score=0.75),
+    ]
     monkeypatch.setattr("app.rag.pipeline.RAGPipeline", _FakePipeline)
 
     service = SalesAgentService(db=session)

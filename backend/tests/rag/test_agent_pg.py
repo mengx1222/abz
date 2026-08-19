@@ -179,6 +179,13 @@ def _find(events: list[dict], etype: str) -> list[dict]:
     return [e for e in events if e.get("event") == etype]
 
 
+async def _hit_embed(self, texts, model=None, **kwargs):
+    """mock embed 返回 VEC_HIT（向量路径命中有权 KB，避免低相似度 REFUSE）。"""
+    from app.ai.protocol import EmbedResponse
+
+    return EmbedResponse(embeddings=[VEC_HIT for _ in texts], model="mock")
+
+
 class TestAgentRagPermissionPg:
     async def test_agent_rag_tool_permission_pg(self, session, monkeypatch):
         """AGENT@A 的 search_product_knowledge 只返回 KB-A 引用（角色+组织双过滤）。"""
@@ -187,6 +194,9 @@ class TestAgentRagPermissionPg:
 
         monkeypatch.setattr(settings, "DEMO_MODE", False)
         monkeypatch.setattr(settings, "AI_PROVIDER", "mock")
+        monkeypatch.setattr(
+            "app.ai.providers.mock_provider.MockProvider.embed", _hit_embed,
+        )
         data = await _seed(session)
 
         result = await _tool_search_product_knowledge(
@@ -242,6 +252,9 @@ class TestAgentFullChainPg:
 
         monkeypatch.setattr(settings, "DEMO_MODE", False)
         monkeypatch.setattr(settings, "AI_PROVIDER", "mock")
+        monkeypatch.setattr(
+            "app.ai.providers.mock_provider.MockProvider.embed", _hit_embed,
+        )
         data = await _seed(session)
 
         service = SalesAgentService(db=session)
