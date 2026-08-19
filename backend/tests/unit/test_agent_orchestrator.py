@@ -230,6 +230,16 @@ async def test_chat_golden_chain(seed, session, monkeypatch):
     ]
     monkeypatch.setattr("app.rag.pipeline.RAGPipeline", _FakePipeline)
 
+    # script_service 在模块顶部 import RAGPipeline（绑定名），monkeypatch app.rag.pipeline
+    # 不影响其模块级绑定 → 需显式替换 ScriptService._get_rag_pipeline 走 FakePipeline
+    async def _fake_get_pipeline(self):
+        return _FakePipeline()
+
+    monkeypatch.setattr(
+        "app.services.script_service.ScriptService._get_rag_pipeline",
+        _fake_get_pipeline,
+    )
+
     service = SalesAgentService(db=session)
     events = await _collect(
         service, user=seed["user"], customer_id=str(seed["customer"].id),
@@ -239,9 +249,6 @@ async def test_chat_golden_chain(seed, session, monkeypatch):
     order = [e["event"] for e in events]
     assert order[0] == "agent_start"
     assert order[-1] == "agent_complete"
-    # DIAG（临时）：script 工具实际返回
-    _sr = [e["data"] for e in events if e["event"] == "tool_result" and e["data"].get("tool") == "generate_sales_script"]
-    print("DIAG script tool_result:", json.dumps(_sr[-1] if _sr else None, ensure_ascii=False)[:600])
     # 黄金链工具顺序
     tools = [e["data"]["tool"] for e in events if e["event"] == "tool_start"]
     assert tools == [
