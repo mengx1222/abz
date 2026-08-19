@@ -1,16 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from 'vitest';
-import { render, screen, waitFor } from '@testing-library/react';
-import userEvent from '@testing-library/user-event';
-import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { SalesAgentPage } from '../../features/sales-agent/SalesAgentPage';
-import {
-  AgentHttpError,
-  streamSalesAgentChat,
-  type AgentEvent,
-} from '../../services/salesAgentService';
-import { getCustomer } from '../../services/customerService';
-
-// ---- mock services（保留 AgentHttpError 真实语义供 instanceof 断言）----
+// ---- mock services（文件最顶部，import 之前注册，确保页面模块加载时已生效）----
 vi.mock('../../services/salesAgentService', () => ({
   AgentHttpError: class AgentHttpError extends Error {
     status: number;
@@ -27,6 +15,18 @@ vi.mock('../../services/salesAgentService', () => ({
 vi.mock('../../services/customerService', () => ({
   getCustomer: vi.fn(),
 }));
+
+import { describe, it, expect, vi, beforeEach } from 'vitest';
+import { render, screen, waitFor } from '@testing-library/react';
+import userEvent from '@testing-library/user-event';
+import { MemoryRouter, Route, Routes } from 'react-router-dom';
+import { SalesAgentPage } from '../../features/sales-agent/SalesAgentPage';
+import {
+  AgentHttpError,
+  streamSalesAgentChat,
+  type AgentEvent,
+} from '../../services/salesAgentService';
+import { getCustomer } from '../../services/customerService';
 
 const mockedStream = vi.mocked(streamSalesAgentChat);
 const mockedGetCustomer = vi.mocked(getCustomer);
@@ -79,8 +79,10 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
   });
 
   it('initial：加载客户上下文与空对话提示', async () => {
+    // 诊断：mock 必须生效（页面模块加载时 getCustomer 已是 vi.fn）
+    expect(vi.isMockFunction(getCustomer)).toBe(true);
     renderPage();
-    // 诊断：若 mock 未生效，getCustomer 不会被调用（axios 网络错误 → 页面错误态）
+    // 若 mock 未生效，getCustomer 不会被调用（axios 挂起 → 页面卡 loading）
     await waitFor(() => {
       expect(mockedGetCustomer).toHaveBeenCalled();
     });
