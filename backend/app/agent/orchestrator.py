@@ -354,9 +354,11 @@ class SalesAgentService:
                 citations=citations, compliance=compliance_result,
                 request_id=request_id,
             ):
-                if isinstance(ev, str):
+                if ev.startswith("{"):
+                    # SSE 事件 JSON（message_delta）
                     yield ev
                 else:
+                    # 最终消息（非 JSON 哨兵）
                     final_message = ev
 
         except AgentLoopError as e:
