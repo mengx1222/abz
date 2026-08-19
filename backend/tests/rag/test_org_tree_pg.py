@@ -31,6 +31,7 @@ from app.core.config import settings
 from app.models import Base, Organization, Role, User
 from app.models.organization import OrgType
 from app.core.authorization import DataPermissionChecker
+from sqlalchemy.orm import selectinload
 
 PG_URL = os.environ.get("AZB_TEST_DATABASE_URL", "")
 
@@ -114,8 +115,18 @@ async def _seed_tree(session: AsyncSession) -> dict:
 
 
 async def _load_user(session: AsyncSession, user_id: uuid.UUID) -> User:
-    """从 DB 重新查询用户（模拟 get_current_user 的真实加载路径）。"""
-    return (await session.execute(select(User).where(User.id == user_id))).scalars().one()
+    """从 DB 重新查询用户，加载方式与 get_current_user 一致（Task 26 修复：
+    嵌套 selectinload 组织树，避免 async 下 org.children MissingGreenlet）。"""
+    return (
+        await session.execute(
+            select(User)
+            .where(User.id == user_id)
+            .options(
+                selectinload(User.organization).selectinload(Organization.children),
+                selectinload(User.team),
+            )
+        )
+    ).scalars().one()
 
 
 class TestOrgTreeProduction:

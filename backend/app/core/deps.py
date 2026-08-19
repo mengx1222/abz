@@ -7,6 +7,7 @@ from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from redis.asyncio import Redis
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
+from sqlalchemy.orm import selectinload
 from structlog import get_logger
 
 from app.core.config import settings
@@ -130,8 +131,19 @@ async def get_current_user(
     user: User | None = None
 
     # 尝试从数据库查询
+    # Task 26: eager-load 组织树（嵌套 selectinload 2 层：HQ→Branch→Team）。
+    # 此前 Organization.children 为 lazy=selectin，async 下 DataPermissionChecker
+    # 访问 org.children 抛 MissingGreenlet 被静默吞掉 → HQ_ADMIN/BRANCH_ADMIN
+    # 可访问范围退化为仅本组织（组织树递归失效，真实 bug，backend-pg 实测暴露）。
     try:
-        result = await db.execute(select(User).where(User.id == user_id, User.is_deleted == False))
+        result = await db.execute(
+            select(User)
+            .where(User.id == user_id, User.is_deleted == False)
+            .options(
+                selectinload(User.organization).selectinload(Organization.children),
+                selectinload(User.team),
+            )
+        )
         user = result.scalar_one_or_none()
     except Exception as e:
         logger.debug("Database query failed in get_current_user", error=str(e))
