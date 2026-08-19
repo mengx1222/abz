@@ -114,11 +114,13 @@ test.describe('AI 销售副驾（SYSTEM_ADMIN）', () => {
 
     await openAgentPage(page, token, user, customerId);
 
-    // 页面标题 + 客户上下文
-    await expect(page.getByRole('heading', { name: 'AI 销售副驾' })).toBeVisible({
+    // 页面标题（h1 唯一）+ 客户上下文（Badge 与左卡可能同文本 → .first()）
+    await expect(page.locator('h1').filter({ hasText: 'AI 销售副驾' })).toBeVisible({
       timeout: 15_000,
     });
-    await expect(page.getByText(`AgentE2E客户${suffix}`)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByText(`AgentE2E客户${suffix}`).first()).toBeVisible({
+      timeout: 15_000,
+    });
 
     // 输入销售问题并发送
     await page.getByPlaceholder('输入销售场景或客户诉求...').fill('客户想了解医疗险的保障范围和理赔流程，帮我准备沟通话术');
@@ -145,7 +147,10 @@ test.describe('AI 销售副驾（SYSTEM_ADMIN）', () => {
 
     await openAgentPage(page, token, user, customerId);
 
-    await expect(page.getByText(`AgentE2ERefuse${suffix}`)).toBeVisible({ timeout: 15_000 });
+    // 页面就绪：输入框可用（客户名渲染不作为前置——后端自己会查客户权限）
+    await expect(page.getByPlaceholder('输入销售场景或客户诉求...')).toBeVisible({
+      timeout: 15_000,
+    });
 
     await page
       .getByPlaceholder('输入销售场景或客户诉求...')
