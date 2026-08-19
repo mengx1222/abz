@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 27（AI Sales Agent Core Backend + Orchestration）
+> 上一轮 Task: Task 28（AI Sales Agent Frontend Productization）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-19 · HEAD Task 27）
+## Current Snapshot（2026-08-19 · HEAD Task 28）
 
 
 
@@ -80,9 +80,9 @@
 
 | PG 集成测试（真实 PG16+pgvector） | **43 passed**（+Agent RAG 权限/黄金链/IDOR 5，Task 27） |
 
-| Frontend Tests / Build | **70 passed（9 files）** + `tsc -b` 0 errors + `vite build` ✓ |
+| Frontend Tests / Build | **81 passed（10 files）**（+SalesAgent 11） + `tsc -b` 0 errors + `vite build` ✓ |
 
-| Playwright E2E | **24/24 passed**（Task 25 +A-1/A-2 Admin 社区管理） |
+| Playwright E2E | **26 passed**（Task 28 +G-1/G-2 Sales Agent） |
 
 | **TypeScript（Task 19）** | **`tsc -b` 0 errors** + **CI Hard Gate 恢复**（backend-tests frontend job 显式 typecheck 步骤 + `npm run build`；详见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)） |
 | **Knowledge Production Ingestion（Task 20）** | **Implemented + Tested**：index_document 生产分支持久化 Document/Chunk/Embedding（PG + pgvector，1536 维），权限/产品 metadata 继承 KB，事务 rollback、重复索引幂等、空文档拒绝；PG 集成 8 用例（test_ingestion_pg.py）；详见 [rag.md](rag.md) §7 |

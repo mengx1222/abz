@@ -1657,4 +1657,14 @@ class MockProvider:
 - **架构**：API → SalesAgentService(Orchestrator) → ToolRegistry(白名单 5 工具) → 现有 Service/RAG/Compliance → AIGateway → SSE。
 - **工具**：get_customer_context / get_customer_activity / search_product_knowledge / generate_sales_script / check_compliance（全部复用既有能力，详见 [ai-sales-agent.md](ai-sales-agent.md)）。
 - **安全**：确定性黄金链（Customer → RAG → Script → Compliance → 汇总）；RBAC/组织范围由底层 Service 再次执行；RAG REFUSE 不编造；Provider 失败不 fallback Mock；不输出 CoT/内部 prompt。
-- **状态**：Backend Orchestrator **implemented/validated**；前端 Agent UI（Task 28）、长期记忆、复杂自动化、自动对外销售动作**未做（Planned）**。
+- **状态**：Backend Orchestrator **implemented/validated（Task 27）**；前端页面/SSE/Citation/Compliance UI **implemented/validated（Task 28）**；长期记忆、复杂自动化、自动对外销售动作**未做（Planned）**。
+
+
+---
+
+## AI Sales Agent Frontend（Task 28，已产品化）
+
+- **页面/路由**：`/sales-agent/:customerId?`（懒加载）；Sidebar「AI销售副驾」入口 + 客户详情页按钮。
+- **SSE 处理**：`salesAgentService.streamSalesAgentChat`（fetch + AbortSignal + AgentHttpError 401/403/404 真实语义）；事件 agent_start/tool_planned/tool_start/rag_context/message_delta/compliance/agent_complete/error；仅展示安全状态说明，不泄露 CoT/内部 prompt。
+- **结构化 UI**：客户上下文卡（最小字段）→ 对话流（tool_planned 安全状态）→ Citation 面板 → Compliance 面板（GREEN 通过/YELLOW 人工确认/RED 禁止对客使用，绑定后端结果不前端自判）→ RAG REFUSE 安全提示（不渲染成普通答案）→ 错误/重试/中止/防重复。
+- **测试**：Vitest 11 用例 + E2E G-1 黄金路径 / G-2 REFUSE 安全场景（真实后端）。详见 [ai-sales-agent.md](ai-sales-agent.md)。

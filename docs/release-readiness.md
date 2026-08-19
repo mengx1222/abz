@@ -38,7 +38,7 @@
 
 | Playwright E2E | ✅ | 阶段一 + 阶段二，11/11 PASS |
 
-| Frontend | ✅ | Vitest **70 passed（9 files）** + Vite build + `tsc -b` 0 errors（Task 25：Admin 页面组件测试覆盖 5 页） |
+| Frontend | ✅ | Vitest **81 passed（10 files）** + Vite build + `tsc -b` 0 errors（Task 28：Sales Agent 页面 11 用例） |
 
 | Backend | ✅ | pytest 全绿（291/43；backend-pg 43 passed，含 Task 27 Agent 集成） |
 
@@ -68,7 +68,7 @@
 
 | ~~Demo 401 语义（P2-2）~~ | **已 RESOLVED（Task 24）**：ErrorHandlerMiddleware 放行 HTTPException（受保护端点认证失败 500→401 真实 bug）、前端 /auth 401 豁免、login 真实错误透传；测试 3 用例 | — |
 
-| AI Sales Agent | **核心后端已实现（Task 27）** | ToolRegistry 白名单 + Orchestrator 黄金链 + SSE + RBAC 继承 + RAG/Citation + Compliance + 错误模型 + PG 集成 43 passed；前端 UI（Task 28）、长期记忆、自动对外销售动作未做 |
+| AI Sales Agent | **后端 + 前端已实现（Task 27/28）** | ToolRegistry + Orchestrator + SSE + RBAC + RAG/Citation + Compliance；前端页面/路由/SSE 流式/Citation/Compliance/REFUSE/错误重试；长期记忆、自动对外销售动作未做（Planned） |
 | ~~知识库 CRUD（list/create/update/delete）~~ | **已生产化（Task 21）**：DB backed + 权限继承（org/role/metadata）+ 级联删除 + 同名 409，PG 集成 7 用例（test_kb_crud.py） | — |
 | ~~文档管理（list/detail/publish/unpublish/delete）~~ | **已生产化（Task 22）**：DB backed + 继承 KB 权限 + FK CASCADE 无孤儿，PG 集成 7 用例（test_document_management.py） | — |
 | ~~Admin 前端 KB/Document 管理~~ | **已生产化（Task 23）**：对接真实 Production API（detail/unpublish/update/404-403 语义/loading 防重复），vitest 13 用例 + E2E K-1~K-3 | — |

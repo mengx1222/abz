@@ -213,3 +213,17 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 ### 10.3 真实 AI Smoke（backend/scripts/phase10_ai_sales_agent_smoke.py）
 
 - 真实登录 → 客户 → RAG → Script → Compliance → SSE 事件流 → agent_complete；opt-in（workflow_dispatch / Secrets），无 key NOT RUN
+
+
+## 11. AI Sales Agent 前端测试（Task 28）
+
+### 11.1 组件测试（tests/features/salesAgent.test.tsx，11 用例）
+
+- initial/正常 SSE/Citation/Compliance GREEN-YELLOW-RED/RAG REFUSE/404/Provider error/stream error/retry/防重复/客户 404
+- mock salesAgentService（保留 AgentHttpError 语义）+ customerService；不依赖真实 AI
+
+### 11.2 E2E（e2e/sales-agent/sales-agent.spec.ts，2 用例）
+
+- G-1 黄金路径：登录 → /sales-agent/{customerId} → 客户上下文 → 输入销售问题 → tool_planned 安全状态 → 非空结果 → 无浏览器/API 错误
+- G-2 安全场景：知识库无匹配产品 → RAG REFUSE → 明确「当前知识库没有足够的产品依据」
+- 不依赖固定 AI 文案，只断言稳定事实

@@ -2538,3 +2538,52 @@ Stage Summary:
 - AI Sales Agent 后端第一阶段完成：Tool Registry + Orchestrator + SSE + RBAC 继承
   + RAG/Citation + Script/Compliance 安全顺序 + 错误/超时/循环模型 + PG 集成 +
   真实 Smoke（opt-in）；backend-pg 43 passed；文档与源码一致
+
+---
+
+Task ID: 48
+
+Agent: main
+
+Task: Task 28 — AI Sales Agent Frontend Productization（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@c9e1a2d（Task 27 全绿）；备份分支 backup/task-28-20260819-1311
+- 审计：routes.tsx（/ai prefix + lazyNamed）/ productQaService SSE 模式（fetch+TextDecoder）/
+  CustomerDetailPage header 按钮区 / Sidebar nav / Badge-Button-Card 组件
+- 实现（frontend）：
+  · services/salesAgentService.ts：streamSalesAgentChat（fetch SSE + AbortSignal +
+    AgentHttpError 401/403/404 真实语义）
+  · features/sales-agent/SalesAgentPage.tsx：客户上下文卡（最小字段）+ 对话流 +
+    Citation 面板 + Compliance 面板（GREEN/YELLOW/RED 绑定后端）+ RAG REFUSE 安全提示 +
+    错误/重试/中止 + 发送防重复 + 工具状态（安全状态说明，不泄露 CoT）
+  · routes.tsx /sales-agent/:customerId?；Sidebar「AI销售副驾」；CustomerDetail 按钮
+- 测试：
+  · vitest salesAgent.test.tsx（11 用例：initial/正常 SSE/Citation/Compliance
+    GREEN-YELLOW-RED/REFUSE/404/Provider error/stream error/retry/防重复/客户 404）
+  · E2E sales-agent.spec.ts（G-1 黄金路径 + G-2 REFUSE 安全场景，真实后端）
+- 排障（日志驱动，9 轮，发现 4 个真实前端 bug）：
+  ① scrollIntoView jsdom 缺失 → ?.() 可选调用
+  ② useParams param 名不匹配（路由 :customerId vs 页面取 id → 生产路由下客户 ID
+    永远 undefined，Agent 页面不可用）→ 页面改解构 customerId
+  ③ messagesRef useEffect 滞后 → message_delta 追加互相覆盖（只剩最后一段）、
+    agent_complete 覆盖已收 compliance、流结束兜底误覆盖 → 全部改 setMessages
+    函数式 updater（prev 内最新状态）
+  ④ agent_complete 未携带 compliance 时覆盖 tool 阶段结果 → updater 合并保留
+- 测试基建修复：vi.mock 顶部注册（vitest 4）+ resetAllMocks + fireEvent/act 同步化
+  （userEvent 异步挂起）+ async generator 内 throw（mockRejectedValue 对 generator
+  返回非 iterable）+ getAllByText 规避 strict + 测试 20s timeout
+- 验证（最终 HEAD CI）：Vitest 81 passed（10 files）、tsc 0、build、backend 无回归、
+  backend-pg 无回归、E2E（26，+G-1/G-2）、Prod ✅
+- 文档：ai-sales-agent.md（Frontend 章节）、ai-agents/architecture/security/rag、
+  project-status（Task 28）、release-verification、release-readiness、testing（§11）、worklog
+- 剩余限制（Planned 未做）：长期记忆/CRM 自动写回/自动发送企微短信邮件/自动投保/
+  外部副作用/多 Agent 协作/复杂语音/分析大屏
+- 边界：未开发后端 Agent 新功能；未改 API contract；未 force push
+
+Stage Summary:
+
+- AI Sales Agent 前端产品化完成：页面/路由/SSE 流式/Citation/Compliance/REFUSE/
+  错误重试/防重复全部实现并测试；发现并修复 4 个真实前端 bug（含 useParams 与
+  流式状态覆盖）；Vitest 81/81、E2E G-1/G-2、全矩阵绿

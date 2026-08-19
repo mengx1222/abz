@@ -1,8 +1,10 @@
-# AI Sales Agent（后端第一阶段）
+# AI Sales Agent（后端 + 前端）
 
-> 状态：**Agent Core implemented / validated**（Task 27，HEAD=f93ac42 全绿：Backend 291/43、backend-pg 43 passed、Prod ✅）
+> 状态：**Backend implemented / validated（Task 27）** + **Frontend implemented / validated（Task 28）**
+> Task 27 HEAD=f93ac42（Backend 291/43、backend-pg 43）；Task 28 前端页面/SSE/测试/E2E 全绿
 > 范围：后端 Orchestrator + Tool Registry + SSE Contract + 测试矩阵 + 真实 AI Smoke。
-> **未做（后续任务）**：前端 Agent UI（Task 28）、长期记忆/复杂 memory、复杂多 Agent 协作、
+> **已做**：后端 Orchestrator（Task 27）+ 前端页面/SSE/Citation/Compliance/REFUSE UI（Task 28）。
+> **未做（后续任务，Planned）**：长期记忆/复杂 memory、复杂多 Agent 协作、CRM 自动写回、
 > 自动对外销售动作（发送消息/下单/投保等）——Agent 当前只生成建议/结果，对客动作由人工触发。
 
 ## 1. 架构
@@ -125,9 +127,20 @@ sanitize（Prompt Injection HIGH → 拒答，零工具调用）
 - **真实 AI Smoke（phase10，opt-in / Secrets）**：真实登录 → 客户 → RAG → Script →
   Compliance → SSE 事件流 → agent_complete（workflow_dispatch / REAL_AI_SMOKE_TEST=true）
 
-## 9. 限制与后续
+## 9. Frontend（Task 28 已完成）
 
-- 前端 Agent UI → **Task 28**
+- 页面：`frontend/src/features/sales-agent/SalesAgentPage.tsx`，路由 `/sales-agent/:customerId?`
+- 入口：Sidebar「AI销售副驾」+ 客户详情页「AI 销售副驾」按钮
+- SSE：`salesAgentService.streamSalesAgentChat`（fetch + AbortSignal；401/403/404 → AgentHttpError 真实语义）
+- UI：客户上下文卡（最小字段）→ 对话流（tool_planned 安全状态说明）→ Citation 面板
+  → Compliance 面板（GREEN 通过 / YELLOW 人工确认 / RED 禁止对客使用，绑定后端结果）
+  → RAG REFUSE 安全提示（不渲染成普通答案）→ 错误/重试/中止 → 发送防重复
+- 组件测试 11 用例（vitest）+ E2E 2 用例（G-1 黄金路径 / G-2 REFUSE 安全场景）
+
+## 10. 限制与后续
+
 - 长期记忆 / 复杂会话管理（当前内存 session 单实例）
-- Training tool、复杂自动化（多 Agent / 自动执行销售动作）→ 未来规划
+- CRM 自动写回、自动发送企微/短信/邮件、自动投保、自动执行外部副作用、多 Agent 协作
+  → **Planned**（不实现）
+- Training tool、复杂分析大屏 → 未来规划
 - Admin 管理 API Demo-only 等既有 P 系列问题与本模块无关

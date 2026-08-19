@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 27 提交链（AI Sales Agent Core）** |
+| Git HEAD（验证时 Current main） | **Task 28 提交链（AI Sales Agent Frontend）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -92,11 +92,11 @@
 
 | Frontend build | `tsc -b` 0 errors + `vite build` ✓ | CI `frontend` @ Task 24 |
 
-| Playwright E2E | **24 passed**（+A-1/A-2 Admin 社区管理） | CI `e2e-playwright` @ Task 25 |
+| Playwright E2E | **26 passed**（+G-1/G-2 Sales Agent 黄金路径/REFUSE） | CI `e2e-playwright` @ Task 28 |
 
 | Real AI Smoke | **8/8 PASS** | CI `real-ai-smoke` run 31866434810（commit 94ce52f） |
 
-| Production Validation | **PASS** | CI @ Task 24 |
+| Production Validation | **PASS** | workflow_dispatch @ Task 28（手动触发，docker compose + PG/Redis 真实容器） |
 
 
 
