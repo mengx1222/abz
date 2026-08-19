@@ -79,14 +79,13 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
   });
 
   it('initial：加载客户上下文与空对话提示', async () => {
-    // 诊断：mock 必须生效（页面模块加载时 getCustomer 已是 vi.fn）
     expect(vi.isMockFunction(getCustomer)).toBe(true);
     renderPage();
-    // 若 mock 未生效，getCustomer 不会被调用（axios 挂起 → 页面卡 loading）
-    await waitFor(() => {
-      expect(mockedGetCustomer).toHaveBeenCalled();
-    });
-    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
+    await new Promise((r) => setTimeout(r, 300));
+    // DIAG（临时）：打印渲染后的 DOM 前 800 字符定位渲染状态
+    console.log('DIAG BODY:', document.body.innerHTML.slice(0, 800));
+    expect(mockedGetCustomer).toHaveBeenCalled();
+    expect(screen.getByText('张三')).toBeInTheDocument();
     expect(screen.getByText('AI 销售副驾已就绪')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('输入销售场景或客户诉求...')).toBeInTheDocument();
   });
