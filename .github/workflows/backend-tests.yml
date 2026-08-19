@@ -90,4 +90,4 @@ jobs:
       - name: Run PostgreSQL integration tests
         env:
           AZB_TEST_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_test
-        run: pytest tests/unit/test_pg_integration.py tests/rag/test_permission_pg.py tests/rag/test_ingestion_pg.py tests/rag/test_org_tree_pg.py tests/rag/test_agent_pg.py tests/knowledge/test_kb_crud.py tests/knowledge/test_document_management.py tests/knowledge/test_e2e_seed_idempotency.py -v
+        run: pytest tests/unit/test_pg_integration.py tests/rag/test_permission_pg.py tests/rag/test_ingestion_pg.py tests/rag/test_org_tree_pg.py tests/rag/test_agent_pg.py tests/knowledge/test_kb_crud.py tests/knowledge/test_document_management.py tests/knowledge/test_e2e_seed_idempotency.py tests/knowledge/test_seed_idempotency.py -v
