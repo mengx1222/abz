@@ -662,3 +662,14 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 - 本地开发：从 `.env.example` / `backend/.env.production`（占位模板，`CHANGE_ME_*`）复制并填入真实值，`.gitignore` 已忽略 `.env` / `.env.production`
 - 日志脱敏：structlog 记录 provider/model/tokens/latency，**不记录 API Key**；GitHub Actions 日志对 Secret 自动 mask（显示 `***`）
 - 仓库安全状态：当前 Git 树无真实密钥（Task 14 全仓扫描）；历史根 `.env` 仅含本地 sqlite 路径，无真实凭据
+
+
+---
+
+## AI Sales Agent 安全（Task 27）
+
+- 工具白名单：Agent 只能调用注册表内 5 个工具，禁止 LLM 自由生成函数名/HTTP URL。
+- 权限继承：所有工具携带当前 User，底层 Service/RAG 再次执行 RBAC/组织范围检查（Task 17B 权限不因 Agent 绕过）；跨组织客户 → NOT_FOUND（不泄露存在性）。
+- Prompt Injection（HIGH）→ 拒答；RAG REFUSE → 禁止模型编造产品条款。
+- Provider 失败（429/401/超时）→ 确定错误模型，禁止 fallback Mock。
+- 隐私：发送给 Provider 的客户字段为最小化集合（不含 phone/notes/证件号）；日志不记录 API Key/完整 prompt/敏感资料。

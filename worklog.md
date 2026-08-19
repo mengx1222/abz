@@ -2478,3 +2478,63 @@ Stage Summary:
 
 - 测试基础设施审计 + Production 组织树递归真实 bug 修复（get_current_user eager-load 3 层树）；
   backend-pg 35→38；workflow/seed/migration 隔离确认；文档与源码一致
+
+---
+
+Task ID: 47
+
+Agent: main
+
+Task: Task 27 — AI Sales Agent Core Backend + Orchestration（第一阶段，100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@237ee58（Task 26 全绿）；备份分支 backup/task-27-20260819-1144
+- 审计（docs/ai-sales-agent.md）：现有能力 → Agent Tool 映射矩阵 —— CustomerService
+  （IDOR 防护）/ RAGPipeline（Vector+BM25+RRF+Confidence+Citation）/ ScriptService
+  （RAG+Compliance+持久化）/ compliance_service.check_compliance 全部可复用；
+  ai.py 已有 /ai prefix（product-qa SSE）→ 新端点 /ai/sales-agent/chat
+- 实现（backend/app/agent/）：
+  · registry.py: ToolRegistry / ToolContract / ToolResult —— 白名单 + 输入 schema +
+    权限 + 超时 + 确定错误模型（PERMISSION_DENIED/NOT_FOUND/TOOL_TIMEOUT/
+    PROVIDER_ERROR/INVALID_ARGS/INTERNAL）；禁止 LLM 自由生成函数名/URL
+  · tools.py: 5 工具（get_customer_context/get_customer_activity/
+    search_product_knowledge/generate_sales_script/check_compliance），全部复用
+    现有 Service/Pipeline；客户字段最小化（不含 phone/notes）
+  · orchestrator.py: SalesAgentService 确定性黄金链编排
+    （sanitize → customer → activity → RAG(REFUSE 跳话术) → script → compliance
+    → LLM 汇总 message_delta → agent_complete）；SSE 事件 agent_start/tool_planned/
+    tool_start/tool_result/rag_context/message_delta/compliance/agent_complete/error；
+    循环/预算/超时防护；内存 session（显式限制，写 release-readiness）
+  · schemas.py + api/v1/ai.py: POST /ai/sales-agent/chat（SSE）
+- 测试：
+  · unit test_agent_orchestrator.py（12 用例：白名单/超时/黄金链事件顺序/无产品类型/
+    客户不存在/越权 IDOR/注入拒答/RAG REFUSE 跳话术/Compliance RED/Provider 失败
+    不 fallback/循环预算/Session 连续性/Script REFUSE 透传）
+  · PG test_agent_pg.py（5 用例：RAG 角色+组织双权限过滤不泄漏/无权 KB/完整黄金链/
+    IDOR/注入全链）
+  · 真实 Smoke phase10_ai_sales_agent_smoke.py（登录→客户→RAG→Script→Compliance
+    →SSE 事件流；opt-in/Secrets，无 key NOT RUN）
+- 排障（日志驱动，5 轮）：
+  ① flush 后 User 对象 relationship 未加载 → DataPermissionChecker 访问 role_code
+    greenlet_spawn → 测试从 DB 重查（模拟 get_current_user 路径）
+  ② 正式模式 AGENT can_access_customer=False → 黄金链改用 TEAM_LEADER
+  ③ _summarize 纯文本 final message 被 isinstance(str) 误判 → startswith('{') 区分
+  ④ assess_confidence 单结果判 LOW（HIGH 需 count>=3）→ 测试数据改 3 结果；
+    PG 检索分数不稳 → embed 返回 VEC_HIT 命中有权 KB + refuse 语义改"不泄漏"
+  ⑤ **script_service 模块级 import RAGPipeline 绑定名** → monkeypatch
+    app.rag.pipeline 不影响其内部 → script 工具内部真实 RAGPipeline（SQLite 空）
+    → REFUSE → 显式 monkeypatch ScriptService._get_rag_pipeline
+- 验证（最终 HEAD CI）：backend 全量、backend-pg 43 passed、tsc/vitest/build 无回归、
+  E2E 无回归、Prod ✅；Real AI Smoke 需 Secrets 手动触发（当前 skipped）
+- 文档：ai-sales-agent.md（新建）、project-status/release-verification/
+  release-readiness/testing/ai-agents/architecture/security/rag、worklog
+- 限制（记录）：内存 session（单实例，多实例不共享）；Training tool/复杂 memory/
+  自动对外销售动作未做（后续任务）；前端 Agent UI → Task 28
+- 边界：未开发 Agent 前端；未改 API contract；未重构 RAG/权限；未 force push
+
+Stage Summary:
+
+- AI Sales Agent 后端第一阶段完成：Tool Registry + Orchestrator + SSE + RBAC 继承
+  + RAG/Citation + Script/Compliance 安全顺序 + 错误/超时/循环模型 + PG 集成 +
+  真实 Smoke（opt-in）；backend-pg 43 passed；文档与源码一致

@@ -195,3 +195,21 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 - 干净 PG 每轮 alembic upgrade head（0001→0009）→ migration chain 有效
 - seed 幂等：scripts.seed get-or-create；e2e_seed_knowledge 存在即跳过（Task 24）
 - RAG 权限测试随机 suffix 隔离 + 防御性清理 org=NULL KB（N8 已消除）
+
+
+---
+
+## 10. AI Sales Agent 测试（Task 27）
+
+### 10.1 Unit（tests/unit/test_agent_orchestrator.py，12 用例）
+
+- Tool Registry 白名单/未知工具/超时、黄金链 SSE 事件顺序、无产品类型跳 RAG、客户不存在/越权 IDOR、Prompt Injection 拒答、RAG REFUSE 跳话术、Compliance RED 透传、Provider 失败不 fallback、循环/预算防护、Session 连续性、Script REFUSE 透传
+- 模式：SQLite + DEMO_MODE=false + mock provider + 最底层 FakePipeline（保持 Agent→Service→Pipeline→Compliance 真实 wiring）
+
+### 10.2 PG + pgvector（tests/rag/test_agent_pg.py，5 用例）
+
+- RAG 工具角色+组织双权限过滤（citation 不泄漏）、无权 KB 内容不泄漏、完整黄金链、跨组织客户 IDOR、注入全链拒答
+
+### 10.3 真实 AI Smoke（backend/scripts/phase10_ai_sales_agent_smoke.py）
+
+- 真实登录 → 客户 → RAG → Script → Compliance → SSE 事件流 → agent_complete；opt-in（workflow_dispatch / Secrets），无 key NOT RUN

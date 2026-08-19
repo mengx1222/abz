@@ -1188,3 +1188,16 @@ if (isDemoMode) {
 > **文档版本**: v1.0.0
 > **最后更新**: 2025 年 1 月
 > **适用阶段**: 系统设计与初始开发阶段
+
+
+---
+
+## AI Sales Agent（Task 27）
+
+`backend/app/agent/`：
+- `registry.py` — ToolRegistry/ToolContract/ToolResult（白名单、输入 schema、权限、超时、错误模型）
+- `tools.py` — 5 个白名单工具（复用 CustomerService/RAGPipeline/ScriptService/ComplianceEngine）
+- `orchestrator.py` — SalesAgentService 确定性黄金链编排 + SSE 事件流 + 循环/预算/超时防护 + 内存 session
+- `schemas.py` — SalesAgentChatRequest
+
+端点：`POST /api/v1/ai/sales-agent/chat`（SSE）。详见 [ai-sales-agent.md](ai-sales-agent.md)。

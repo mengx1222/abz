@@ -1203,3 +1203,12 @@ User → Auth(JWT) → RBAC → Org Scope(DataPermissionChecker) → KB Scope(ro
 
 - 已实现/已验证：Document list/detail/publish/unpublish/delete 生产化 + 权限继承 + 级联删除 + 计数回退。
 - 未处理：文档内容编辑/版本管理（previous_version_id 已有列未闭环）、AI Sales Agent 等新功能。
+
+
+---
+
+## AI Sales Agent × RAG（Task 27）
+
+- Agent 的 `search_product_knowledge` 工具复用 RAGPipeline（Vector + BM25 + RRF + Product Boundary + Role/Org 权限 + Confidence Gate + Citation）。
+- RAG REFUSE → Agent 跳过话术生成（不编造产品条款），拒答状态结构化返回前端；citation 进入最终 agent_complete。
+- PG 集成验证：AGENT@A 的 citation 只属于有权 KB（KB-B 角色不符 / KB-C 组织不符不泄漏）。

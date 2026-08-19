@@ -1648,3 +1648,13 @@ class MockProvider:
 - 后端：`test_script_rag_production`（product_type 透传 / 错误产品 REFUSE / citations 字段齐全）、
   `test_pg_integration.TestPgRagProductBoundary`（PG 真实过滤：医疗险命中/车险空/无过滤语义召回）
 - E2E：真实生成 + Compliance 徽章 + Citation UI（8.4s）、错误产品（车险）拒答且不展示依据（2.9s）
+
+
+---
+
+## AI Sales Agent（Task 27，核心后端第一阶段）
+
+- **架构**：API → SalesAgentService(Orchestrator) → ToolRegistry(白名单 5 工具) → 现有 Service/RAG/Compliance → AIGateway → SSE。
+- **工具**：get_customer_context / get_customer_activity / search_product_knowledge / generate_sales_script / check_compliance（全部复用既有能力，详见 [ai-sales-agent.md](ai-sales-agent.md)）。
+- **安全**：确定性黄金链（Customer → RAG → Script → Compliance → 汇总）；RBAC/组织范围由底层 Service 再次执行；RAG REFUSE 不编造；Provider 失败不 fallback Mock；不输出 CoT/内部 prompt。
+- **状态**：Backend Orchestrator **implemented/validated**；前端 Agent UI（Task 28）、长期记忆、复杂自动化、自动对外销售动作**未做（Planned）**。

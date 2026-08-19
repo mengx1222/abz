@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 25 提交链（HEAD=39f471d，Admin Frontend Quality）** |
+| Git HEAD（验证时 Current main） | **Task 27 提交链（AI Sales Agent Core）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -86,7 +86,7 @@
 
 | Backend pytest（SQLite） | **278 passed, 35 skipped**（含安全态势 7：CSRF posture + Auth 语义契约；seed 幂等 3 无 PG 环境 skip） | CI `backend-tests` @ Task 24（6ffa82b） |
 
-| Backend PG 集成（真实 PG16+pgvector） | **38 passed**（+组织树 production 递归 3，Task 26） | CI `backend-pg` @ Task 26 |
+| Backend PG 集成（真实 PG16+pgvector） | **43 passed**（+Agent RAG 权限/黄金链/IDOR 5） | CI `backend-pg` @ Task 27 |
 
 | Frontend Vitest | **70 passed（9 files：utils 3 + Knowledge 13 + Dashboard 4 + Compliance 8 + Customers 6 + CommunityManage 6 + ScriptManage 6）** | CI `frontend` @ Task 25 |
 
@@ -190,3 +190,5 @@
 
 > 注意：**READY FOR INTERNAL PILOT** ≠ PRODUCTION READY。进入生产前须：恢复前端 tsc 门禁、收敛 P1/P2、生产部署演练、安全复审。
 
+
+| Real AI Sales Agent Smoke | **opt-in / workflow_dispatch**（phase10 黄金链，需 Secrets；无 key 时 NOT RUN） | CI `real-ai-smoke` |

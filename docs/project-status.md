@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 26（E2E / Seed / Production-like Test Infrastructure Hardening）
+> 上一轮 Task: Task 27（AI Sales Agent Core Backend + Orchestration）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-19 · HEAD Task 25）
+## Current Snapshot（2026-08-19 · HEAD Task 27）
 
 
 
@@ -78,7 +78,7 @@
 
 | **RAG 权限加固（Task 17B）** | **Role Filtering + Organization Filtering + Citation/SSE 防泄漏 + 拒答不降级 全部 Implemented + Tested**（tests/rag/ 35 用例 + PG 集成 5 用例；详见 [rag-permission-audit.md](rag-permission-audit.md)） |
 
-| PG 集成测试（真实 PG16+pgvector） | **38 passed**（+组织树 production 递归 3，Task 26） |
+| PG 集成测试（真实 PG16+pgvector） | **43 passed**（+Agent RAG 权限/黄金链/IDOR 5，Task 27） |
 
 | Frontend Tests / Build | **70 passed（9 files）** + `tsc -b` 0 errors + `vite build` ✓ |
 
