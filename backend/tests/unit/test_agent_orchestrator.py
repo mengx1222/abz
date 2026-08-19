@@ -239,6 +239,9 @@ async def test_chat_golden_chain(seed, session, monkeypatch):
     order = [e["event"] for e in events]
     assert order[0] == "agent_start"
     assert order[-1] == "agent_complete"
+    # DIAG（临时）：script 工具实际返回
+    _sr = [e["data"] for e in events if e["event"] == "tool_result" and e["data"].get("tool") == "generate_sales_script"]
+    print("DIAG script tool_result:", json.dumps(_sr[-1] if _sr else None, ensure_ascii=False)[:600])
     # 黄金链工具顺序
     tools = [e["data"]["tool"] for e in events if e["event"] == "tool_start"]
     assert tools == [
