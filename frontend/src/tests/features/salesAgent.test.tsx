@@ -77,9 +77,11 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
 
   it('initial：加载客户上下文与空对话提示', async () => {
     renderPage();
+    // 诊断：若 mock 未生效，getCustomer 不会被调用（axios 网络错误 → 页面错误态）
     await waitFor(() => {
-      expect(screen.getByText('张三')).toBeInTheDocument();
+      expect(mockedGetCustomer).toHaveBeenCalled();
     });
+    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
     expect(screen.getByText('AI 销售副驾已就绪')).toBeInTheDocument();
     expect(screen.getByPlaceholderText('输入销售场景或客户诉求...')).toBeInTheDocument();
   });
@@ -108,9 +110,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
     );
 
     renderPage();
-    await waitFor(() => {
-      expect(screen.getByText('张三')).toBeInTheDocument();
-    });
+    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
 
     await userEvent.type(screen.getByPlaceholderText('输入销售场景或客户诉求...'), '客户想了解医疗险');
     await userEvent.click(screen.getByRole('button', { name: '发送' }));
@@ -143,7 +143,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
       ])
     );
     renderPage();
-    await waitFor(() => expect(screen.getByText('张三')).toBeInTheDocument());
+    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText('输入销售场景或客户诉求...'), '客户想了解医疗险');
     await userEvent.click(screen.getByRole('button', { name: '发送' }));
 
@@ -168,7 +168,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
       ])
     );
     renderPage();
-    await waitFor(() => expect(screen.getByText('张三')).toBeInTheDocument());
+    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText('输入销售场景或客户诉求...'), '客户想了解医疗险');
     await userEvent.click(screen.getByRole('button', { name: '发送' }));
 
@@ -191,7 +191,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
       ])
     );
     renderPage();
-    await waitFor(() => expect(screen.getByText('张三')).toBeInTheDocument());
+    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText('输入销售场景或客户诉求...'), '客户想了解医疗险');
     await userEvent.click(screen.getByRole('button', { name: '发送' }));
 
@@ -207,7 +207,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
       new AgentHttpError(404, '客户不存在或无权访问。', '客户不存在或无权访问。')
     );
     renderPage();
-    await waitFor(() => expect(screen.getByText('张三')).toBeInTheDocument());
+    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText('输入销售场景或客户诉求...'), '客户想了解医疗险');
     await userEvent.click(screen.getByRole('button', { name: '发送' }));
 
@@ -224,7 +224,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
       ])
     );
     renderPage();
-    await waitFor(() => expect(screen.getByText('张三')).toBeInTheDocument());
+    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText('输入销售场景或客户诉求...'), '客户想了解医疗险');
     await userEvent.click(screen.getByRole('button', { name: '发送' }));
 
@@ -237,7 +237,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
   it('stream error：网络异常 → 错误消息', async () => {
     mockedStream.mockRejectedValue(new Error('网络异常，请检查连接后重试。'));
     renderPage();
-    await waitFor(() => expect(screen.getByText('张三')).toBeInTheDocument());
+    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText('输入销售场景或客户诉求...'), '客户想了解医疗险');
     await userEvent.click(screen.getByRole('button', { name: '发送' }));
 
@@ -255,7 +255,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
       ])
     );
     renderPage();
-    await waitFor(() => expect(screen.getByText('张三')).toBeInTheDocument());
+    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText('输入销售场景或客户诉求...'), '客户想了解医疗险');
     await userEvent.click(screen.getByRole('button', { name: '发送' }));
 
@@ -278,7 +278,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
       yield agentEvent('message_delta', { content: '结果' });
     });
     renderPage();
-    await waitFor(() => expect(screen.getByText('张三')).toBeInTheDocument());
+    expect(await screen.findByText('张三', {}, { timeout: 5000 })).toBeInTheDocument();
     await userEvent.type(screen.getByPlaceholderText('输入销售场景或客户诉求...'), '客户想了解医疗险');
     await userEvent.click(screen.getByRole('button', { name: '发送' }));
 
@@ -293,8 +293,8 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
   it('客户 404：页面显示客户不存在或无权访问', async () => {
     mockedGetCustomer.mockRejectedValue({ response: { status: 404 } });
     renderPage();
-    await waitFor(() => {
-      expect(screen.getByText('客户不存在或无权访问。')).toBeInTheDocument();
-    });
+    expect(
+      await screen.findByText('客户不存在或无权访问。', {}, { timeout: 5000 })
+    ).toBeInTheDocument();
   });
 });
