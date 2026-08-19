@@ -2,16 +2,16 @@ import { describe, it, expect, vi, beforeEach } from 'vitest';
 import { render, screen, waitFor } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes } from 'react-router-dom';
-import { SalesAgentPage } from '../../features/sales-agent/SalesAgentPage';
+import { SalesAgentPage } from '@/features/sales-agent/SalesAgentPage';
 import {
   AgentHttpError,
   streamSalesAgentChat,
   type AgentEvent,
-} from '../../services/salesAgentService';
-import { getCustomer } from '../../services/customerService';
+} from '@/services/salesAgentService';
+import { getCustomer } from '@/services/customerService';
 
 // ---- mock services（保留 AgentHttpError 真实语义供 instanceof 断言）----
-vi.mock('../../services/salesAgentService', () => ({
+vi.mock('@/services/salesAgentService', () => ({
   AgentHttpError: class AgentHttpError extends Error {
     status: number;
     detailMessage?: string;
@@ -24,7 +24,7 @@ vi.mock('../../services/salesAgentService', () => ({
   streamSalesAgentChat: vi.fn(),
 }));
 
-vi.mock('../../services/customerService', () => ({
+vi.mock('@/services/customerService', () => ({
   getCustomer: vi.fn(),
 }));
 
@@ -73,7 +73,8 @@ function renderPage() {
 
 describe('SalesAgentPage（AI 销售副驾）', () => {
   beforeEach(() => {
-    vi.clearAllMocks();
+    // vitest 4: resetAllMocks 清实现后重新设置（避免 mock 实现被清导致页面卡 loading）
+    vi.resetAllMocks();
     mockedGetCustomer.mockResolvedValue(MOCK_CUSTOMER as never);
   });
 
