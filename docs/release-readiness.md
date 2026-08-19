@@ -68,6 +68,7 @@
 
 | ~~Demo 401 语义（P2-2）~~ | **已 RESOLVED（Task 24）**：ErrorHandlerMiddleware 放行 HTTPException（受保护端点认证失败 500→401 真实 bug）、前端 /auth 401 豁免、login 真实错误透传；测试 3 用例 | — |
 
+| Golden Business Flow | **✅ E2E 验收通过（Task 29）**：浏览器级完整黄金链（登录→Customer360→Agent→RAG/Citation→Compliance→Training→Growth 数据连续），真实 AI provider，27 passed；Real AI phase11 opt-in |
 | AI Sales Agent | **后端 + 前端已实现（Task 27/28）** | ToolRegistry + Orchestrator + SSE + RBAC + RAG/Citation + Compliance；前端页面/路由/SSE 流式/Citation/Compliance/REFUSE/错误重试；长期记忆、自动对外销售动作未做（Planned） |
 | ~~知识库 CRUD（list/create/update/delete）~~ | **已生产化（Task 21）**：DB backed + 权限继承（org/role/metadata）+ 级联删除 + 同名 409，PG 集成 7 用例（test_kb_crud.py） | — |
 | ~~文档管理（list/detail/publish/unpublish/delete）~~ | **已生产化（Task 22）**：DB backed + 继承 KB 权限 + FK CASCADE 无孤儿，PG 集成 7 用例（test_document_management.py） | — |

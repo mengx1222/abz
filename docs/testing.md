@@ -227,3 +227,17 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 - G-1 黄金路径：登录 → /sales-agent/{customerId} → 客户上下文 → 输入销售问题 → tool_planned 安全状态 → 非空结果 → 无浏览器/API 错误
 - G-2 安全场景：知识库无匹配产品 → RAG REFUSE → 明确「当前知识库没有足够的产品依据」
 - 不依赖固定 AI 文案，只断言稳定事实
+
+
+---
+
+## 12. Golden Business Flow E2E（Task 29）
+
+### 12.1 GF-1 浏览器级完整黄金链（e2e/golden-flow/golden-flow.spec.ts）
+
+- 登录(storageState=AGENT 13800138000) → /dashboard → /customers（确定性客户 E2E-黄金链客户/13900002222/医疗险，幂等创建+更新）→ 客户详情 → /sales-agent/{同一 customerId}（URL 断言一致）→ 客户上下文 → 输入销售问题 → tool_planned 安全状态 → 结果非空 → Citation（产品知识来源≥1）→ Compliance（合规检查 GREEN/YELLOW/RED）→ /training（确定性场景 2 轮 SSE + 结束训练 + 评分非空）→ /growth（能力评估 4 项出现 = ability_scores 仅来自训练评分）+ API 断言 total_exp ≥ 训练前+10
+- 稳定事实断言（不依赖 AI 文案）；console/pageerror/API 4xx 监控；300s 超时
+
+### 12.2 Real AI Golden Flow Smoke（backend/scripts/phase11_golden_flow_smoke.py）
+
+- 真实 Provider + DEMO_MODE=false + 真实 PG/Redis：登录 → 客户 → Agent SSE（agent_start/tool_planned/rag_context/citation/agent_complete/compliance）→ Training（2 轮+评分）→ Growth（ability_scores 非空 + total_exp≥10）；opt-in（workflow_dispatch / REAL_AI_SMOKE_TEST），无 key NOT RUN

@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 28 提交链（AI Sales Agent Frontend）** |
+| Git HEAD（验证时 Current main） | **Task 29 提交链（Golden Business Flow E2E）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -92,7 +92,7 @@
 
 | Frontend build | `tsc -b` 0 errors + `vite build` ✓ | CI `frontend` @ Task 24 |
 
-| Playwright E2E | **26 passed**（+G-1/G-2 Sales Agent 黄金路径/REFUSE） | CI `e2e-playwright` @ Task 28 |
+| Playwright E2E | **27 passed**（+GF-1 Golden Business Flow 完整黄金链） | CI `e2e-playwright` @ Task 29 |
 
 | Real AI Smoke | **8/8 PASS** | CI `real-ai-smoke` run 31866434810（commit 94ce52f） |
 
@@ -192,3 +192,5 @@
 
 
 | Real AI Sales Agent Smoke | **opt-in / workflow_dispatch**（phase10 黄金链，需 Secrets；无 key 时 NOT RUN） | CI `real-ai-smoke` |
+
+| Real AI Golden Flow Smoke | **phase11 新增（opt-in）**：登录→客户→Agent(RAG/Citation/Compliance)→Training(评分)→Growth(数据连续)；真实 Provider；需手动 workflow_dispatch | CI `real-ai-smoke` @ Task 29 |

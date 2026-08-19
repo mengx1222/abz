@@ -2587,3 +2587,50 @@ Stage Summary:
 - AI Sales Agent 前端产品化完成：页面/路由/SSE 流式/Citation/Compliance/REFUSE/
   错误重试/防重复全部实现并测试；发现并修复 4 个真实前端 bug（含 useParams 与
   流式状态覆盖）；Vitest 81/81、E2E G-1/G-2、全矩阵绿
+
+---
+
+Task ID: 49
+
+Agent: main
+
+Task: Task 29 — Golden Business Flow E2E — 完整业务黄金链云端验收（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@84523ba（Task 28 全绿）；备份分支 backup/task-29-20260819-1611
+- 审计：现有 11 个 E2E spec（login/dashboard/customers/customer-detail/product-qa/
+  script/training/growth/knowledge/admin-community/sales-agent）+ global-setup
+  （AGENT 13800138000 + E2E-张先生）+ e2e-playwright.yml（真实 PG/Redis + 真实 AI
+  provider 或 mock 回退）+ real-ai-smoke.yml（phase9/10 opt-in）
+- 黄金链定义（GF-1 唯一）：登录(storageState=AGENT) → /dashboard → /customers
+  （确定性客户 E2E-黄金链客户/13900002222/医疗险，幂等创建+更新）→ 客户详情 →
+  /sales-agent/{同一 customerId}（URL 断言一致）→ 客户上下文 → 销售问题 →
+  tool_planned → 结果非空 → Citation（产品知识来源≥1）→ Compliance（合规检查
+  GREEN/YELLOW/RED）→ /training（确定性场景「太贵了」2 轮 SSE + 评分非空）→
+  /growth（能力评估 4 项 = ability_scores 仅来自训练评分）+ API total_exp≥训练前+10
+- 实现：frontend/e2e/golden-flow/golden-flow.spec.ts（GF-1）+ backend/scripts/
+  phase11_golden_flow_smoke.py（真实 AI API 级完整链：登录→客户→Agent SSE
+  →Training 评分→Growth 数据连续）+ real-ai-smoke.yml Phase 11 步骤
+- 排障（2 轮）：
+  ① E2E job 卡 npm install >40min（GitHub Actions 网络偶发，Task 25 同类）→
+     e2e-playwright.yml install 加 timeout 600 + retry（3817f9f）
+  ② GF-1 strict：'合规检查' 5 元素（header 副标题 + 每条 assistant 消息合规面板
+     span+GREEN hint）→ 正确产品行为，断言 .first()（2f183e3）
+- 验证（最终 HEAD=2f183e3 全绿）：Backend 291/43、backend-pg 43、Vitest 81、
+  tsc 0、E2E **27 passed (2.6m)**（26 原有 + GF-1，真实 AI provider）、Prod ✅
+- 数据连续性证明：同一 AGENT 用户贯穿；customer_id Customer→Agent URL 一致；
+  citation 来自真实后端（E2E 知识库医疗险）；compliance 绑定后端；Training 评分
+  进入 Growth ability_scores（list_training_scores 按 user_id 过滤）；total_exp
+  ≥训练前+10（count_completed_trainings×10）
+- 文档：docs/golden-flow-audit.md（新建）、project-status/release-verification/
+  release-readiness/testing（§12）、worklog
+- 限制/未覆盖：Real AI phase11 需手动 workflow_dispatch（PAT 无权限）；自动发送/
+  CRM 写回/投保等外部副作用未做；长期记忆/多 Agent 未做
+- 边界：未做 Production Readiness 放行（保持当前 Release Status）；未大改产品代码
+
+Stage Summary:
+
+- 浏览器级完整业务黄金链（登录→Dashboard→Customer360→AI Sales Agent
+  →RAG/Citation→Compliance→Training→Growth 数据连续）在真实 PG/Redis + 真实 AI
+  provider 下 27/27 通过；Real AI phase11 新增（opt-in）；全矩阵绿；Release Status 不变
