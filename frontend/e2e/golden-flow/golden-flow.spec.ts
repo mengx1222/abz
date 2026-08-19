@@ -188,8 +188,10 @@ test.describe('Golden Business Flow（完整销售准备黄金链）', () => {
       expect(citationCount, 'Citation 面板应包含 ≥1 条依据').toBeGreaterThan(0);
 
       // ---- 5) Compliance（真实绑定后端结果，GREEN/YELLOW/RED 任一） ----
-      await expect(page.getByText('合规检查')).toBeVisible({ timeout: 20_000 });
-      await expect(page.getByText(/合规通过|建议人工确认|禁止直接对客使用/)).toBeVisible({
+      // '合规检查' 出现在 header 副标题 + 每条 assistant 消息的合规面板（span + GREEN hint）
+      // → 多元素正常（多轮对话每条消息都有合规面板），用 .first() 取首个面板
+      await expect(page.getByText('合规检查').first()).toBeVisible({ timeout: 20_000 });
+      await expect(page.getByText(/合规通过|建议人工确认|禁止直接对客使用/).first()).toBeVisible({
         timeout: 10_000,
       });
 
