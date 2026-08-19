@@ -1694,6 +1694,8 @@ alembic/
 
 通过独立脚本 `scripts/seed_mock_data.py` 注入，支持幂等执行（重复运行不产生重复数据）。
 
+> **Task 35 校准**：实际种子脚本为 `scripts/seed.py`（角色 7 / 权限 21 / 组织 6 / 演示用户 4 / 训练场景 23），全段 exists-check-skip 幂等；修复了角色-权限绑定插入缺失 `await` 导致绑定静默不落库的问题（backend-pg 回归测试 test_seed_idempotency.py 覆盖，PG 48 passed）。
+
 **实现方式**：
 - 使用 `INSERT ... ON CONFLICT DO NOTHING` 避免重复
 - Mock 数据的 `id` 使用固定 UUID（便于开发和测试关联）

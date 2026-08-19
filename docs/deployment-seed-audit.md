@@ -17,7 +17,7 @@
   4. Organizations（按 `name` 查重，父先于子顺序创建）→ 跳过已存在
   5. Demo Users（按 `phone` 查重）→ 跳过已存在
   6. Training Scenarios（`training_service.seed_training_scenarios` 按 `title` 查重）→ 幂等
-- 数据符合生产模型：Organization（HQ/BRANCH/TEAM 三级树）/ Role（7 标准角色，decisions.md §6）/ Permission（20 项）/ User（4 演示用户，`demo_mode=True`）/ TrainingScenario（内置场景）。
+- 数据符合生产模型：Organization（HQ/BRANCH/TEAM 三级树）/ Role（7 标准角色，decisions.md §6）/ Permission（21 项）/ User（4 演示用户，`demo_mode=True`）/ TrainingScenario（内置场景）。
 - 依赖：运行前需 `alembic upgrade head`（compose.prod 启动命令已保证顺序：`alembic upgrade head && python -m scripts.seed && uvicorn`）。
 
 ### 1.2 CI Environment（`.github/workflows/`）
@@ -42,6 +42,7 @@
 | I1 | **P2（修复）** | **版本号不一致**：`config.py::APP_VERSION="1.0.0-rc.1"` ≠ pyproject/package.json/README `0.1.0`；`/api/v1/health` `/ready` `/health/detail` 对外返回 `1.0.0-rc.1` | config.py L27 vs pyproject.toml L3 vs package.json L4 |
 | I2 | **P2（修复）** | **生产镜像构建与 CI 不一致**：frontend/Dockerfile 用 `npx vite build` 绕过 tsc（P1-6 已修复，注释过时）→ 镜像未受 tsc 硬门禁保护，可能产出与 CI 不一致产物 | frontend/Dockerfile L18-19 |
 | I3 | **P2（补测）** | **`scripts/seed.py` 无回归测试**（仅 e2e_seed_knowledge 有 test_e2e_seed_idempotency.py）——重复部署失败/重复数据风险无护栏 | tests/ 树中仅 test_e2e_seed_idempotency.py 含 seed |
+| **I7（实测发现，已修复）** | **seed.py 角色-权限绑定静默不落库**：L257 `session.execute(role_permissions.insert()...)` 缺少 `await`，协程从未执行——seed 打印「✅ xxx: N 权限」仅为打印，绑定从未写入 DB（运行时权限用 role.level 判断故未暴露）。新增回归测试 test_seed_permission_relationships_correct 在 backend-pg 首跑即失败暴露（15bba45 CI FAILED）→ 修复补 await（df00d11 全绿，PG 48 passed） | seed.py L257 + test_seed_idempotency.py + CI run 32305387294 |
 | I4 | **Recorded（不改代码）** | seed.py 无条件创建 4 个演示用户（密码 `888888`，`demo_mode=True`），**与 DEMO_MODE 无关**——若对正式生产库执行 seed，将存在默认凭据。PILOT 可接受（试点用户即演示用户）；**PRODUCTION READY 前必须轮换/关闭** | seed.py L149-178, L293-315 |
 | I5 | **Recorded（不改代码）** | 组织按 `name` 匹配（半删除状态边缘：重建时 parent 可能指向缺失组织） | seed.py L266-291（Task 24 已记录 Existing Limitation） |
 | I6 | **Recorded（不改代码）** | root `.env.production` 未提交（部署时创建）；模板位于 `backend/.env.production` —— 部署文档须明确复制路径 | compose.prod L57-58 + .gitignore |
@@ -54,15 +55,16 @@
 
 ## 4. Recommended Action
 
-1. **I1 修复**：`config.py::APP_VERSION` 对齐 `"0.1.0"`（与 pyproject/package.json/README/release-verification 一致）。
-2. **I2 修复**：`frontend/Dockerfile` 改 `RUN npm run build`（tsc -b && vite build），删除过时 P1-6 注释——生产镜像构建与 CI 硬门禁对齐。
-3. **I3 补测**：新增 `backend/tests/knowledge/test_seed_idempotency.py`（backend-pg）——首次运行成功 / 二次运行成功 / 无重复数据（每 code/name/phone 恰好 1 条）/ 角色-权限绑定正确。
+1. **I1 修复（422d412）**：`config.py::APP_VERSION` 对齐 `"0.1.0"`（与 pyproject/package.json/README/release-verification 一致）。
+2. **I2 修复（422d412）**：`frontend/Dockerfile` 改 `RUN npm run build`（tsc -b && vite build），删除过时 P1-6 注释——生产镜像构建与 CI 硬门禁对齐。
+3. **I3 补测（d8a26cc + 15bba45）**：新增 `backend/tests/knowledge/test_seed_idempotency.py`（backend-pg，3 用例）+ backend-pg workflow 纳入测试文件。
+4. **I7 修复（df00d11）**：seed.py 绑定插入补 `await`——权限关系真正落库，回归测试首跑即暴露并修复。
 4. **I4 文档化**：deployment.md / release-readiness 增加「seed 演示用户默认凭据」说明与 PRODUCTION READY 前置项。
 5. **I5/I6**：维持记录（不扩大范围）。
 
 ## 5. 已验证无需修改
 
-- seed 幂等性本身 ✅（无需 get_or_create 改造——现有 exists-check-skip 等价且更稳）
+- seed 幂等性本身 ✅（无需 get_or_create 改造——现有 exists-check-skip 等价且更稳）；**I7 绑定静默丢失经测试暴露并修复**
 - CI env 变量一致性 ✅（AZB_ 前缀统一）
 - 迁移执行顺序（compose 启动链 alembic → seed → uvicorn）✅
 - healthcheck / service dependency ✅

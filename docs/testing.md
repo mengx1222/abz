@@ -272,3 +272,27 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 ### 14.3 验证（9dea567 全矩阵）
 
 - Backend pytest **296 passed / 45 skipped**；backend-pg **45 passed**；Frontend Vitest **107（16 files）**、tsc 0、build ✓；Production Validation ✅（E2E 未触发：无 frontend/src 变更）。
+
+---
+
+## 15. Seed & Deployment Consistency（Task 35）
+
+### 15.1 seed.py 幂等回归（`backend/tests/knowledge/test_seed_idempotency.py`，3 用例，backend-pg）
+
+- 首次运行成功（7 角色 / 21 权限 / 6 组织 / 4 用户全部落库，每 code/name/phone 恰好 1 条）
+- 二次运行成功且不产生重复数据（数量仍为 1）
+- 权限关系正确（角色-权限绑定与 ROLE_PERMISSIONS 一致；用户角色/组织映射正确）
+
+### 15.2 实测发现的真实 bug（CI 驱动）
+
+- `scripts/seed.py` 绑定插入缺 `await` → `role_permissions` 绑定**静默不落库**（seed 输出「✅ xxx: N 权限」仅为打印）。权限关系测试首跑失败暴露（15bba45 CI FAILED）→ 补 `await` 修复（df00d11）。
+
+### 15.3 环境一致性修复
+
+- `config.py::APP_VERSION` 1.0.0-rc.1 → **0.1.0**（对齐 pyproject/package.json/README，health 端点对外版本号正确）
+- `frontend/Dockerfile`：`npx vite build` → **`npm run build`**（生产镜像构建对齐 CI tsc 硬门禁）
+- backend-pg workflow：纳入 `test_seed_idempotency.py`
+
+### 15.4 验证（df00d11 全矩阵）
+
+- Backend pytest **296 passed / 48 skipped**；backend-pg **48 passed**（+3 seed 幂等）；Frontend Vitest **107（16 files）**、tsc 0、build ✓；Production Validation ✅；E2E 未触发（无 frontend/src 变更）。

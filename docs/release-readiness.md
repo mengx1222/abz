@@ -40,7 +40,7 @@
 
 | Frontend | ✅ | Vitest **107 passed（16 files）** + Vite build + `tsc -b` 0 errors（Task 32：Admin 8 页面全覆盖 +22 用例；Task 33：全局 ErrorBoundary +4 用例） |
 
-| Backend | ✅ | pytest 全绿（296/45；backend-pg 45 passed，含 Task 27 Agent 集成 + Task 34 上传大小限制） |
+| Backend | ✅ | pytest 全绿（296/48；backend-pg 48 passed，含 Task 27 Agent 集成 + Task 34 上传大小限制 + Task 35 seed 幂等 3） |
 
 | Docker 部署 | ✅ | 开发 + 生产 compose 均通过 Production Validation |
 
@@ -72,6 +72,8 @@
 
 | ~~上传无大小限制（P2）~~ | **已 RESOLVED（Task 34）**：MAX_UPLOAD_SIZE_MB（默认 10MB）+ Content-Length 预检 + 读取后权威校验 → 413 FILE_TOO_LARGE（demo/production 同享）；测试：demo 分支 413 + PG production 分支 413/200 | — |
 
+| ~~seed 权限绑定丢失 / 版本不一致 / 镜像构建绕过 tsc（P2-4）~~ | **已 RESOLVED（Task 35）**：seed.py 绑定插入补 await（权限关系真正落库，幂等回归测试 3 用例）；APP_VERSION 对齐 0.1.0；frontend/Dockerfile 改 npm run build（对齐 CI 门禁）。详见 docs/deployment-seed-audit.md | — |
+
 | Golden Business Flow | **✅ E2E 验收通过（Task 29）**：浏览器级完整黄金链（登录→Customer360→Agent→RAG/Citation→Compliance→Training→Growth 数据连续），真实 AI provider，27 passed；Real AI phase11 opt-in |
 | AI Sales Agent | **后端 + 前端已实现（Task 27/28）** | ToolRegistry + Orchestrator + SSE + RBAC + RAG/Citation + Compliance；前端页面/路由/SSE 流式/Citation/Compliance/REFUSE/错误重试；长期记忆、自动对外销售动作未做（Planned） |
 | ~~知识库 CRUD（list/create/update/delete）~~ | **已生产化（Task 21）**：DB backed + 权限继承（org/role/metadata）+ 级联删除 + 同名 409，PG 集成 7 用例（test_kb_crud.py） | — |
@@ -84,7 +86,7 @@
 
 - **P0**：无
 - **P1**：~~P1-1 KB 上传越权~~ **已修复（Task 31）**：upload_document 补 _can_manage_kb + 回归测试
-- **P2**：health/detail 无鉴权（有意开放，compose healthcheck 依赖）、~~上传无大小限制~~ **已收敛（Task 34）**、token localStorage、~~AuthGuard 无角色守卫~~（Task 33 复核已解决：RoleGuard 已接线 AppLayout + roleRoutes 13 用例）、~~无 ErrorBoundary~~ **已收敛（Task 33）**、无环境 badge、Redis no-op
+- **P2**：health/detail 无鉴权（有意开放，compose healthcheck 依赖）、~~上传无大小限制~~ **已收敛（Task 34）**、~~seed 权限绑定/版本一致性/镜像构建一致性~~ **已收敛（Task 35）**、token localStorage、~~AuthGuard 无角色守卫~~（Task 33 复核已解决）、~~无 ErrorBoundary~~ **已收敛（Task 33）**、无环境 badge、Redis no-op
 
 ---
 

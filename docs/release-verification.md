@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 34（CSRF Audit + Upload Size Limit）** |
+| Git HEAD（验证时 Current main） | **Task 35（Seed & Deployment Consistency）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -84,9 +84,9 @@
 
 |--------|------|------|
 
-| Backend pytest（SQLite） | **296 passed, 45 skipped**（含安全态势 12：CSRF posture + Auth 语义契约 + CSRF 回归 5；上传大小限制 demo 分支） | CI `backend-tests` @ Task 34（9dea567） |
+| Backend pytest（SQLite） | **296 passed, 48 skipped**（含安全态势 12：CSRF posture + Auth 语义契约 + CSRF 回归 5；上传大小限制 demo 分支；seed 幂等 3 无 PG 环境 skip） | CI `backend-tests` @ Task 35（df00d11） |
 
-| Backend PG 集成（真实 PG16+pgvector） | **45 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34） | CI `backend-pg` @ Task 34（9dea567） |
+| Backend PG 集成（真实 PG16+pgvector） | **48 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34；+seed 幂等 3 Task 35） | CI `backend-pg` @ Task 35（df00d11） |
 
 | Frontend Vitest | **107 passed（16 files）**（含 ErrorBoundary 4，Task 33；Admin 8/8 页面组件全覆盖） | CI `backend-tests` frontend job @ Task 33（045f87d） |
 
@@ -131,6 +131,12 @@
 | 无 ErrorBoundary（P2） | 全局错误边界缺失，页面渲染错误整页白屏 | ✅ **RESOLVED（Task 33）**：ErrorBoundary 全局接线（App.tsx）+ 组件测试 4 用例；Vitest 107 passed |
 
 | 上传无大小限制（P2） | KB 文档上传无限制，超大文件整读内存（DoS 向量） | ✅ **RESOLVED（Task 34）**：MAX_UPLOAD_SIZE_MB=10 + Content-Length 预检 + 读取后校验 → 413 FILE_TOO_LARGE；PG 45 passed |
+
+| seed 权限绑定丢失（P2-4） | seed.py 绑定插入缺 await，role_permissions 静默不落库 | ✅ **RESOLVED（Task 35）**：补 await + 幂等回归测试 3（backend-pg 48 passed，df00d11） |
+
+| 版本号不一致（P2-4） | config APP_VERSION=1.0.0-rc.1 ≠ 0.1.0，health 对外失真 | ✅ **RESOLVED（Task 35）**：对齐 0.1.0 |
+
+| 前端镜像构建绕过 tsc（P2-4） | frontend/Dockerfile 用 npx vite build（P1-6 过时注释） | ✅ **RESOLVED（Task 35）**：改 npm run build，对齐 CI 门禁 |
 
 | ~~P2-4~~ | ~~Seed 未集成到迁移~~ | ✅ **RESOLVED（Task 24）**：e2e seed 确定性加固 + 幂等测试 3 |
 

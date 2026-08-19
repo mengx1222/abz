@@ -2803,3 +2803,28 @@ Stage Summary:
 
 - CSRF 审计确认 P2-1 已解决（JWT Bearer 架构无攻击面，不重复实现，新增 5 用例回归固化）；
   收敛下一个安全 P2：KB 文档上传大小限制（10MB + 413 + 双重校验），全矩阵云端验证通过
+
+---
+
+Task ID: 55
+
+Agent: main
+
+Task: Task 35 — Seed Data + Deployment Consistency Audit（P2-4）（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@4f413b6（Task 34 全绿：Backend 296/45、PG 45、Vitest 107、E2E 27、Prod ✅）；备份分支 backup/task-35-20260820-0527
+- 审计（docs/deployment-seed-audit.md）：seed.py 6 段全 exists-check-skip 幂等 ✅；CI env 一致性（AZB_ 前缀统一）✅；compose.prod 启动链 alembic→seed→uvicorn ✅；healthcheck/depends_on ✅；发现 3 个 P2-4 环境一致性问题 + 1 个实测 bug
+- 修复（Commit 2, 422d412）：① config.py APP_VERSION 1.0.0-rc.1 → 0.1.0（对齐 pyproject/package.json/README，health 对外失真修复）；② frontend/Dockerfile npx vite build → npm run build（P1-6 过时注释删除，生产镜像构建对齐 CI tsc 硬门禁）
+- 补测（Commit 3, d8a26cc + 15bba45）：test_seed_idempotency.py（backend-pg 3 用例：首次/二次运行/无重复/权限关系）+ backend-pg workflow 纳入
+- **实测发现真实 bug（CI 驱动排障）**：15bba45 CI FAILED → test_seed_permission_relationships_correct 暴露 seed.py L257 `session.execute(role_permissions.insert())` 缺 `await` → 绑定静默不落库（seed 打印「✅ N 权限」仅为打印，运行时权限靠 role.level 未暴露）→ 修复补 await（Commit df00d11）
+- 验证（df00d11 全矩阵全绿）：Backend pytest **296 passed / 48 skipped**、backend-pg **48 passed**（+3 seed 幂等，含权限关系）、Frontend Vitest **107（16 files）**、tsc 0、build ✓、Prod ✅（E2E 未触发）
+- 文档同步：project-status / deployment（§11 一致性校准）/ database / testing（§15）/ release-verification / release-readiness / worklog + 审计文档修正（I7 + 21 权限）
+- P2 收敛：P2-4 seed/部署一致性收敛（版本、镜像构建、seed 权限绑定）；记录不改：demo 用户默认凭据（PRODUCTION READY 前置）、.env.production 部署路径
+- 剩余 P1：B1 数据库备份 NOT IMPLEMENTED、B2 Audit Log 未落库（Task 30，正式生产阻塞）
+
+Stage Summary:
+
+- Seed & Deployment 一致性审计完成：修复版本号失真、镜像构建绕过 tsc、seed 权限绑定静默丢失
+  （await bug，由新增回归测试首跑暴露）；backend-pg 48 passed 全绿，重复部署能力确认

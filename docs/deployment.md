@@ -891,3 +891,25 @@ LOG_LEVEL=WARNING
 - **多实例水平扩展：PARTIAL（P2）**（uvicorn --workers 4 单容器；多容器需 Redis 化 rate limit/session）
 - **数据库备份：NOT IMPLEMENTED（P1）**——无 pg_dump 自动化；正式生产必须补
 - 结论：内部试点级部署就绪；正式生产上线前需补备份、滚动部署、监控告警（详见 production-readiness-review.md）
+
+---
+
+## 11. 部署一致性校准（Task 35）
+
+### 11.1 版本号统一
+
+- `config.py::APP_VERSION` 由 `1.0.0-rc.1` 对齐为 `0.1.0`（与 pyproject.toml / frontend package.json / README 一致）；`/api/v1/health` `/ready` `/health/detail` 对外版本号同步正确。
+
+### 11.2 前端镜像构建对齐 CI 门禁
+
+- `frontend/Dockerfile` 由 `npx vite build`（绕过 tsc）改为 `RUN npm run build`（= tsc -b && vite build）——P1-6 已于 Task 19 修复，生产镜像构建与 CI 硬门禁一致，删除过时注释。
+
+### 11.3 seed.py 角色-权限绑定修复（Task 35 实测发现）
+
+- `scripts/seed.py` 绑定插入缺少 `await` → 协程从未执行，`role_permissions` 绑定静默不落库（seed 打印仅为打印）。修复后权限关系真正写入；backend-pg 幂等回归测试（test_seed_idempotency.py 3 用例）覆盖：首次/二次运行成功、无重复、绑定正确。
+
+### 11.4 部署须知（记录，不改变行为）
+
+- **demo 用户默认凭据**：`scripts/seed.py` 无条件创建 4 个演示用户（密码 `888888`、`demo_mode=True`），与 DEMO_MODE 无关。内部试点可接受；**正式生产执行 seed 后必须轮换/停用这些账号**（PRODUCTION READY 前置项，与 B1/B2 并列）。
+- **`.env.production` 路径**：compose.prod `env_file: .env.production` 指向**仓库根目录**（未提交，部署时创建）；模板位于 `backend/.env.production`（CHANGE_ME 占位），部署时复制到根目录并填真实值；CI（production-validation）内联生成根 `.env.production`。
+- seed 幂等 ✅（exists-check-skip，重复执行安全）；`alembic upgrade head && python -m scripts.seed` 由 compose.prod 启动命令自动执行。
