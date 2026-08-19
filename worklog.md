@@ -2677,3 +2677,42 @@ Stage Summary:
 - Production Readiness Review 完成：12 Gate 矩阵 + 真实证据 + P0/P1/P2 分级 +
   Final Decision = READY FOR INTERNAL PILOT；正式生产上线前必须补：DB 备份、Audit Log
   落库、监控告警、多实例部署、性能基准、安全复审
+
+---
+
+Task ID: 51
+
+Agent: main
+
+Task: Task 31 — Production Readiness Hardening — Security & Reliability Audit（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@05f9e3d（Task 30 完成）；备份分支 backup/task-31-20260819-1825
+- 审计（阶段1-2，GitHub API 代码级，产出 docs/security-hardening-audit.md）：
+  API 安全（全 endpoint 鉴权覆盖：admin 28/28 等；health/detail 无鉴权 P2；生产不降级 Mock）/
+  权限安全（**P1-1 upload_document 越权上传**：update/delete/publish/unpublish 均有
+  _can_manage_kb 校验唯独 upload 缺失 → 任意登录用户可向任意 KB 上传文档；
+  IDOR/RAG 权限/404-403 语义 PASS）/
+  数据安全（Secret 不入库/不进日志；SQL 无拼接；上传无路径遍历；**上传无大小限制 P2**；
+  token localStorage P2）/
+  前端（api.ts timeout+401 处理 PASS；**AuthGuard 无角色路由守卫 P2**（后端 403 兜底）；
+  **无 ErrorBoundary P2**；无环境 badge P2）/
+  可靠性（exception/session/background task/AI fallback/Redis-PG PASS 或 P2 记录；
+  axios timeout；CI 无绕过）
+- 修复（阶段3）：**P1-1 最小修复** —— knowledge.py upload_document 生产分支补
+  _can_manage_kb 校验 → 403 FORBIDDEN（不改 API contract、不破坏 Demo 模式）
+- 测试（阶段4）：test_kb_crud.py::test_upload_document_permission（PG 集成回归：
+  非创建者 403 / 创建者 200）
+- 文档（阶段5）：security-hardening-audit.md（新建）+ security/project-status/
+  release-verification/release-readiness/worklog 同步
+- 提交链（4）：e1a1bb4(audit) → 8d482ea(fix P1-1) → 93d71d0(test) → docs(待)
+- 验证（阶段7，云端）：backend CI / backend-pg / typecheck / vitest / build /
+  Playwright / Production Validation 全矩阵等待结果
+- P0 无；P1-1 已修；P2×7 记录（health/detail、上传大小、localStorage、角色守卫、
+  ErrorBoundary、环境 badge、Redis no-op）
+
+Stage Summary:
+
+- Security & Reliability 审计完成：发现并修复 1 个 P1 越权上传漏洞（KB 写权限缺失），
+  加 PG 回归测试；P2×7 记录不扩大范围；全矩阵云端验证中

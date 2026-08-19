@@ -684,3 +684,12 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 - CORS：**PARTIAL（P2）**——生产白名单；Demo 模式 `*`+credentials（仅演示环境）
 - Security Headers / Rate Limit / Prompt Injection / REFUSE / Citation 防泄漏 / Secrets / 日志敏感信息 / 生产禁 Mock fallback：**PASS**
 - 结论：无未解决安全 P0/P1；正式生产上线前建议渗透测试复审
+
+
+---
+
+## Task 31 Security Hardening（Production Readiness Hardening）
+
+- **P1-1 修复（越权上传）**：`POST /admin/knowledge-bases/{kb_id}/documents/upload` 生产分支补 `_can_manage_kb` 校验（此前缺失，任何登录用户可向任意 KB 上传文档）→ 403 FORBIDDEN；回归测试 `test_upload_document_permission`（backend-pg）
+- P2 记录（不修复）：health/detail 无鉴权（URL 已脱敏）、文件上传无大小限制、token localStorage（CSP 缓解）、AuthGuard 无角色路由守卫（后端 403 兜底）、无 React ErrorBoundary、无环境 badge、Redis no-op 降级
+- 详见 [security-hardening-audit.md](security-hardening-audit.md)

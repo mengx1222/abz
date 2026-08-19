@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 30（Production Readiness Review + Final Release Gate）
+> 上一轮 Task: Task 31（Production Readiness Hardening — Security & Reliability Audit）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-19 · HEAD Task 30）
+## Current Snapshot（2026-08-19 · HEAD Task 31）
 
 
 

@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 30（Release Candidate=3244c5a，代码最终 2f183e3）** |
+| Git HEAD（验证时 Current main） | **Task 31（Security Hardening，HEAD 见 CI）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 

@@ -76,7 +76,15 @@
 
 
 
-## 3. 剩余 P0 / P1 / P2（Task 30 Production Readiness Review 复核）
+## 3. 剩余 P0 / P1 / P2（Task 31 Security Hardening 更新）
+
+- **P0**：无
+- **P1**：~~P1-1 KB 上传越权~~ **已修复（Task 31）**：upload_document 补 _can_manage_kb + 回归测试
+- **P2**：health/detail 无鉴权、上传无大小限制、token localStorage、AuthGuard 无角色守卫、无 ErrorBoundary、无环境 badge、Redis no-op（均记录不修复）
+
+---
+
+### 复核基线（Task 30）
 
 
 
