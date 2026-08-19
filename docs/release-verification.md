@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 31（Security Hardening，HEAD 见 CI）** |
+| Git HEAD（验证时 Current main） | **Task 32（Demo Auth + Admin Coverage）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 

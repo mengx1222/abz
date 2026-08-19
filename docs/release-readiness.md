@@ -38,7 +38,7 @@
 
 | Playwright E2E | ✅ | 阶段一 + 阶段二，11/11 PASS |
 
-| Frontend | ✅ | Vitest **81 passed（10 files）** + Vite build + `tsc -b` 0 errors（Task 28：Sales Agent 页面 11 用例） |
+| Frontend | ✅ | Vitest **103 passed（15 files）** + Vite build + `tsc -b` 0 errors（Task 32：Admin 8 页面组件全覆盖 +22 用例） |
 
 | Backend | ✅ | pytest 全绿（291/43；backend-pg 43 passed，含 Task 27 Agent 集成） |
 

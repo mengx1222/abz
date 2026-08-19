@@ -2716,3 +2716,36 @@ Stage Summary:
 
 - Security & Reliability 审计完成：发现并修复 1 个 P1 越权上传漏洞（KB 写权限缺失），
   加 PG 回归测试；P2×7 记录不扩大范围；全矩阵云端验证中
+
+---
+
+Task ID: 52
+
+Agent: main
+
+Task: Task 32 — Demo Auth Consistency（P2-2 复核）+ Admin Component Coverage（P2-3）（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@c0bb2b5（Task 31 完成，CI+Prod ✅）；备份分支 backup/task-32-20260819-1933
+- 审计（docs/demo-auth-audit.md）：
+  - **P2-2（Demo 401 一致性）already resolved（Task 24）**——401/403/404 语义统一
+    （UNAUTHORIZED/INVALID_TOKEN/INVALID_TOKEN_TYPE/FORBIDDEN/NOT_FOUND 契约）；
+    前端 api.ts 401 非 auth 端点 logout+跳转 + /auth 豁免；authStore 清理；AuthGuard
+    重定向；无 silent fallback/无错误泄露；test_security_posture.py（AuthSemantics +
+    UnauthorizedResponseContract）+ authStore.test.ts + E2E login 覆盖。不重复开发。
+  - **P2-3（Admin Component Test Coverage）缺口**：Admin 8 页面仅 3 个有组件测试 →
+    5 个缺口（Analytics/AuditLog/Settings/TrainingManage/Users）
+- 实现（P2-3 补测，5 文件 22 用例）：analytics（4）/auditLog（4）/settings（3）/
+  trainingManage（6：含 publish/delete mutation toast）/users（5：含 disable mutation toast）
+  —— vi.mock adminService + axiosRes 模式（与 communityManage/scriptManage 一致）
+- 提交链（3）：96b06e1(audit) → a5e3f70(test 5 files) → docs(待)
+- 验证（阶段5，云端）：frontend vitest（应 81+22=103）/tsc/build + backend/backend-pg 无回归
+  + E2E（frontend/src 改动触发）+ Prod
+- P2 收敛：P2-2（已 resolved 复核）、P2-3（本任务收敛）→ P2 清单再减 1 项
+- 剩余 P1：B1 数据库备份 NOT IMPLEMENTED、B2 Audit Log 未落库（Task 30 正式生产阻塞）
+
+Stage Summary:
+
+- P2-2 复核确认已解决（不重复开发）；P2-3 Admin 组件测试覆盖 3/8 → 8/8（+22 用例）；
+  前端 Vitest 预期 103 passed；全矩阵云端验证中

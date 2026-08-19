@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 31（Production Readiness Hardening — Security & Reliability Audit）
+> 上一轮 Task: Task 32（Demo Auth Consistency + Admin Component Coverage）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-19 · HEAD Task 31）
+## Current Snapshot（2026-08-19 · HEAD Task 32）
 
 
 
@@ -80,7 +80,7 @@
 
 | PG 集成测试（真实 PG16+pgvector） | **43 passed**（+Agent RAG 权限/黄金链/IDOR 5，Task 27） |
 
-| Frontend Tests / Build | **81 passed（10 files）**（+SalesAgent 11） + `tsc -b` 0 errors + `vite build` ✓ |
+| Frontend Tests / Build | **103 passed（15 files）**（+Admin 22，Task 32） + `tsc -b` 0 errors + `vite build` ✓ |
 
 | Playwright E2E | **27 passed**（Task 29 +GF-1 Golden Business Flow 完整黄金链） |
 

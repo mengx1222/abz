@@ -693,3 +693,10 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 - **P1-1 修复（越权上传）**：`POST /admin/knowledge-bases/{kb_id}/documents/upload` 生产分支补 `_can_manage_kb` 校验（此前缺失，任何登录用户可向任意 KB 上传文档）→ 403 FORBIDDEN；回归测试 `test_upload_document_permission`（backend-pg）
 - P2 记录（不修复）：health/detail 无鉴权（URL 已脱敏）、文件上传无大小限制、token localStorage（CSP 缓解）、AuthGuard 无角色路由守卫（后端 403 兜底）、无 React ErrorBoundary、无环境 badge、Redis no-op 降级
 - 详见 [security-hardening-audit.md](security-hardening-audit.md)
+
+
+---
+
+## Task 32 Demo Auth 复核（P2-2）
+
+- P2-2（Demo 401 一致性）**already resolved（Task 24）**，Task 32 复核确认：401/403/404 语义统一（UNAUTHORIZED/INVALID_TOKEN/INVALID_TOKEN_TYPE/FORBIDDEN/NOT_FOUND 契约）、前端 401 处理（非 auth 端点 logout+跳转、auth 端点豁免）、authStore 清理、AuthGuard 重定向、无 silent fallback/无错误泄露；测试 test_security_posture.py + authStore.test.ts + E2E login 覆盖
