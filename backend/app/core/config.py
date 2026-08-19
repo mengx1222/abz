@@ -61,6 +61,9 @@ class Settings(BaseSettings):
     RAG_MIN_RELEVANCE: float = 0.3
     RAG_MAX_CONTEXT_CHARS: int = 4000
 
+    # --- Upload ---
+    MAX_UPLOAD_SIZE_MB: int = 10  # 知识库文档上传大小上限（MB），超出返回 413（Task 34）
+
     # --- Frontend ---
     FRONTEND_URL: str = "http://localhost:3000"
 

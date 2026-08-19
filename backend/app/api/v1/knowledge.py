@@ -210,6 +210,14 @@ def _can_manage_kb(user: User, kb) -> bool:
     return kb.created_by is not None and kb.created_by == user.id
 
 
+def _raise_file_too_large(max_mb: int) -> None:
+    """上传文件超过大小上限 → 413（Task 34 P2 收敛，与 401/403/404 语义契约一致）。"""
+    raise HTTPException(
+        status_code=413,
+        detail={"code": "FILE_TOO_LARGE", "message": f"文件大小超过限制（最大 {max_mb}MB）"},
+    )
+
+
 def _resolve_org_id(body_org: str | None, user: User) -> str | None:
     """解析创建 KB 的组织归属：显式指定需管理角色，否则用当前用户组织。"""
     if body_org:
@@ -564,6 +572,15 @@ async def upload_document(
     """
     request_id = getattr(request.state, "request_id", None)
 
+    # Task 34 (P2)：上传大小限制 —— Content-Length 预检（超限立即 413，不读 body）
+    # + 读取后权威校验（防伪造 Content-Length）。此前无限制：超大文件被整读入内存
+    # 并触发解析/嵌入（DoS / 资源消耗向量）。demo 与 production 分支同享限制。
+    max_bytes = settings.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    content_length = request.headers.get("content-length")
+    if content_length is not None and content_length.isdigit():
+        if int(content_length) > max_bytes:
+            _raise_file_too_large(settings.MAX_UPLOAD_SIZE_MB)
+
     if not settings.DEMO_MODE:
         # ---- 生产模式：真实入库 ----
         from sqlalchemy import select as sa_select
@@ -588,6 +605,8 @@ async def upload_document(
             )
 
         content_bytes = await file.read()
+        if len(content_bytes) > max_bytes:
+            _raise_file_too_large(settings.MAX_UPLOAD_SIZE_MB)
         try:
             content = content_bytes.decode("utf-8")
         except UnicodeDecodeError:
@@ -638,6 +657,8 @@ async def upload_document(
 
     # 读取文件内容
     content_bytes = await file.read()
+    if len(content_bytes) > max_bytes:
+        _raise_file_too_large(settings.MAX_UPLOAD_SIZE_MB)
     try:
         content = content_bytes.decode("utf-8")
     except UnicodeDecodeError:
