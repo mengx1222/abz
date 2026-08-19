@@ -2749,3 +2749,31 @@ Stage Summary:
 
 - P2-2 复核确认已解决（不重复开发）；P2-3 Admin 组件测试覆盖 3/8 → 8/8（+22 用例）；
   前端 Vitest 预期 103 passed；全矩阵云端验证中
+
+---
+
+Task ID: 53
+
+Agent: main
+
+Task: Task 33 — Admin Component Test Coverage Audit（P2-3 复核）+ 全局 ErrorBoundary（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@f670f99（Task 32 全绿：Vitest 103、Backend 291/44、E2E 27、Prod ✅）；备份分支 backup/task-33-20260820-0213
+- 审计（docs/admin-component-test-audit.md）：Admin 8/8 页面组件测试全覆盖（loading/error/empty/list/mutation 齐备，service mock + axiosRes 模式统一）→ **P2-3 判定 RESOLVED，不重复开发**；403 显式用例/非 admin 页面单测缺口列为低优先级不纳入；复核发现 Task 31 记录 P2「AuthGuard 无角色守卫」**已解决**（RoleGuard 已接线 AppLayout + roleRoutes 13 用例）
+- 下一个最高优先级 P2：**无 ErrorBoundary**（Task 31 记录）——仓库无任何错误边界，页面渲染错误整页白屏
+- 实现（仅防御性 UI 基建，不改业务逻辑/API contract/不加依赖）：
+  - 新增 components/ErrorBoundary.tsx（类组件：getDerivedStateFromError + componentDidCatch + onError 上报；fallback=重新加载/返回首页）
+  - app/App.tsx 全局接线（ErrorBoundary → QueryClientProvider → RouterProvider）
+  - 新增 tests/components/ErrorBoundary.test.tsx（4 用例：正常渲染/抛错 fallback 不白屏/不渲染 children/onError 回调）
+- 提交链（3，无 squash/force push）：595fae1(audit doc) → 045f87d(fix ErrorBoundary+tests) → docs(待)
+- 验证（045f87d 全矩阵云端全绿）：Frontend Vitest **107/107（16 files）**、tsc 0、vite build ✓、Backend **291 passed / 44 skipped**、backend-pg **44 passed**、E2E **27 passed（2.5m）**、Frontend Typecheck ✅、Production Validation ✅
+- 文档同步：project-status / testing / release-verification / release-readiness / worklog
+- P2 收敛：无 ErrorBoundary → RESOLVED（P2 清单再减 1 项）；AuthGuard 角色守卫 → 复核确认已解决（文档修正）
+- 剩余 P1：B1 数据库备份 NOT IMPLEMENTED、B2 Audit Log 未落库（Task 30，正式生产阻塞，不在本任务范围）
+
+Stage Summary:
+
+- P2-3 审计复核确认已完成（8/8 Admin 页面，不重复开发）；转入并收敛下一个最高优先级 P2
+  （全局 ErrorBoundary：整页白屏 → 可恢复 fallback），全矩阵云端验证通过，Vitest 103→107

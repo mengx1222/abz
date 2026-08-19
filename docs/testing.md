@@ -1,6 +1,6 @@
 # 测试体系 — 安诊保 AI 副驾
 
-> 最后校准：2026-08-17（以当前代码 + 最新 CI 为准）
+> 最后校准：2026-08-20（以当前代码 + 最新 CI 为准）
 > 本文档描述**当前实际存在的测试体系**，不包含规划中的测试。
 
 ---
@@ -65,9 +65,10 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 ## 4. 前端测试（Vitest）
 
 - 位置：`frontend/src/tests/`
-- 覆盖：
+- 覆盖（当前 16 files / **107 用例**，Task 33 全绿）：
   - utils：`authStore.test.ts` / `cn.test.ts` / `roleRoutes.test.ts`
-  - 组件：`features/knowledge.test.tsx`（13，Task 23）、`features/dashboard.test.tsx`（4）、`features/compliance.test.tsx`（8）、`features/customers.test.tsx`（6）（Task 24，P2-3）
+  - 组件：`components/ErrorBoundary.test.tsx`（4，Task 33）
+  - features：knowledge（13）/ salesAgent（11）/ compliance（8）/ communityManage（7）/ scriptManage（6）/ trainingManage（6）/ customers（6）/ users（5）/ analytics（4）/ auditLog（4）/ dashboard（4）/ settings（3）—— Admin 8/8 页面全覆盖（Task 24/25/28/32，P2-3）
 - 运行：`cd frontend && npm test`（`vitest run`）
 - 构建：`npm run build`（`tsc -b && vite build`；Task 19 已恢复 tsc 硬门禁）
 
@@ -241,3 +242,14 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 ### 12.2 Real AI Golden Flow Smoke（backend/scripts/phase11_golden_flow_smoke.py）
 
 - 真实 Provider + DEMO_MODE=false + 真实 PG/Redis：登录 → 客户 → Agent SSE（agent_start/tool_planned/rag_context/citation/agent_complete/compliance）→ Training（2 轮+评分）→ Growth（ability_scores 非空 + total_exp≥10）；opt-in（workflow_dispatch / REAL_AI_SMOKE_TEST），无 key NOT RUN
+
+---
+
+## 13. 前端稳定性加固（Task 33）
+
+### 13.1 全局 ErrorBoundary（`components/ErrorBoundary.tsx` + 4 用例）
+
+- 现状：Task 31 审计记录 P2「无 ErrorBoundary」——仓库此前无任何错误边界，任意页面渲染错误 → 整页白屏无恢复路径。
+- 实现（仅防御性 UI 基建，不改业务逻辑/API contract）：类组件 ErrorBoundary（getDerivedStateFromError + componentDidCatch），fallback = 「页面出现异常」+ 重新加载按钮 + 返回首页链接；`app/App.tsx` 全局包裹（ErrorBoundary → QueryClientProvider → RouterProvider）。
+- 测试（`tests/components/ErrorBoundary.test.tsx`，4 用例）：无错误正常渲染 / 子组件抛错 fallback（不白屏）/ 抛错后不渲染 children / 自定义 onError 回调（error + errorInfo）。
+- 验证（045f87d 全矩阵）：Vitest **107 passed（16 files）**、tsc -b 0、build ✓、Backend 291/44、backend-pg 44、E2E 27、Prod ✅。

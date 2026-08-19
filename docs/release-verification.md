@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 32（Demo Auth + Admin Coverage）** |
+| Git HEAD（验证时 Current main） | **Task 33（Admin Audit + ErrorBoundary）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -88,7 +88,7 @@
 
 | Backend PG 集成（真实 PG16+pgvector） | **43 passed**（+Agent RAG 权限/黄金链/IDOR 5） | CI `backend-pg` @ Task 27 |
 
-| Frontend Vitest | **70 passed（9 files：utils 3 + Knowledge 13 + Dashboard 4 + Compliance 8 + Customers 6 + CommunityManage 6 + ScriptManage 6）** | CI `frontend` @ Task 25 |
+| Frontend Vitest | **107 passed（16 files）**（含 ErrorBoundary 4，Task 33；Admin 8/8 页面组件全覆盖） | CI `backend-tests` frontend job @ Task 33（045f87d） |
 
 | Frontend build | `tsc -b` 0 errors + `vite build` ✓ | CI `frontend` @ Task 24 |
 
@@ -126,7 +126,9 @@
 
 | ~~P2-2~~ | ~~Demo 模式无 Token 返回 200~~ | ✅ **RESOLVED（Task 24）**：3 Confirmed Bug 修复（含受保护端点 500→401 真实 bug）+ 测试 3 |
 
-| ~~P2-3~~ | ~~前端页面组件无测试~~ | ✅ **RESOLVED（Task 24）**：+18 用例（dashboard/compliance/customers） |
+| ~~P2-3~~ | ~~前端页面组件无测试~~ | ✅ **RESOLVED（Task 24/32/33）**：Admin 8/8 页面组件测试全覆盖（Task 32 +22 用例）；Task 33 审计复核见 [admin-component-test-audit.md](admin-component-test-audit.md) |
+
+| 无 ErrorBoundary（P2） | 全局错误边界缺失，页面渲染错误整页白屏 | ✅ **RESOLVED（Task 33）**：ErrorBoundary 全局接线（App.tsx）+ 组件测试 4 用例；Vitest 107 passed |
 
 | ~~P2-4~~ | ~~Seed 未集成到迁移~~ | ✅ **RESOLVED（Task 24）**：e2e seed 确定性加固 + 幂等测试 3 |
 

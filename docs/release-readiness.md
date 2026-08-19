@@ -38,7 +38,7 @@
 
 | Playwright E2E | ✅ | 阶段一 + 阶段二，11/11 PASS |
 
-| Frontend | ✅ | Vitest **103 passed（15 files）** + Vite build + `tsc -b` 0 errors（Task 32：Admin 8 页面组件全覆盖 +22 用例） |
+| Frontend | ✅ | Vitest **107 passed（16 files）** + Vite build + `tsc -b` 0 errors（Task 32：Admin 8 页面全覆盖 +22 用例；Task 33：全局 ErrorBoundary +4 用例） |
 
 | Backend | ✅ | pytest 全绿（291/43；backend-pg 43 passed，含 Task 27 Agent 集成） |
 
@@ -68,6 +68,8 @@
 
 | ~~Demo 401 语义（P2-2）~~ | **已 RESOLVED（Task 24）**：ErrorHandlerMiddleware 放行 HTTPException（受保护端点认证失败 500→401 真实 bug）、前端 /auth 401 豁免、login 真实错误透传；测试 3 用例 | — |
 
+| ~~无 ErrorBoundary（P2）~~ | **已 RESOLVED（Task 33）**：全局 ErrorBoundary（App.tsx 接线）+ 组件测试 4 用例；任意子树渲染错误降级为可恢复 fallback（重新加载/返回首页） | — |
+
 | Golden Business Flow | **✅ E2E 验收通过（Task 29）**：浏览器级完整黄金链（登录→Customer360→Agent→RAG/Citation→Compliance→Training→Growth 数据连续），真实 AI provider，27 passed；Real AI phase11 opt-in |
 | AI Sales Agent | **后端 + 前端已实现（Task 27/28）** | ToolRegistry + Orchestrator + SSE + RBAC + RAG/Citation + Compliance；前端页面/路由/SSE 流式/Citation/Compliance/REFUSE/错误重试；长期记忆、自动对外销售动作未做（Planned） |
 | ~~知识库 CRUD（list/create/update/delete）~~ | **已生产化（Task 21）**：DB backed + 权限继承（org/role/metadata）+ 级联删除 + 同名 409，PG 集成 7 用例（test_kb_crud.py） | — |
@@ -80,7 +82,7 @@
 
 - **P0**：无
 - **P1**：~~P1-1 KB 上传越权~~ **已修复（Task 31）**：upload_document 补 _can_manage_kb + 回归测试
-- **P2**：health/detail 无鉴权、上传无大小限制、token localStorage、AuthGuard 无角色守卫、无 ErrorBoundary、无环境 badge、Redis no-op（均记录不修复）
+- **P2**：health/detail 无鉴权、上传无大小限制、token localStorage、~~AuthGuard 无角色守卫~~（Task 33 复核已解决：RoleGuard 已接线 AppLayout + roleRoutes 13 用例）、~~无 ErrorBoundary~~ **已收敛（Task 33）**、无环境 badge、Redis no-op
 
 ---
 

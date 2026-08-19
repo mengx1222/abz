@@ -6,7 +6,7 @@
 
 
 
-> 最后更新: 2026-08-18
+> 最后更新: 2026-08-20
 
 
 
@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 32（Demo Auth Consistency + Admin Component Coverage）
+> 上一轮 Task: Task 33（Admin Component Test Audit + ErrorBoundary）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-19 · HEAD Task 32）
+## Current Snapshot（2026-08-20 · HEAD Task 33）
 
 
 
@@ -80,7 +80,7 @@
 
 | PG 集成测试（真实 PG16+pgvector） | **43 passed**（+Agent RAG 权限/黄金链/IDOR 5，Task 27） |
 
-| Frontend Tests / Build | **103 passed（15 files）**（+Admin 22，Task 32） + `tsc -b` 0 errors + `vite build` ✓ |
+| Frontend Tests / Build | **107 passed（16 files）**（+Admin 22 Task 32；+ErrorBoundary 4 Task 33） + `tsc -b` 0 errors + `vite build` ✓ |
 
 | Playwright E2E | **27 passed**（Task 29 +GF-1 Golden Business Flow 完整黄金链） |
 
@@ -103,7 +103,7 @@
 
 | P1 | P1-3（growth course_detail Demo Only，前端空状态友好处理已 E2E 覆盖；**P1-6 TypeScript hard gate 已 RESOLVED（Task 19）**） |
 
-| P2 | P2-1~P2-4（CSRF / Demo 401 / 组件测试 / seed 集成） |
+| P2 | P2-1~P2-4 已收敛（Task 24/32）；ErrorBoundary 已收敛（Task 33）；剩余：health/detail 无鉴权、上传大小、token localStorage、环境 badge、Redis no-op（Task 31 记录，均不修复） |
 
 | Current Next Tasks | 见「Current Next Tasks」节（Training/Growth E2E、TS 清理、AI Sales Agent） |
 
