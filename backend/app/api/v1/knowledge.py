@@ -579,6 +579,14 @@ async def upload_document(
         if kb_row is None:
             raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "知识库不存在"})
 
+        # Task 31 (P1-1)：写权限校验 —— 与 update/delete/publish/unpublish/delete_document
+        # 一致。此前 upload 漏检，任何登录用户可向任意知识库上传文档（污染 KB/绕过权限边界）。
+        if not _can_manage_kb(current_user, kb_row):
+            raise HTTPException(
+                status_code=403,
+                detail={"code": "FORBIDDEN", "message": "无权限向该知识库上传文档"},
+            )
+
         content_bytes = await file.read()
         try:
             content = content_bytes.decode("utf-8")
