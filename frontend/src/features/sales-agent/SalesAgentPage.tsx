@@ -3,7 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
-import { customerService } from '../../services/customerService';
+import { getCustomer } from '../../services/customerService';
 import {
   AgentHttpError,
   streamSalesAgentChat,
@@ -141,7 +141,7 @@ export function SalesAgentPage() {
   const { id: routeCustomerId } = useParams<{ id: string }>();
   const navigate = useNavigate();
 
-  const [customerId, setCustomerId] = useState<string | null>(routeCustomerId || null);
+  const [customerId] = useState<string | null>(routeCustomerId || null);
   const [customer, setCustomer] = useState<CustomerMinimal | null>(null);
   const [customerLoading, setCustomerLoading] = useState<boolean>(!!routeCustomerId);
   const [pageError, setPageError] = useState<PageError | null>(null);
@@ -163,7 +163,7 @@ export function SalesAgentPage() {
     setPageError(null);
     (async () => {
       try {
-        const detail = await customerService.getCustomer(customerId);
+        const detail = await getCustomer(customerId);
         if (cancelled) return;
         if (!detail) {
           setPageError({ kind: 'permission', message: '客户不存在或无权访问。' });

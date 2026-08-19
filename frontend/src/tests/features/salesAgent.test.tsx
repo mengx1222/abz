@@ -8,25 +8,28 @@ import {
   streamSalesAgentChat,
   type AgentEvent,
 } from '../../services/salesAgentService';
-import { customerService } from '../../services/customerService';
+import { getCustomer } from '../../services/customerService';
 
-// ---- mock services ----
-vi.mock('../../services/salesAgentService', async (importOriginal) => {
-  const actual = await importOriginal<typeof import('../../services/salesAgentService')>();
-  return {
-    ...actual,
-    streamSalesAgentChat: vi.fn(),
-  };
-});
+// ---- mock services（保留 AgentHttpError 真实语义供 instanceof 断言）----
+vi.mock('../../services/salesAgentService', () => ({
+  AgentHttpError: class AgentHttpError extends Error {
+    status: number;
+    detailMessage?: string;
+    constructor(status: number, message: string, detailMessage?: string) {
+      super(message);
+      this.status = status;
+      this.detailMessage = detailMessage;
+    }
+  },
+  streamSalesAgentChat: vi.fn(),
+}));
 
 vi.mock('../../services/customerService', () => ({
-  customerService: {
-    getCustomer: vi.fn(),
-  },
+  getCustomer: vi.fn(),
 }));
 
 const mockedStream = vi.mocked(streamSalesAgentChat);
-const mockedGetCustomer = vi.mocked(customerService.getCustomer);
+const mockedGetCustomer = vi.mocked(getCustomer);
 
 const MOCK_CUSTOMER = {
   id: '11111111-1111-1111-1111-111111111111',
