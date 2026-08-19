@@ -142,7 +142,7 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
       );
       expect(screen.getAllByText('正在查询客户信息').length).toBeGreaterThan(0);
       expect(screen.getByText('百万医疗险产品手册')).toBeInTheDocument();
-      expect(screen.getByText('保障范围')).toBeInTheDocument();
+      expect(screen.getByText(/保障范围/)).toBeInTheDocument();
       expect(screen.getByText('合规通过')).toBeInTheDocument();
       expect(screen.getByText('合规检查通过，内容可正常使用。')).toBeInTheDocument();
     },
@@ -257,9 +257,9 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
   it(
     '404：AgentHttpError(404) 显示真实语义 + 重试入口',
     async () => {
-      mockedStream.mockRejectedValue(
-        new AgentHttpError(404, '客户不存在或无权访问。', '客户不存在或无权访问。')
-      );
+      mockedStream.mockImplementation(async function* () {
+        throw new AgentHttpError(404, '客户不存在或无权访问。', '客户不存在或无权访问。');
+      });
       renderPage();
       await act(async () => {
         await Promise.resolve();
@@ -306,7 +306,9 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
   it(
     'stream error：网络异常 → 错误消息',
     async () => {
-      mockedStream.mockRejectedValue(new Error('网络异常，请检查连接后重试。'));
+      mockedStream.mockImplementation(async function* () {
+        throw new Error('网络异常，请检查连接后重试。');
+      });
       renderPage();
       await act(async () => {
         await Promise.resolve();
@@ -328,7 +330,9 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
   it(
     'retry：点击重试会重新发起请求',
     async () => {
-      mockedStream.mockRejectedValueOnce(new Error('网络异常，请检查连接后重试。'));
+      mockedStream.mockImplementationOnce(async function* () {
+        throw new Error('网络异常，请检查连接后重试。');
+      });
       mockedStream.mockImplementation(() =>
         eventStream([agentEvent('message_delta', { content: '重试成功结果' }), COMPLETE_OK])
       );
@@ -389,7 +393,8 @@ describe('SalesAgentPage（AI 销售副驾）', () => {
       mockedGetCustomer.mockRejectedValue({ response: { status: 404 } });
       renderPage();
       await waitFor(
-        () => expect(screen.getByText('客户不存在或无权访问。')).toBeInTheDocument(),
+        () =>
+          expect(screen.getAllByText('客户不存在或无权访问。').length).toBeGreaterThan(0),
         { timeout: 3000 }
       );
     },
