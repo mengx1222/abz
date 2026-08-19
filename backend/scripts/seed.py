@@ -254,7 +254,10 @@ async def seed_database():
                 )
                 if existing.first():
                     continue
-                session.execute(
+                # Task 35：缺少 await 导致协程从未执行 —— 角色-权限绑定静默不落库
+                # （seed 输出的"✅ xxx: N 权限"仅为打印，实际绑定从未插入）。
+                # 修复后绑定真正写入，seed 幂等性回归测试（test_seed_idempotency.py）覆盖。
+                await session.execute(
                     role_permissions.insert().values(
                         role_id=role_id,
                         permission_id=perm_map[perm_code],
