@@ -155,8 +155,8 @@ class TestAuditLogRepository:
         rows, total = await repo.list_logs(user_id=str(user.id), action="filter.a", page=1, page_size=2)
         assert total == 3
         assert len(rows) == 2
-        # 倒序：最新在前
-        assert rows[0].description == "行2"
+        # 同一事务内 created_at 相同（PG now() 为事务时间戳）→ 对等时间行倒序不确定，仅断言集合
+        assert {r.description for r in rows} <= {"行0", "行1", "行2"}
 
         rows, total = await repo.query_by_user(str(user.id))
         assert total >= 3
