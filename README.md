@@ -243,7 +243,7 @@ make build      # 前端构建
 
 ## 🔧 环境变量（Demo vs Production）
 
-所有后端变量使用 `AZB_` 前缀，完整清单见 [.env.example](.env.example) 与 `backend/.env.production`（占位模板）。
+所有后端变量使用 `AZB_` 前缀，完整清单见 [backend/.env.example](backend/.env.example) 与 `backend/.env.production`（占位模板）。
 
 ### Demo 模式（`AZB_DEMO_MODE=true`）
 

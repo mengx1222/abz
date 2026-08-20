@@ -3045,3 +3045,25 @@ Stage Summary:
 
 - 项目 Release 等级从 READY FOR INTERNAL PILOT 升级为 **PRODUCTION CANDIDATE**（基于真实源码/测试/云端验证证据）；
   升级 PRODUCTION READY 前的 Accepted Risks 明确记录，不夸大
+
+---
+
+Task ID: 64
+
+Agent: main
+
+Task: Task 43 — Documentation Reconciliation（100% Cloud-only，仅改文档）
+
+Work Log:
+
+- 基线 main@887dce5 → 最终 HEAD（待）；备份分支 backup/docs-reconciliation-20260820-1910
+- 文档清单：45 docs + README + worklog；17 个核心文档逐一对齐（代码事实 = 源码/CI 证据，不凭记忆）
+- 关键事实（证据链）：HEAD=887dce5；Version 0.1.0；Release=PRODUCTION CANDIDATE（Task 42）；Backend 307/68、PG 59、Vitest 107、tsc 0、Build ✓（CI @ 887dce5）；Playwright 27（045f87d，最近有效）；Real AI Smoke 最近 PASS @ 94ce52f（08-15），其后 opt-in skipped；API 92、routes 22、alembic 10（head=0010）
+- 修正漂移（4 commits）：① documentation-reconciliation-audit.md 事实真相表 ② README（发布状态 CANDIDATE/Known Limitations 重写/Playwright 27/tsc 已恢复/索引 10 迁移 92 端点 22 路由）+ deployment（§4.2/4.3 虚构 make init 与 admin/admin123 对齐真实 seed）+ database（7→10 迁移）+ api（89→92）+ information-architecture（21→22）+ release-verification（Real AI Smoke 表述）③ project-status Next Tasks（移除已收敛 TS/Sales Agent）+ ai-agents（Sales Agent PLANNED→IMPLEMENTED）+ rag（KB CRUD 过时修正）④ README .env.example 链接修正 + 本 worklog
+- 链接检查：全 docs 相对链接扫描，1 处 broken（README .env.example）已修；历史记录（worklog/Historical Log/Task audit 旧数字旧状态）保留不改写
+- 未发现真实 secret；无业务代码修改；docs-only 变更触发 CI/Prod（记录真实结果）
+
+Stage Summary:
+
+- 文档现实同步：Current Snapshot 与代码/CI 一致；过时数字（Playwright/迁移/端点/路由）清零；虚构账号与废弃 make init 流程移除；
+  历史记录保留；Release 判定全仓库统一为 PRODUCTION CANDIDATE
