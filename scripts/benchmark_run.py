@@ -65,6 +65,7 @@ async def bench_request(
         try:
             if sse:
                 ttfe = None
+                first_data = None
                 req_t0 = time.perf_counter()
                 async with client.stream(method, path, json=json_body, headers=headers) as r:
                     first_event_at = None
@@ -72,6 +73,7 @@ async def bench_request(
                         if line.startswith("data:") or line.startswith("event:"):
                             if first_event_at is None:
                                 first_event_at = time.perf_counter()
+                                first_data = line[:100]
                     total = (time.perf_counter() - req_t0) * 1000
                     ttfe = (first_event_at - req_t0) * 1000 if first_event_at else None
                 lat.append(total)
@@ -79,6 +81,8 @@ async def bench_request(
                     sse_stats = {"ttfe_ms": round(ttfe, 2), "total_ms": round(total, 2)}
                 if r.status_code >= 400:
                     errors += 1
+                    print("SSE_ERR", path, "status=", r.status_code,
+                          "first=", first_data, file=os.sys.stderr)
             else:
                 r: Response = await client.request(method, path, json=json_body, headers=headers)
                 lat.append((time.perf_counter() - t0) * 1000)
