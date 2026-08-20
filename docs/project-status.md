@@ -10,7 +10,7 @@
 
 
 
-> Git HEAD（Current main）: `54a812bc7a256e11123177f60bdd8be7c9e25018`（ULTIMATE 文档基线冻结；Verification Commit：9dec25d 全矩阵全绿）
+> Git HEAD（Current main）: `d1022bcadc2224bd9b3ba5626dc6f977050a837f`（ULTIMATE 文档基线冻结；Verification Commit：9dec25d 全矩阵全绿）
 
 
 
@@ -67,7 +67,7 @@
 > 测试数字 = 330/81 @ 9dec25d 等）。**以后新 Task 只更新受影响文档，不再整仓库重写**。
 > 历史记录保留在 Historical Log / Task audit 语境，不参与 Current 状态判定。
 
-## Current Snapshot（2026-08-20 · HEAD `54a812bc7a256e11123177f60bdd8be7c9e25018`）
+## Current Snapshot（2026-08-20 · HEAD `d1022bcadc2224bd9b3ba5626dc6f977050a837f`）
 
 
 

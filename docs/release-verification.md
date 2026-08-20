@@ -26,7 +26,7 @@
 
 | Release Status | **PRODUCTION CANDIDATE**（Task 42 Security Final Review；Accepted Risks 见 [security-final-review.md](security-final-review.md)） |
 
-| Git HEAD（验证时 Current main） | **`54a812bc7a256e11123177f60bdd8be7c9e25018`（ULTIMATE 文档基线冻结；Verification Commit 9dec25d 全矩阵全绿）** |
+| Git HEAD（验证时 Current main） | **`d1022bcadc2224bd9b3ba5626dc6f977050a837f`（ULTIMATE 文档基线冻结；Verification Commit 9dec25d 全矩阵全绿）** |
 
 | Release Baseline Content | `9befe4b`（Task 15，Historical Baseline） |
 | 最新全量验证（ULTIMATE Phase 1） | **Backend 330 passed / 81 skipped · PG 59 · Vitest 107 · tsc 0 · Prod ✅**（CI @ 9dec25d） |
