@@ -25,7 +25,8 @@ _start_time: float = time.time()
 
 # Regex that matches a password inside a URL, e.g.
 #   postgresql://user:secret@host  or  redis://:password@host
-_URL_PASSWORD_RE = re.compile(r"(://[^:]+:)([^@]+)(@)")
+# 兼容有/无用户名（redis://:pass@host）两种 URL 形式
+_URL_PASSWORD_RE = re.compile(r"(://[^:@]*:)([^@]+)(@)")
 
 
 def _mask_url(url: str) -> str:
