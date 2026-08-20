@@ -4,8 +4,18 @@ name: Database Backup & Restore Verification (Task 38)
 #   migration -> seed -> baseline snapshot -> pg_dump backup -> 干净目标库 pg_restore
 #   -> verify（表/关键数据/org/KB/Document/AuditLog/pgvector 与基线一致）
 #   -> 应用连接恢复库健康检查 -> 错误凭据非 0 退出 -> 无备份文件进入 Git
-# 仅手动触发（workflow_dispatch），不进入普通 PR/commit CI（避免成本上升）。
+# 触发方式:
+#   - push 仅限备份相关文件变更（避免普通 commit 触发昂贵演练）
+#   - workflow_dispatch（具备 Actions write 权限的 token 可手动触发）
 on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/database-backup-restore.yml"
+      - "scripts/backup_database.sh"
+      - "scripts/restore_database.sh"
+      - "scripts/verify_restored_db.py"
+      - "docs/database-backup-audit.md"
   workflow_dispatch:
 
 permissions:
