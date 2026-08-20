@@ -242,7 +242,7 @@ async def main() -> int:
             print("--- 2) Script Generation ---")
             scr = await bench_script_gen(session, user)
             print("--- 3) Sales Agent GF（27.6s 延迟分解）---")
-            ag = await bench_sales_agent(session, user)
+            ag = await bench_sales_agent(session, user, customer)
 
             report["results"]["product_qa"] = summarize("product_qa", qa)
             report["results"]["script_generation"] = summarize("script_generation", scr)
