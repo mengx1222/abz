@@ -63,12 +63,17 @@ async def _production_mode(monkeypatch):
     monkeypatch.setattr(settings, "AI_PROVIDER", "mock")
 
 
-async def _seed_user(session: AsyncSession, role_code: str = "AGENT") -> User:
-    """创建隔离组织/角色/用户（随机后缀），返回用户。"""
+async def _seed_user(
+    session: AsyncSession,
+    role_code: str = "AGENT",
+    org: Organization | None = None,
+) -> User:
+    """创建隔离组织/角色/用户（随机后缀），返回用户。org 可传入复用（同组织多用户）。"""
     suffix = uuid.uuid4().hex[:6]
-    org = Organization(name=f"审计组织-{suffix}", type=OrgType.BRANCH)
-    session.add(org)
-    await session.flush()
+    if org is None:
+        org = Organization(name=f"审计组织-{suffix}", type=OrgType.BRANCH)
+        session.add(org)
+        await session.flush()
     # get-or-create：CI seed 步骤已创建标准角色（code 唯一），复用避免冲突
     role = (
         await session.execute(select(Role).where(Role.code == role_code))
@@ -253,3 +258,144 @@ class TestAuditLogApi:
         assert first["action"] == "custom.event"
         assert first["user_name"] == "审计测试员"
         assert first["user_id"] == str(agent.id)
+
+
+
+class TestAuditLogPermission:
+    """Task 37b — 组织/角色权限隔离 + 敏感字段防护。
+
+    覆盖（验收清单 Phase 5）：
+    - 角色越权：AGENT 访问 /admin/audit-logs → 403（require_role）
+    - 组织越权：BRANCH_ADMIN 看不到其他组织的审计行
+    - 同组织可见：BRANCH_ADMIN 可见本组织审计行
+    - 管理员可见：SYSTEM_ADMIN 可见全库
+    - 敏感字段不落库：中间件审计行 detail 仅 status_code，不含请求体/token/password
+    """
+
+    async def _patch_audit_factory(self, session, monkeypatch):
+        factory = async_sessionmaker(session.bind, class_=AsyncSession, expire_on_commit=False)
+        monkeypatch.setattr(audit_module, "async_session_factory", factory)
+        return factory
+
+    async def test_agent_gets_403(self, session, api, monkeypatch):
+        """角色越权：AGENT 无权读取审计日志（require_role → 403）。"""
+        org_a = Organization(name="隔离组织A-" + uuid.uuid4().hex[:6], type=OrgType.BRANCH)
+        session.add(org_a)
+        await session.flush()
+        agent = await _seed_user(session, "AGENT", org_a)
+        await session.commit()
+
+        async def _cu():
+            return agent
+        app.dependency_overrides[get_current_user] = _cu
+
+        resp = await api.get("/api/v1/admin/audit-logs")
+        assert resp.status_code == 403, resp.text
+
+    async def test_branch_admin_cannot_see_other_org(self, session, api, monkeypatch):
+        """组织越权：orgA 的 BRANCH_ADMIN 看不到 orgB 的审计行（过滤式，不泄露存在性）。"""
+        org_a = Organization(name="隔离组织A-" + uuid.uuid4().hex[:6], type=OrgType.BRANCH)
+        org_b = Organization(name="隔离组织B-" + uuid.uuid4().hex[:6], type=OrgType.BRANCH)
+        session.add_all([org_a, org_b])
+        await session.flush()
+        admin_a = await _seed_user(session, "BRANCH_ADMIN", org_a)
+        user_b = await _seed_user(session, "AGENT", org_b)
+        await session.commit()
+
+        repo = AuditLogRepository(session)
+        await repo.create_log(
+            user_id=user_b.id, organization_id=org_b.id, action="org.secret",
+            resource_type="system", description="org-b-only-event",
+        )
+        await session.commit()
+
+        async def _cu():
+            return admin_a
+        app.dependency_overrides[get_current_user] = _cu
+
+        resp = await api.get("/api/v1/admin/audit-logs?action=org.secret")
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["data"]
+        assert all("org-b-only-event" not in i["description"] for i in items),             "BRANCH_ADMIN 不应看到其他组织的审计行"
+
+    async def test_branch_admin_sees_own_org(self, session, api, monkeypatch):
+        """同组织可见：orgA 的 BRANCH_ADMIN 能看到本组织审计行。"""
+        org_a = Organization(name="隔离组织A-" + uuid.uuid4().hex[:6], type=OrgType.BRANCH)
+        session.add(org_a)
+        await session.flush()
+        admin_a = await _seed_user(session, "BRANCH_ADMIN", org_a)
+        user_a = await _seed_user(session, "AGENT", org_a)
+        await session.commit()
+
+        repo = AuditLogRepository(session)
+        await repo.create_log(
+            user_id=user_a.id, organization_id=org_a.id, action="org.local",
+            resource_type="system", description="org-a-visible-event",
+        )
+        await session.commit()
+
+        async def _cu():
+            return admin_a
+        app.dependency_overrides[get_current_user] = _cu
+
+        resp = await api.get("/api/v1/admin/audit-logs?action=org.local")
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["data"]
+        assert any("org-a-visible-event" in i["description"] for i in items),             "BRANCH_ADMIN 应看到本组织审计行"
+
+    async def test_system_admin_sees_all_orgs(self, session, api, monkeypatch):
+        """管理员可见：SYSTEM_ADMIN 能看到所有组织的审计行。"""
+        org_a = Organization(name="隔离组织A-" + uuid.uuid4().hex[:6], type=OrgType.BRANCH)
+        org_b = Organization(name="隔离组织B-" + uuid.uuid4().hex[:6], type=OrgType.BRANCH)
+        session.add_all([org_a, org_b])
+        await session.flush()
+        sysadmin = await _seed_user(session, "SYSTEM_ADMIN", org_a)
+        user_b = await _seed_user(session, "AGENT", org_b)
+        await session.commit()
+
+        repo = AuditLogRepository(session)
+        await repo.create_log(
+            user_id=user_b.id, organization_id=org_b.id, action="org.global",
+            resource_type="system", description="org-b-global-event",
+        )
+        await session.commit()
+
+        async def _cu():
+            return sysadmin
+        app.dependency_overrides[get_current_user] = _cu
+
+        resp = await api.get("/api/v1/admin/audit-logs?action=org.global")
+        assert resp.status_code == 200, resp.text
+        items = resp.json()["data"]
+        assert any("org-b-global-event" in i["description"] for i in items),             "SYSTEM_ADMIN 应看到所有组织审计行"
+
+    async def test_sensitive_fields_not_persisted(self, session, api, monkeypatch):
+        """敏感字段不落库：中间件审计行 detail 仅 status_code，不含请求体/token/password。"""
+        org_a = Organization(name="隔离组织A-" + uuid.uuid4().hex[:6], type=OrgType.BRANCH)
+        session.add(org_a)
+        await session.flush()
+        agent = await _seed_user(session, "AGENT", org_a)
+        await session.commit()
+        await self._patch_audit_factory(session, monkeypatch)
+
+        async def _cu():
+            return agent
+        app.dependency_overrides[get_current_user] = _cu
+
+        resp = await api.post("/api/v1/admin/knowledge-bases", json={
+            "name": "敏感字段测试库",
+            "description": "说明含 password=jwt-secret 字样用于验证不落库",
+            "category": "training",
+        })
+        assert resp.status_code == 200, resp.text
+
+        rows, _ = await AuditLogRepository(session).list_logs(resource_type="knowledge_base")
+        mw = [r for r in rows if r.action.startswith("post.")]
+        assert mw, "中间件应产生 post. 审计行"
+        for r in mw:
+            assert r.detail == {"status_code": 200}, "detail 应仅含 status_code: %r" % (r.detail,)
+            desc = (r.description or "").lower()
+            assert "password" not in desc
+            assert "jwt" not in desc
+            assert "token" not in desc
+            assert "secret" not in desc
