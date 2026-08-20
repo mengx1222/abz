@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 36（Release Candidate Final Audit）
+> 上一轮 Task: Task 37（Production Audit Log Persistence — P1 B2）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-20 · HEAD Task 36）
+## Current Snapshot（2026-08-20 · HEAD Task 37）
 
 
 
@@ -74,11 +74,11 @@
 
 | Release Status | **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md) + [release-verification.md](release-verification.md)） |
 
-| Backend Tests | **296 passed, 48 skipped**（Task 35 后全量云端验证：+5 CSRF 回归 Task 34；seed 幂等 3 无 PG 环境 skip Task 35） |
+| Backend Tests | **300 passed, 54 skipped**（Task 37 后全量云端验证：+4 audit demo 回归；audit PG 6 无 PG 环境 skip） |
 
 | **RAG 权限加固（Task 17B）** | **Role Filtering + Organization Filtering + Citation/SSE 防泄漏 + 拒答不降级 全部 Implemented + Tested**（tests/rag/ 35 用例 + PG 集成 5 用例；详见 [rag-permission-audit.md](rag-permission-audit.md)） |
 
-| PG 集成测试（真实 PG16+pgvector） | **48 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34；+seed 幂等 3 Task 35） |
+| PG 集成测试（真实 PG16+pgvector） | **54 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34；+seed 幂等 3 Task 35；+audit log 6 Task 37） |
 
 | Frontend Tests / Build | **107 passed（16 files）**（+Admin 22 Task 32；+ErrorBoundary 4 Task 33） + `tsc -b` 0 errors + `vite build` ✓ |
 
@@ -101,7 +101,7 @@
 
 | P0 | 无 |
 
-| P1 | P1-3（growth course_detail Demo Only，前端空状态友好处理已 E2E 覆盖；**P1-6 TypeScript hard gate 已 RESOLVED（Task 19）**） |
+| P1 | **B2 Audit Log 已 RESOLVED（Task 37）**：落库 + Repository + 关键路径接入 + 读端点生产分支；P1-3（growth course_detail Demo Only）；剩余 **B1 数据库备份 NOT IMPLEMENTED（正式生产阻塞）** |
 
 | P2 | P2-1~P2-4 已收敛（Task 24/32）；ErrorBoundary（Task 33）/上传大小限制（Task 34）/版本-构建-种子一致性（Task 35）已收敛；Task 36 RC 审计复核无新增（维持 READY FOR INTERNAL PILOT）；剩余：token localStorage、环境 badge、Redis no-op |
 

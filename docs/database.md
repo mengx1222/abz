@@ -1971,3 +1971,7 @@ SELECT * FROM pg_extension WHERE extname = 'vector';
 - 级联：`documents.knowledge_base_id` FK CASCADE（Task 20/21 既有）→ `document_chunks.document_id` FK CASCADE → embedding 随 chunk 行删除（无孤儿）
 - 状态机：`uploaded → parsing → parsed → reviewing → published`（publish 置 published + published_at/published_by；unpublish 置 draft）
 - 计数：delete 同步回退 `knowledge_bases.document_count` / `total_chunks`
+
+---
+
+> **Task 37 — Audit Log 落库**：audit_logs 表（0006 创建 + 0007 补 request_id）现由 `repositories/audit_log_repository.py` 写入/查询；生产关键路径（KB/Document/Auth）与中间件广谱捕获均落库；`GET /admin/audit-logs` 生产分支读取真实数据。测试 `test_audit_log_pg.py` 6 用例（backend-pg 54 passed）。

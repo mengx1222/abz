@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 36（Release Candidate Final Audit）** |
+| Git HEAD（验证时 Current main） | **Task 37（Audit Log Persistence）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -84,9 +84,9 @@
 
 |--------|------|------|
 
-| Backend pytest（SQLite） | **296 passed, 48 skipped**（含安全态势 12：CSRF posture + Auth 语义契约 + CSRF 回归 5；上传大小限制 demo 分支；seed 幂等 3 无 PG 环境 skip） | CI `backend-tests` @ Task 35（df00d11） |
+| Backend pytest（SQLite） | **300 passed, 54 skipped**（含安全态势 12；audit demo 回归 4 Task 37；audit PG 6 无 PG 环境 skip） | CI `backend-tests` @ Task 37（f3c9c1a） |
 
-| Backend PG 集成（真实 PG16+pgvector） | **48 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34；+seed 幂等 3 Task 35） | CI `backend-pg` @ Task 35（df00d11） |
+| Backend PG 集成（真实 PG16+pgvector） | **54 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34；+seed 幂等 3 Task 35；+audit log 6 Task 37） | CI `backend-pg` @ Task 37（f3c9c1a） |
 
 | Frontend Vitest | **107 passed（16 files）**（含 ErrorBoundary 4，Task 33；Admin 8/8 页面组件全覆盖） | CI `backend-tests` frontend job @ Task 33（045f87d） |
 

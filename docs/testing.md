@@ -303,3 +303,25 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 
 - 只读审计（docs/release-candidate-audit.md）：199 个源码文件全文扫描（TODO/FIXME 4 处已知限制、NotImplemented 0、bare except 全部复核无害、console.log 0、@ts-ignore 0、`any` 5 处低优先级）；六域全部 PASS，**无新增修复/测试**（前序任务已收敛）。
 - 测试数字维持（df00d11/783cb61）：Backend **296 passed / 48 skipped**、backend-pg **48 passed**、Vitest **107（16 files）**、tsc 0、build ✓、E2E **27 passed**、Prod ✅。
+
+---
+
+## 17. Audit Log 持久化测试（Task 37）
+
+### 17.1 backend-pg（`tests/knowledge/test_audit_log_pg.py`，6 用例）
+
+- Repository：create_log + list_logs 字段正确（user_id/resource_id/detail JSONB）/ 过滤分页 / query_by_user / query_by_resource
+- API：KB create（生产）→ audit 落库（user_id/resource_id/description 正确）/ 删除 KB 后 audit 仍存在 / `GET /admin/audit-logs` 生产分支返回真实审计行（同 schema，含 user_name）
+
+### 17.2 Demo 回归（`tests/api/test_audit_log.py`，4 用例）
+
+- login 成功/失败 / logout / audit-logs demo 分支照常（审计 helper demo 路径仅 structlog，不触碰 DB）
+
+### 17.3 排障记录（CI 驱动）
+
+- 误建 0010 迁移（request_id 已由 0007 提供）→ `DuplicateColumnError` 暴露 → 删除迁移，head 保持 0009
+- `get_current_user` 加 `Request` 参数：先遇 FastAPI 不支持 `Request | None`（FastAPIError），后遇「无默认值参数跟在默认参数后」（SyntaxError）→ 改为 `request: Request` 置于默认参数之前
+
+### 17.4 验证（f3c9c1a 全矩阵）
+
+- Backend pytest **300 passed / 54 skipped**；backend-pg **54 passed**；Vitest **107（16 files）**、tsc 0、build ✓；Prod ✅。

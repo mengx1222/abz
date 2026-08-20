@@ -2856,3 +2856,26 @@ Stage Summary:
 
 - Release Candidate Final Audit 完成：六域全 PASS、无新增问题；确认与真实生产上线的最后差距
   （B1/B2 + 监控 + 多实例 + 性能 + 凭据轮换），判定维持 READY FOR INTERNAL PILOT ONLY
+
+---
+
+Task ID: 57
+
+Agent: main
+
+Task: Task 37 — Production Audit Log Persistence（P1 B2）（100% Cloud-only）
+
+Work Log:
+
+- 云端基线：main@4e9150f（Task 36 全绿）；备份分支 backup/task-37-20260820-1244
+- 审计（docs/audit-log-audit.md）：AuditLog 模型已存在（字段完整）；AuditMiddleware 已存在但 `write_audit_to_db` 为 structlog stub；audit_logs 表由 0006 创建 + **0007 已补 request_id**（初判漂移有误，经 0010 误建被 CI 暴露后修正）；读端点 /admin/audit-logs 生产返回 demo 数据
+- 实现（Commit 1-2）：audit_log_repository.py（create_log/list_logs/query_by_user/query_by_resource + UUID 归一化 + 长度截断）；audit.py `record_audit_log`（生产独立 session 落库、失败仅告警；demo 仅 structlog）+ `write_audit_to_db` 实现；deps.py `get_current_user` 回写 request.state.user；KB create/update/delete + Document upload/publish/unpublish/delete + Auth login 成功/失败显式审计；list_audit_logs 生产分支读 DB（同 schema）
+- 排障（CI 驱动，4 轮）：① 误建 0010 迁移（request_id 已在 0007）→ DuplicateColumnError → 删除迁移（head 回 0009）② `Request | None` → FastAPIError（FastAPI 不支持 Union Request）→ 改 `request: Request` ③ 无默认值参数跟在默认参数后 → SyntaxError → Request 置于签名首位 ④ 新测试自身修正：角色 get-or-create（CI seed 冲突）、PaginatedResponse.data 为 list、同事务 created_at 相同放宽排序断言
+- 验证（f3c9c1a 全矩阵全绿）：Backend **300 passed / 54 skipped**、backend-pg **54 passed**（audit 6 用例全过：repository 增查/过滤分页/KB create 落库/删除后审计保留/读端点真实数据）、Vitest **107（16 files）**、tsc 0、build ✓、Prod ✅
+- 文档同步：audit-log-audit（修正缺口 C + 实现结果）/ project-status / security / database / testing（§17）/ release-verification / release-readiness / worklog
+- **P1 状态：B2 Audit Log 已 RESOLVED**；剩余 B1 数据库备份 NOT IMPLEMENTED（正式生产唯一 P1 阻塞）
+
+Stage Summary:
+
+- 生产级审计日志落库完成：Repository + 中间件/关键路径写入 + 读端点真实数据 + 全矩阵验证；
+  P1 B2 RESOLVED，剩余唯一正式生产阻塞为 B1 数据库备份

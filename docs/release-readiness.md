@@ -40,7 +40,7 @@
 
 | Frontend | ✅ | Vitest **107 passed（16 files）** + Vite build + `tsc -b` 0 errors（Task 32：Admin 8 页面全覆盖 +22 用例；Task 33：全局 ErrorBoundary +4 用例） |
 
-| Backend | ✅ | pytest 全绿（296/48；backend-pg 48 passed，含 Task 27 Agent 集成 + Task 34 上传大小限制 + Task 35 seed 幂等 3） |
+| Backend | ✅ | pytest 全绿（300/54；backend-pg 54 passed，含 Task 27 Agent 集成 + Task 34 上传大小限制 + Task 35 seed 幂等 3 + Task 37 audit log 6） |
 
 | Docker 部署 | ✅ | 开发 + 生产 compose 均通过 Production Validation |
 
@@ -97,7 +97,8 @@
 - **P0**：无
 
 - **P1**：B1 数据库备份 NOT IMPLEMENTED（正式生产部署可恢复性；内部试点 PILOT ACCEPTED RISK）、
-  B2 Audit Log 未 DB 持久化（仅 structlog）、P1-3（course_detail Demo Only，低影响）
+  ~~B2 Audit Log 未 DB 持久化~~ **已 RESOLVED（Task 37）**：Repository + 中间件/关键路径落库 + 读端点真实数据（backend-pg 54 passed）、
+  P1-3（course_detail Demo Only，低影响）
 
 - **P2**：Redis 化 rate limit/多实例、Agent 内存 session、Demo CORS 放宽、无外部监控告警、
   无滚动部署、Migration 回滚未演练、无额度告警、无性能基准
@@ -124,7 +125,7 @@ Playwright:                 27/27 PASS（Task 29，含 GF-1 Golden Business Flow
 
 Production Validation:      PASS（Task 29 最终代码 2f183e3）
 
-Known:                      无 P0；P1：B1 数据库备份 NOT IMPLEMENTED、B2 Audit Log 未落库（Task 30）
+Known:                      无 P0；P1：B1 数据库备份 NOT IMPLEMENTED（剩余唯一正式生产 P1 阻塞）；~~B2 Audit Log 未落库~~ RESOLVED（Task 37）
 
 ```
 

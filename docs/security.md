@@ -714,3 +714,7 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 ---
 
 > **Task 36 RC Final Audit 复核**（docs/release-candidate-audit.md）：Security 六项检查（JWT/CORS/Security Headers/Rate Limit/CSRF/Secret 管理）全部 PASS，无新增发现；仓库无真实 secret（仅 CHANGE_ME 模板），CI 凭据经 GitHub Secrets 注入。
+
+---
+
+> **Task 37 — Audit Log 持久化（P1 B2 RESOLVED）**：AuditMiddleware 的 `write_audit_to_db` 由 structlog stub 升级为真实落库（独立 session + 失败不影响主业务）；新增 `repositories/audit_log_repository.py`（create/list/query_by_user/query_by_resource）；`get_current_user` 回写 `request.state.user` 供中间件归属操作人；KB/Document/Auth 关键路径显式审计；`GET /admin/audit-logs` 生产分支读取真实审计数据（demo 分支保留）。表结构由 0006+0007 迁移提供（含 request_id），无需新迁移。
