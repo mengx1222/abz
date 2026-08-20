@@ -913,3 +913,13 @@ LOG_LEVEL=WARNING
 - seed 幂等 ✅（exists-check-skip，重复执行安全）；`alembic upgrade head && python -m scripts.seed` 由 compose.prod 启动命令自动执行。
 
 > **Task 36 RC Final Audit 复核**（docs/release-candidate-audit.md）：Deployment 六项检查（Docker/compose/env/healthcheck/migration 启动/CI pipeline）全部 PASS（PILOT 级）；多实例/滚动部署未实现（P2 A1/A5）为 PRODUCTION CANDIDATE 差距之一。
+
+## 12. Observability 与告警（Task 39）
+
+- **Signals Ready（已实现）**：/ready 依赖异常返回 **503 + READINESS_FAILED**（编排可据此摘流）；request 结构化日志含
+  request_id/user_id/organization_id/duration_ms/error_code；AI Provider 错误日志统一 `error_code`
+  （401/403/429/5xx/连接）+ 不记录 HTTP body；RAG 检索日志含 retrieval_count/latency_ms。
+- **健康检查语义**：`/health` = liveness（进程存活）；`/ready` = PostgreSQL + Redis + AI provider（demo 模式依赖豁免）；
+  `/health/detail` = masked URL + middleware 栈 + metrics。
+- **外部告警平台 = Integration Required**：Prometheus/Alertmanager 抓取与告警规则、云日志/Sentry、日志采集管道需在正式生产接入
+  （本阶段以结构化事件与 error_code 提供稳定可消费信号，不假装已接入）。

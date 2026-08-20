@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 38（Database Backup & Restore — P1 B1）
+> 上一轮 Task: Task 39（Monitoring + Alerting + Observability）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-20 · HEAD Task 38（24cc2b1））
+## Current Snapshot（2026-08-20 · HEAD Task 39（0425d67））
 
 
 
@@ -74,7 +74,7 @@
 
 | Release Status | **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md) + [release-verification.md](release-verification.md)） |
 
-| Backend Tests | **300 passed, 59 skipped**（Task 37/37b 后全量云端验证：+4 audit demo 回归；audit PG 11 无 PG 环境 skip） |
+| Backend Tests | **307 passed, 59 skipped**（Task 39 后全量云端验证：+7 observability/redaction） |
 
 | **RAG 权限加固（Task 17B）** | **Role Filtering + Organization Filtering + Citation/SSE 防泄漏 + 拒答不降级 全部 Implemented + Tested**（tests/rag/ 35 用例 + PG 集成 5 用例；详见 [rag-permission-audit.md](rag-permission-audit.md)） |
 
@@ -84,6 +84,7 @@
 
 | Playwright E2E | **27 passed**（Task 29 +GF-1 Golden Business Flow 完整黄金链） |
 | **DB Backup & Restore（Task 38，P1 B1）** | **IMPLEMENTED + CLOUD VERIFIED**：`scripts/backup_database.sh`（pg_dump custom）+ `scripts/restore_database.sh`（pg_restore）+ `database-backup-restore.yml`（PG16+pgvector 演练：backup→clean restore→verify 全绿，restored==baseline mismatches={}，pgvector 1536 维恢复成功）；生产自动备份/对象存储为外部依赖（见 [database-backup-audit.md](database-backup-audit.md)） |
+| **Observability（Task 39）** | **Signals Ready + CLOUD VERIFIED**：/ready 依赖异常 503 + READINESS_FAILED；request 日志 user_id/org/error_code；AI error_code（401/429/5xx/连接）+ 移除 body；RAG retrieval_count/latency；redaction 测试 7 用例（含 request_id 传播）；外部告警平台 = Integration Required（见 [observability-audit.md](observability-audit.md)） |
 
 | **TypeScript（Task 19）** | **`tsc -b` 0 errors** + **CI Hard Gate 恢复**（backend-tests frontend job 显式 typecheck 步骤 + `npm run build`；详见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)） |
 | **Knowledge Production Ingestion（Task 20）** | **Implemented + Tested**：index_document 生产分支持久化 Document/Chunk/Embedding（PG + pgvector，1536 维），权限/产品 metadata 继承 KB，事务 rollback、重复索引幂等、空文档拒绝；PG 集成 8 用例（test_ingestion_pg.py）；详见 [rag.md](rag.md) §7 |

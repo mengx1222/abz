@@ -1,7 +1,7 @@
 # Observability Audit（Task 39 · Monitoring + Alerting + Observability Hardening）
 
-> 状态：**Signals Ready（结构化信号 + 关键错误可观察 + 云端测试）**；外部告警平台 = Integration Required
-> 更新：2026-08-20
+> 状态：**IMPLEMENTED / CLOUD VERIFIED（Signals Ready）**——结构化信号、/ready 语义、AI/RAG error_code、redaction 测试全落地；外部告警平台 = Integration Required
+> 更新：2026-08-20（Task 39 落地，0425d67）
 
 ---
 
@@ -58,6 +58,15 @@
 - **Implemented**：稳定可消费信号（结构化事件 + error_code + /health /ready 语义 + AppMetrics 计数器）。
 - **Integration Required（外部依赖）**：Prometheus/Alertmanager 抓取与告警规则、云日志（含 Sentry 类错误上报）、
   日志采集管道（vector/fluentd）——不假装已接入；生产环境接入为后续运维项。
+
+## Implemented（Task 39 落地清单，0425d67 云端全绿）
+
+- **M1 /ready 语义**：依赖异常 → **HTTP 503** + `error_code=READINESS_FAILED` + checks 明细（编排/探针可据此摘流）；DB/Redis check 日志补 `error_code=DB_UNREACHABLE/REDIS_UNREACHABLE`。
+- **M2 请求归属**：`RequestLoggingMiddleware` request 日志补 `user_id` / `organization_id`；4xx/5xx 附分类 `error_code=HTTP_4XX/HTTP_5XX`（防噪声，不逐业务错误升级告警）。
+- **M3 AI error_code**：openai_provider chat/stream/embed 错误日志统一 `error_code`（401→OPENAI_*_AUTH、403→FORBIDDEN、429→RATE_LIMIT、5xx→SERVER、连接→CONNECTION）；**移除 HTTP body 记录**（AI 错误响应可能回显 prompt/敏感输入）。
+- **M4 RAG 可观察**：pipeline `rag_query_result` / `rag_query_no_relevant_results` 补 `retrieval_count` + `latency_ms`。
+- **M5/M6 redaction & 测试**：`test_observability.py` 7 用例全过——request_id 传播、health/detail 脱敏（含无用户名 redis URL 的 mask 修复）、/ready 503、request 日志含 user_id、AI 401/429 error_code 且 body 不回显。
+- 指标语义：API/AI/RAG/SSE/Ingestion/Audit/DB-Redis 均以结构化日志事件输出（见上表），不虚构 SLA/QPS。
 
 ## Security / Privacy（阶段 7）
 

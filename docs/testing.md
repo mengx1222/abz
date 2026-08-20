@@ -347,3 +347,25 @@ Task 37b 增补 5 用例（`TestAuditLogPermission`）：角色越权 AGENT→40
 1. `pg_restore "$URL" ... -d "$DUMP"`：`-d` 期望 dbname，把 dump 路径当 dbname → pg_restore 从空 stdin 读取 exit 0 未恢复 → 改为 `-d "$LIBPQ_URL"` + dump 位置参数。
 2. `bash script | tee log` 管道掩蔽退出码（tee 返回 0）→ workflow 步骤加 `set -o pipefail`。
 3. 中间件/显式 audit 已由 Task 37/37b 覆盖，本 Task 无 backend/frontend 源码变更，无回归面。
+
+---
+
+## 19. Observability & Redaction（Task 39）
+
+### 19.1 云端验证（0425d67 全矩阵）
+
+- Backend pytest **307 passed / 59 skipped**（+7 `tests/api/test_observability.py`）；backend-pg **59 passed**；Vitest **107**；tsc 0；build ✓；Prod ✅。
+
+### 19.2 `test_observability.py` 覆盖（7 用例）
+
+1. `test_request_id_propagates`：X-Request-ID 响应头回显
+2. `test_health_detail_masks_secret`：masked URL 无明文密码（含无用户名 redis URL 的 mask 修复）
+3. `test_ready_503_on_db_failure`：DB 不可达 → 503 + `READINESS_FAILED` + checks.database=unreachable
+4. `test_ready_200_when_dependencies_ok`：依赖正常 → 200 ready（不回归）
+5. `test_request_log_contains_user_id`：request 结构化日志含 user_id（capsys 捕获 stdout）
+6. `test_ai_error_code_auth_logged`：AI 401 → `OPENAI_CHAT_AUTH`，body 不回显（redaction）
+7. `test_ai_error_code_rate_limit_logged`：AI 429 → `OPENAI_CHAT_RATE_LIMIT`
+
+### 19.3 排障记录
+
+- `_mask_url` 原正则 `(://[^:]+:)([^@]+)(@)` 不匹配无用户名 URL（`redis://:pass@host`）→ 放宽为 `(://[^:@]*:)([^@]+)(@)`。

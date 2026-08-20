@@ -2937,3 +2937,31 @@ Stage Summary:
 
 - B1 从 NOT IMPLEMENTED → IMPLEMENTED / CLOUD VERIFIED：真实 pg_dump backup + pg_restore 恢复 + PG16+pgvector
   云端演练全绿（restored==baseline），关键数据与向量可恢复；正式生产灾备能力标注为外部依赖，不伪造完成
+---
+
+Task ID: 60
+
+Agent: main
+
+Task: Task 39 — Monitoring + Alerting + Observability Hardening（100% Cloud-only）
+
+Work Log:
+
+- 基线 main@fcc2e2e（Task 38 完成，B1/B2 均已收敛）→ 最终 HEAD=0425d67；备份分支 backup/task-39-20260820-1650
+- 审计（docs/observability-audit.md）：structlog/request_id/RequestLoggingMiddleware/AppMetrics/AI+RAG+SSE 日志已较完善；
+  6 缺口：① /ready 依赖异常仍 HTTP 200（SuccessResponse 恒 200）② request 日志无 user_id/org ③ AI 错误无统一 error_code 且记录 HTTP body（可能回显 prompt）④ RAG 成功检索无 retrieval_count/latency ⑤ 无 redaction regression 测试 ⑥ 无健康依赖失败测试
+- 实现（4 提交）：
+  - 063376a docs：observability-audit.md
+  - d186a79 feat：/ready not_ready → **503 + READINESS_FAILED**（DB/Redis check error_code）；RequestLoggingMiddleware 补 user_id/organization_id/error_code(HTTP_4XX/5XX)；openai_provider chat/stream/embed 错误统一 error_code（401/403/429/5xx/连接）+ **移除 body 记录**；pipeline rag_query_result/no_relevant 补 retrieval_count/latency_ms
+  - c3e637b security：test_observability.py 7 用例（request_id 传播/脱敏/ready 503/日志 user_id/AI 401/429 error_code 且 body 不回显）
+  - 0425d67 fix：_mask_url 正则不匹配无用户名 redis URL（redis://:pass@host）→ 放宽 [^:@]*
+- CI 驱动排障 1 轮：test_health_detail_masks_secret 失败（redis URL 无 user 未脱敏）→ 正则修复
+- 验证（0425d67 全矩阵全绿）：Backend **307 passed / 59 skipped**（+7 obs）；backend-pg 59；Vitest 107；tsc 0；build ✓；Prod ✅
+- 指标语义以结构化日志输出（不虚构 SLA/QPS）；外部告警平台（Prometheus/Alertmanager、云日志/Sentry）记录为 Integration Required
+- 文档同步：observability-audit（IMPLEMENTED/Signals Ready）/ project-status / security（日志脱敏回归）/ deployment（§12）/ testing（§19）/ release-verification / release-readiness / worklog
+- Release 判定维持 READY FOR INTERNAL PILOT ONLY；生产差距保留：监控告警平台接入、多实例 Redis、性能基准、凭据轮换、安全复审、滚动发布
+
+Stage Summary:
+
+- Observability 从"有日志"升级为"Signals Ready"：/ready 语义化（依赖异常 503）、请求/AI/RAG 结构化字段与统一
+  error_code、敏感信息脱敏与回归测试；外部告警平台明确为 Integration Required，不假装已接入
