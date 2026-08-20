@@ -1,6 +1,6 @@
 # Database Backup & Restore Readiness Audit（Task 38 · P1 B1）
 
-> 状态：**GAP 确认（NOT IMPLEMENTED）→ 本 Task 目标：Pilot 级最小可验证方案**
+> 状态：**IMPLEMENTED / CLOUD VERIFIED（Pilot 级）**——backup + restore + CI 演练全部成功（Task 38）
 > 更新：2026-08-20
 
 ---
@@ -48,6 +48,18 @@
 - 自动定时备份 cron（需外部 scheduler / 云 DB 托管备份策略）。
 - WAL 归档 / PITR（时间点恢复）、跨地域灾备、备份加密存储。
 - 正式生产流量下的 backup 性能基准 / RPO-RTO 承诺。
+
+## Cloud Verification（24cc2b1 演练 run 32344482596 全绿，日志可复现）
+
+- `FIXTURE_OK`：合成数据写入（KB/Document/3 chunks/AuditLog，embedding 1536 维）
+- `SNAPSHOT_OK` baseline：users 4 / roles 7 / role_permissions 84 / organizations 6 / knowledge_bases 1 /
+  documents 1 / document_chunks 3 / audit_logs 1 / training_scenarios 23 / alembic_version 0010_audit_log_org_scope
+- `BACKUP_OK`：dump size=131217，sha256 已记录；`INTEGRITY_OK`（存在 + size>0）
+- `RESTORE_OK`：pg_restore 到干净目标库 anzhenbao_restore
+- `VERIFY_OK`：**restored == baseline，mismatches={}**（含 org/KB/Document/AuditLog 与 pgvector）
+- `APP_READY`：应用连接恢复库 `/api/v1/ready` 通过（2s）
+- `NONZERO_OK`：错误凭据 → 非 0 退出
+- `NO_BACKUP_IN_GIT_OK`：无 dump/backup 文件进入 Git
 
 ## Test Matrix（阶段 7，云端验证）
 

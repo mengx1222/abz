@@ -1976,3 +1976,28 @@ SELECT * FROM pg_extension WHERE extname = 'vector';
 ---
 
 > **Task 37 — Audit Log 落库**：audit_logs 表（0006 创建 + 0007 补 request_id）现由 `repositories/audit_log_repository.py` 写入/查询；生产关键路径（KB/Document/Auth）与中间件广谱捕获均落库；`GET /admin/audit-logs` 生产分支读取真实数据。测试 `test_audit_log_pg.py` 6 用例（backend-pg 54 passed）。
+
+## Database Backup & Restore（Task 38 · P1 B1）
+
+### 实现（Pilot 级，Cloud Verified）
+
+- `scripts/backup_database.sh`：`pg_dump --format=custom` 逻辑备份，带时间戳，输出目录 `AZB_BACKUP_DIR`，
+  凭据仅环境变量注入（`AZB_DATABASE_URL`），失败非 0，打印安全摘要（size/sha256）。
+- `scripts/restore_database.sh`：`pg_restore -d <conninfo> --clean --if-exists` 到干净目标库，恢复失败非 0。
+- `scripts/verify_restored_db.py`：备份前基线快照 + 恢复后对比（关键表计数 / alembic_version / pgvector 维度）。
+- `scripts/seed_backup_fixture.py`：合成业务数据（KB/Document/Chunk(1536-dim)/AuditLog），仅合成数据。
+- `.github/workflows/database-backup-restore.yml`：PG16+pgvector 云端演练（migration → seed → fixture → backup →
+  clean restore → verify → app health → 错误凭据非 0 → 无备份文件入 Git），push 仅限备份相关路径 / workflow_dispatch。
+
+### 云端演练结果（24cc2b1，run 32344482596）
+
+- baseline == restored（mismatches={}）：users 4 / roles 7 / role_permissions 84 / organizations 6 /
+  knowledge_bases 1 / documents 1 / document_chunks 3 / audit_logs 1 / training_scenarios 23
+- alembic_version：`0010_audit_log_org_scope`（恢复后一致）
+- pgvector：chunks_with_embedding 3 / embedding_dims 1536（向量数据恢复成功）
+
+### 保留策略与外部依赖（Accepted Limitation）
+
+- 演练产物仅存 runner 临时目录（不进 Git）；CI 演练为覆盖式管理。
+- **正式生产自动备份（每日/每小时）+ 独立持久化对象存储 + 加密 + retention 归档 + WAL 归档/PITR + 跨地域灾备
+  为外部依赖**（需外部 scheduler / 云 DB 托管备份策略），本 Task 不伪造实现；部署侧接入见 deployment.md §8.3。

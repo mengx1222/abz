@@ -327,3 +327,23 @@ Task 37b 增补 5 用例（`TestAuditLogPermission`）：角色越权 AGENT→40
 ### 17.4 验证（6fc74db 全矩阵）
 
 - Backend pytest **300 passed / 59 skipped**；backend-pg **59 passed**（audit 11 全过）；Vitest **107（107）**、tsc 0、build ✓；Prod ✅。
+
+---
+
+## 18. Database Backup & Restore 演练（Task 38）
+
+### 18.1 云端演练（`.github/workflows/database-backup-restore.yml`，PG16 + pgvector）
+
+- 步骤链：alembic upgrade → seed → 合成业务数据 fixture（KB/Document/3 chunks/AuditLog，embedding 1536）→
+  baseline 快照 → `backup_database.sh`（pg_dump custom）→ 完整性（size>0 + sha256）→ 干净目标库 →
+  `restore_database.sh`（pg_restore --clean --if-exists）→ `verify_restored_db.py` 对比 → 应用 /ready → 错误凭据非 0 → 无备份文件入 Git。
+- 结果（24cc2b1，run 32344482596 全绿）：`FIXTURE_OK / SNAPSHOT_OK / BACKUP_OK(size=131217) / INTEGRITY_OK /
+  RESTORE_OK / VERIFY_OK（restored==baseline，mismatches={}）/ APP_READY / NONZERO_OK / NO_BACKUP_IN_GIT_OK`。
+- 关键数据：users 4 / roles 7 / organizations 6 / knowledge_bases 1 / documents 1 / document_chunks 3 /
+  audit_logs 1 / training_scenarios 23 / alembic 0010 / chunks_with_embedding 3 / embedding_dims 1536。
+
+### 18.2 排障记录（CI 驱动）
+
+1. `pg_restore "$URL" ... -d "$DUMP"`：`-d` 期望 dbname，把 dump 路径当 dbname → pg_restore 从空 stdin 读取 exit 0 未恢复 → 改为 `-d "$LIBPQ_URL"` + dump 位置参数。
+2. `bash script | tee log` 管道掩蔽退出码（tee 返回 0）→ workflow 步骤加 `set -o pipefail`。
+3. 中间件/显式 audit 已由 Task 37/37b 覆盖，本 Task 无 backend/frontend 源码变更，无回归面。

@@ -96,7 +96,7 @@
 
 - **P0**：无
 
-- **P1**：B1 数据库备份 NOT IMPLEMENTED（正式生产部署可恢复性；内部试点 PILOT ACCEPTED RISK）、
+- **P1**：~~B1 数据库备份 NOT IMPLEMENTED~~ **已 IMPLEMENTED / CLOUD VERIFIED（Task 38，Pilot 级）**：backup+restore 云端演练全绿（restored==baseline）；正式生产自动调度/对象存储/加密/WAL-PITR 为外部依赖、
   ~~B2 Audit Log 未 DB 持久化~~ **已 RESOLVED（Task 37/37b）**：Repository + 中间件/关键路径落库 + 读端点真实数据 + **组织/角色权限隔离（0010 迁移固化 organization_id）** + 敏感字段不落库（backend-pg 59 passed）、
   P1-3（course_detail Demo Only，低影响）
 
@@ -125,7 +125,7 @@ Playwright:                 27/27 PASS（Task 29，含 GF-1 Golden Business Flow
 
 Production Validation:      PASS（Task 29 最终代码 2f183e3）
 
-Known:                      无 P0；P1：B1 数据库备份 NOT IMPLEMENTED（剩余唯一正式生产 P1 阻塞）；~~B2 Audit Log 未落库~~ RESOLVED（Task 37/37b，含 org 权限隔离）
+Known:                      无 P0；~~P1：B1 数据库备份 NOT IMPLEMENTED~~ IMPLEMENTED/CLOUD VERIFIED（Task 38，Pilot，外部依赖：自动调度+对象存储）；~~P2 B2 Audit Log 未落库~~ RESOLVED（Task 37/37b）
 
 ```
 

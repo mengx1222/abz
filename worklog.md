@@ -2906,3 +2906,34 @@ Stage Summary:
 
 - 补强后 Audit Log 达到生产验收：PostgreSQL 持久化 + Alembic 0010 + Repository 架构 + 关键 mutation 真实记录
   + 组织/角色权限隔离 + sensitive 不落库 + 云端全矩阵全绿；B1 数据库备份保持 OPEN 不擅自处理
+---
+
+Task ID: 59
+
+Agent: main
+
+Task: Task 38 — Database Backup & Restore Readiness（P1 B1，100% Cloud-only）
+
+Work Log:
+
+- 基线 main@c4263d6（Task 37/37b 已完成，B2 RESOLVED）→ 最终 HEAD=24cc2b1；备份分支 backup/task-38-20260820-1522
+- 审计（docs/database-backup-audit.md）：全仓库 0 命中 pg_dump/pg_restore/backup/restore——**B1 NOT IMPLEMENTED 确认**；
+  compose 仅 pgdata 命名卷无备份；.gitignore 未覆盖 dump/backup；deployment.md §8.3 存在文档失真（声称每日备份无实现）→ 一并校准
+- 实现（Pilot 级，不伪造企业灾备）：
+  - scripts/backup_database.sh（pg_dump -Fc 时间戳 + size/sha256 摘要 + 失败非 0，凭据环境变量注入）
+  - scripts/restore_database.sh（pg_restore -d conninfo --clean --if-exists）
+  - scripts/verify_restored_db.py（基线快照 + 恢复后对比：表计数/alembic_version/pgvector 维度）
+  - scripts/seed_backup_fixture.py（合成 KB/Document/3 chunks(1536-dim)/AuditLog，无真实客户数据）
+  - .github/workflows/database-backup-restore.yml（PG16+pgvector 云端演练；push 仅备份路径 + workflow_dispatch；PAT 无 dispatch 权限→push 路径触发）
+  - .gitignore 补 *.dump/*.backup/*.bak/backups/
+- CI 驱动排障 3 轮：① pg_restore -d 参数误传 dump 路径（空 stdin exit 0 未恢复）→ -d conninfo；② 管道 tee 掩蔽退出码 → pipefail；③ verify 缺业务数据 → fixture 补 KB/Document/Chunk/AuditLog
+- 云端演练（24cc2b1 run 32344482596 **全绿**）：FIXTURE_OK→SNAPSHOT_OK→BACKUP_OK(size=131217,sha256)→INTEGRITY_OK→RESTORE_OK→**VERIFY_OK（restored==baseline mismatches={}，含 org/KB/Document/AuditLog/pgvector 1536）**→APP_READY→NONZERO_OK→NO_BACKUP_IN_GIT_OK
+- 无 backend/frontend 源码变更 → 普通 CI 无回归面（c4263d6 全矩阵维持 300/59、PG 59、Vitest 107、Prod ✅）
+- 文档同步：database-backup-audit（IMPLEMENTED/CLOUD VERIFIED）/ project-status / database / deployment（§8.3 校准）/ security / testing（§18）/ release-verification / release-readiness / worklog
+- **B1：IMPLEMENTED / CLOUD VERIFIED（Pilot）**；保留外部依赖：生产自动调度、独立持久化对象存储、加密、WAL/PITR、跨地域灾备
+- Release 判定维持 READY FOR INTERNAL PILOT ONLY（不因 B1 收敛直接升级；B2 状态来自 Task 37）
+
+Stage Summary:
+
+- B1 从 NOT IMPLEMENTED → IMPLEMENTED / CLOUD VERIFIED：真实 pg_dump backup + pg_restore 恢复 + PG16+pgvector
+  云端演练全绿（restored==baseline），关键数据与向量可恢复；正式生产灾备能力标注为外部依赖，不伪造完成

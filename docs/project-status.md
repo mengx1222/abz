@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 37（Audit Log Productionization — P1 B2 + org scope 补强）
+> 上一轮 Task: Task 38（Database Backup & Restore — P1 B1）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-20 · HEAD Task 37（6fc74db））
+## Current Snapshot（2026-08-20 · HEAD Task 38（24cc2b1））
 
 
 
@@ -83,6 +83,7 @@
 | Frontend Tests / Build | **107 passed（16 files）**（+Admin 22 Task 32；+ErrorBoundary 4 Task 33） + `tsc -b` 0 errors + `vite build` ✓ |
 
 | Playwright E2E | **27 passed**（Task 29 +GF-1 Golden Business Flow 完整黄金链） |
+| **DB Backup & Restore（Task 38，P1 B1）** | **IMPLEMENTED + CLOUD VERIFIED**：`scripts/backup_database.sh`（pg_dump custom）+ `scripts/restore_database.sh`（pg_restore）+ `database-backup-restore.yml`（PG16+pgvector 演练：backup→clean restore→verify 全绿，restored==baseline mismatches={}，pgvector 1536 维恢复成功）；生产自动备份/对象存储为外部依赖（见 [database-backup-audit.md](database-backup-audit.md)） |
 
 | **TypeScript（Task 19）** | **`tsc -b` 0 errors** + **CI Hard Gate 恢复**（backend-tests frontend job 显式 typecheck 步骤 + `npm run build`；详见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)） |
 | **Knowledge Production Ingestion（Task 20）** | **Implemented + Tested**：index_document 生产分支持久化 Document/Chunk/Embedding（PG + pgvector，1536 维），权限/产品 metadata 继承 KB，事务 rollback、重复索引幂等、空文档拒绝；PG 集成 8 用例（test_ingestion_pg.py）；详见 [rag.md](rag.md) §7 |

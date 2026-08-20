@@ -642,28 +642,26 @@ server {
 - **自动续期**：certbot + cron 定时任务
 - **证书路径**：`/etc/nginx/ssl/cert.pem`、`/etc/nginx/ssl/key.pem`
 
-### 8.3 数据库备份策略
+### 8.3 数据库备份策略（Task 38 校准：Pilot 实现 + 外部依赖）
 
-| 备份类型 | 频率 | 保留时间 | 工具 |
-|---------|------|---------|------|
-| 全量备份 | 每日 02:00 | 30 天 | `pg_dump` + gzip |
-| 增量备份 | 每小时 | 7 天 | WAL 归档 |
-| 快照备份 | 每周日 | 90 天 | 云服务商快照 |
+> 历史版本曾规划「每日 02:00 全量 + WAL 增量 + 云快照」但**无对应实现**（审计确认 0 命中 pg_dump）。
+> Task 38 已落地可执行、可验证的 Pilot 级方案；正式生产自动备份/对象存储为外部依赖。
+
+| 能力 | 状态 | 说明 |
+|------|------|------|
+| 逻辑备份（pg_dump custom） | ✅ **IMPLEMENTED + CLOUD VERIFIED** | `scripts/backup_database.sh`，时间戳 + size/sha256 摘要，失败非 0 |
+| 恢复（pg_restore 干净目标） | ✅ **IMPLEMENTED + CLOUD VERIFIED** | `scripts/restore_database.sh`，演练 restored==baseline（含 pgvector） |
+| 云端演练 | ✅ `database-backup-restore.yml` | PG16+pgvector：migration→seed→backup→restore→verify→app health；push 仅备份路径 / workflow_dispatch |
+| 自动调度（每日/每小时） | ⬜ **外部依赖** | 需外部 scheduler / 云 DB 托管备份策略（如 cron + 独立对象存储） |
+| 增量/WAL/PITR、云快照、跨地域灾备 | ⬜ **外部依赖** | 正式生产加固项，见 database-backup-audit.md |
 
 ```bash
-# 每日全量备份脚本
-#!/bin/bash
-BACKUP_DIR="/backups/daily"
-DATE=$(date +%Y%m%d_%H%M%S)
-FILE="$BACKUP_DIR/anlingbao_$DATE.sql.gz"
-
-mkdir -p $BACKUP_DIR
-docker compose exec -T postgres pg_dump -U anlingbao anlingbao | gzip > $FILE
-
-# 清理 30 天前的备份
-find $BACKUP_DIR -name "*.sql.gz" -mtime +30 -delete
-
-echo "Backup completed: $FILE"
+# 手动备份（凭据环境变量注入，勿硬编码）
+AZB_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db \
+  AZB_BACKUP_DIR=/tmp/backups bash scripts/backup_database.sh
+# 手动恢复（目标库）
+AZB_DATABASE_URL=postgresql+asyncpg://user:pass@host:5432/db \
+  bash scripts/restore_database.sh /tmp/backups/anzhenbao_*.dump
 ```
 
 ### 8.4 日志轮转
@@ -889,7 +887,7 @@ LOG_LEVEL=WARNING
 - Production Validation（compose 全栈 build/up/ready/alembic/seed/phase7/phase8/pytest-on-PG/vitest/build/tsc）：**PASS**（Task 29 最终代码 2f183e3 ✅）
 - **滚动/零停机部署：NOT IMPLEMENTED**（PILOT 可接受；正式生产需蓝绿/滚动 + 迁移窗口）
 - **多实例水平扩展：PARTIAL（P2）**（uvicorn --workers 4 单容器；多容器需 Redis 化 rate limit/session）
-- **数据库备份：NOT IMPLEMENTED（P1）**——无 pg_dump 自动化；正式生产必须补
+- **数据库备份：IMPLEMENTED / CLOUD VERIFIED（Task 38，Pilot 级）**——backup+restore 云端演练全绿；正式生产自动调度/对象存储为外部依赖
 - 结论：内部试点级部署就绪；正式生产上线前需补备份、滚动部署、监控告警（详见 production-readiness-review.md）
 
 ---
