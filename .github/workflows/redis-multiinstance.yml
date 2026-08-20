@@ -1,0 +1,59 @@
+name: Redis Multi-instance Validation (Task 40)
+
+# Task 40 Step 6：真实 Redis 上的多实例共享验证（原子计数 + session 共享 + TTL + failure policy）。
+# 触发：push 仅限 redis/session/rate-limit 相关文件；workflow_dispatch 手动。
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/redis-multiinstance.yml"
+      - "backend/app/core/redis_store.py"
+      - "backend/app/core/rate_limit.py"
+      - "backend/app/agent/orchestrator.py"
+      - "backend/tests/unit/test_redis_multiinstance.py"
+      - "docs/redis-multinstance-audit.md"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  redis-multiinstance:
+    name: Redis Multi-instance Integration (atomic rate limit + shared session)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install backend dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Start Redis container
+        run: |
+          docker run -d --name redis-mi -p 6379:6379 redis:7-alpine
+          for i in $(seq 1 30); do
+            if docker exec redis-mi redis-cli ping >/dev/null 2>&1; then
+              echo "REDIS_READY after ${i}x2s"
+              break
+            fi
+            sleep 2
+          done
+          docker exec redis-mi redis-cli ping
+
+      - name: Run Redis multi-instance integration tests
+        env:
+          AZB_TEST_REDIS_URL: redis://localhost:6379/0
+        run: pytest tests/unit/test_redis_multiinstance.py -v
+
+      - name: Summary
+        run: |
+          echo "=== Redis keys after tests (should be empty due to flushdb per test) ==="
+          docker exec redis-mi redis-cli --scan | head -20 || true
+          echo "REDIS_MULTI_INSTANCE_OK"
