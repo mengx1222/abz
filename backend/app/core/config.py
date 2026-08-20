@@ -35,6 +35,12 @@ class Settings(BaseSettings):
     # --- Redis ---
     REDIS_URL: str = "redis://localhost:6379/0"
 
+    # --- Proxy ---
+    # 是否信任反向代理写入的 X-Real-IP（ULTIMATE P0-3）。
+    # false（默认）：客户端 IP 只取 request.client.host，忽略可伪造的 XFF/X-Real-IP；
+    # true：信可信代理头（部署要求 Nginx 配 proxy_set_header X-Real-IP $remote_addr 并剥离客户端 XFF）。
+    TRUST_PROXY: bool = False
+
     # --- JWT ---
     JWT_SECRET_KEY: str = "change-me-to-a-random-secret-key-in-production"
     JWT_ALGORITHM: str = "HS256"

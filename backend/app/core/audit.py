@@ -58,13 +58,15 @@ def _extract_resource_info(path: str) -> tuple[str, str | None]:
 
 
 def _get_client_ip(request: Request) -> str:
-    """从请求中提取客户端 IP。"""
-    forwarded = request.headers.get("X-Forwarded-For")
-    if forwarded:
-        return forwarded.split(",")[0].strip()
-    real_ip = request.headers.get("X-Real-IP")
-    if real_ip:
-        return real_ip.strip()
+    """从请求中提取客户端 IP（ULTIMATE P0-3，与 rate_limit 同一策略）。
+
+    AZB_TRUST_PROXY=false（默认）：只认 request.client.host，忽略客户端可伪造的
+    XFF/X-Real-IP；开启 TRUST_PROXY：才信可信代理写入的 X-Real-IP。
+    """
+    if settings.TRUST_PROXY:
+        real_ip = request.headers.get("X-Real-IP")
+        if real_ip:
+            return real_ip.strip()
     return request.client.host if request.client else "unknown"
 
 

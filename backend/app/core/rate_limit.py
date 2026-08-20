@@ -87,13 +87,16 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
             return self._buckets[key]
 
     def _get_client_ip(self, request: Request) -> str:
-        """从请求中提取客户端 IP。"""
-        forwarded = request.headers.get("X-Forwarded-For")
-        if forwarded:
-            return forwarded.split(",")[0].strip()
-        real_ip = request.headers.get("X-Real-IP")
-        if real_ip:
-            return real_ip.strip()
+        """从请求中提取客户端 IP（ULTIMATE P0-3）。
+
+        AZB_TRUST_PROXY=false（默认）：只认 request.client.host——XFF/X-Real-IP 可由客户端
+        伪造，直接信任会导致伪造 XFF 绕过限流（登录/AI 限流按 IP 计数）。
+        开启 TRUST_PROXY：才信可信代理写入的 X-Real-IP（部署要求 Nginx 剥离客户端 XFF）。
+        """
+        if settings.TRUST_PROXY:
+            real_ip = request.headers.get("X-Real-IP")
+            if real_ip:
+                return real_ip.strip()
         return request.client.host if request.client else "unknown"
 
     def _match_rule(self, path: str) -> tuple[float, int]:
