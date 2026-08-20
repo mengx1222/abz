@@ -1,0 +1,103 @@
+name: Real AI Performance Layer C
+
+# RDY 阶段3：真实 AI Performance Layer C Benchmark（opt-in workflow_dispatch）。
+# 目标：在 DEMO_MODE=false + 真实 PG/pgvector + Redis + 真实 DashScope/Qwen 环境下，
+#       对 Product QA SSE / Script Generation / Sales Agent GF 做小规模可控成本测量（默认 3 次），
+#       输出 /tmp/real_ai_layer_c.json（原始样本 + p50/p95 汇总）。
+# 仅 workflow_dispatch 手动触发（含真实 AI Key 才真正调用模型；无 Key 则 NOT_RUN），
+# 默认不在普通 CI 中运行，避免每次 push 消耗模型费用。
+# 触发：Actions → Real AI Performance Layer C → Run workflow
+
+on:
+  workflow_dispatch:
+    inputs:
+      repeat:
+        description: "每类 benchmark 重复次数（小规模，默认 3）"
+        required: false
+        default: "3"
+        type: choice
+        options:
+          - "1"
+          - "3"
+          - "5"
+
+jobs:
+  real-ai-layer-c:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: abz_user
+          POSTGRES_PASSWORD: abz_dev_2026
+          POSTGRES_DB: anzhenbao
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U abz_user -d anzhenbao"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      AZB_APP_ENV: production
+      AZB_DEBUG: "false"
+      AZB_DEMO_MODE: "false"
+      AZB_DATABASE_URL: postgresql+asyncpg://abz_user:abz_dev_2026@localhost:5432/anzhenbao
+      AZB_REDIS_URL: redis://localhost:6379/2
+      AZB_JWT_SECRET_KEY: real-ai-layer-c-secret
+      # 真实 Provider（从 Secrets 注入，绝不写进仓库）
+      AZB_AI_PROVIDER: ${{ secrets.AZB_AI_PROVIDER || 'qwen' }}
+      AZB_AI_API_KEY: ${{ secrets.AZB_AI_API_KEY || '' }}
+      AZB_AI_BASE_URL: ${{ secrets.AZB_AI_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1' }}
+      AZB_AI_MODEL: ${{ secrets.AZB_AI_MODEL || 'qwen-plus' }}
+      AZB_AI_EMBEDDING_MODEL: ${{ secrets.AZB_AI_EMBEDDING_MODEL || 'text-embedding-v3' }}
+      AZB_BENCH_REPEAT: ${{ inputs.repeat || '3' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend deps
+        run: |
+          cd backend
+          pip install -e ".[dev]"
+          pip install psycopg2-binary redis requests
+
+      - name: Migrate + seed (Pilot data)
+        run: |
+          cd backend
+          alembic upgrade head
+          python -m scripts.seed
+          python scripts/e2e_seed_knowledge.py
+
+      - name: Run Real AI Layer C benchmark
+        run: |
+          cd backend
+          if [ -z "$AZB_AI_API_KEY" ]; then
+            echo "REAL_AI_LAYER_C=NOT_RUN (AZB_AI_API_KEY secret not configured) — 不假装通过"
+          else
+            echo "REAL_AI_LAYER_C=REAL ($AZB_AI_PROVIDER / $AZB_AI_MODEL / repeat=$AZB_BENCH_REPEAT)"
+            python -m scripts.real_ai_layer_c_benchmark
+          fi
+
+      - name: Upload benchmark results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: real-ai-layer-c
+          path: /tmp/real_ai_layer_c.json
+          retention-days: 7
