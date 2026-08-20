@@ -31,6 +31,12 @@ backend/.env
 pgdata/
 redisdata/
 
+# Database dumps / backups (Task 38: 严禁备份文件进入 Git)
+*.dump
+*.backup
+*.bak
+backups/
+
 # Uploads
 uploads/
 
