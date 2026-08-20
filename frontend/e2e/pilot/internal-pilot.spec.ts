@@ -117,6 +117,9 @@ test.describe('Internal Pilot Golden Flow（seed 试点数据驱动）', () => {
     'Pilot-2 权限安全：本人 assigned 客户可见、随机 UUID 404、列表仅本人（P0-1 同源）',
     async ({ page }) => {
       test.setTimeout(60_000);
+      // 先导航建立 origin（否则 localStorage 读取抛 SecurityError）
+      await page.goto('/dashboard');
+      await expect(page.getByText('今日工作', { exact: true })).toBeVisible({ timeout: 15_000 });
       const token = await page.evaluate(() => localStorage.getItem('abz_token') || '');
       expect(token).toBeTruthy();
       const api = await pwRequest.newContext();

@@ -44,6 +44,19 @@ def _make_user(role_code="AGENT", org_id=None, team_id=None, demo_mode=True, use
 
 
 class TestDataPermissionChecker:
+    def test_production_env_demo_user_still_scoped(self, monkeypatch):
+        """ULTIMATE Pilot：production 环境（DEMO_MODE=false）下，即使 user.demo_mode=True
+        也按生产语义走 assigned 隔离（demo 宽松分支不绕过 P0-1）。"""
+        from app.core.config import settings
+        monkeypatch.setattr(settings, "DEMO_MODE", False)
+        agent = _make_user(role_code="AGENT", demo_mode=True, user_id=uuid.uuid4())
+        checker = DataPermissionChecker(agent)
+        # 本人 assigned + 同组织 → 可见
+        assert checker.can_access_customer(str(ORG_ID), str(agent.id)) is True
+        # 他人 assigned → 拒绝（不因 demo 标记放宽）
+        assert checker.can_access_customer(str(ORG_ID), str(uuid.uuid4())) is False
+
+
     def test_system_admin_all_access(self):
         user = _make_user(role_code="SYSTEM_ADMIN")
         checker = DataPermissionChecker(user)

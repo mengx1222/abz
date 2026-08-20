@@ -50,7 +50,10 @@ class DataPermissionChecker:
         self._team_id: str | None = (
             str(current_user.team_id) if current_user.team_id else None
         )
-        self._is_demo: bool = getattr(current_user, "demo_mode", False)
+        # ULTIMATE Pilot：demo 宽松分支仅在「环境是 demo 且用户是 demo 用户」时生效。
+        # 此前仅看 user.demo_mode —— production 环境（DEMO_MODE=false）下 seed 演示用户
+        # 登录会被误判为 demo 用户 → 绕过 P0-1 assigned 隔离（同 org 全可见）。
+        self._is_demo: bool = settings.DEMO_MODE and getattr(current_user, "demo_mode", False)
         self._user_id: str = str(current_user.id)
 
     # ------------------------------------------------------------------

@@ -196,7 +196,7 @@ async def verify_rag(session: AsyncSession, agent: User) -> None:
 
     # 2) 无依据问题 → REFUSE（不编造产品条款）
     results_n, _ = await pipeline.query(
-        question="极光量子保险的保费和理赔流程是什么？",
+        question="如何判断一颗行星上是否存在液态水？",
         top_k=8,
         user_roles=roles,
         org_id=org_id,
@@ -247,7 +247,6 @@ async def verify_agent(session: AsyncSession, agent: User) -> None:
 
     kinds = {e.get("event") for e in events}
     rag_ctx = next((e for e in events if e.get("event") == "rag_context"), None)
-    citation_ev = next((e for e in events if e.get("event") == "citation"), None)
     compl_ev = next((e for e in events if e.get("event") == "compliance"), None)
     complete = next((e for e in events if e.get("event") == "agent_complete"), None)
 
@@ -255,12 +254,14 @@ async def verify_agent(session: AsyncSession, agent: User) -> None:
            {"agent_start", "agent_complete"}.issubset(kinds),
            f"events={sorted(kinds)}, latency={latency}ms")
     rag_status = (rag_ctx or {}).get("data", {}).get("status", "?") if rag_ctx else "?"
+    citations = (rag_ctx or {}).get("data", {}).get("citations") or [] if rag_ctx else []
     record("agent.rag_context",
            rag_ctx is not None and rag_status in ("ALLOW", "REVIEW"),
            f"rag_status={rag_status}, sources_count={(rag_ctx or {}).get('data', {}).get('sources_count')}")
+    # Citation 内嵌于 rag_context.data.citations（无独立 citation 事件）
     record("agent.citation",
-           citation_ev is not None,
-           "citation 事件存在" if citation_ev else "citation 事件缺失")
+           len(citations) > 0 and bool(citations[0].get("document_title")),
+           f"citations={len(citations)}, first_title={citations[0].get('document_title') if citations else '?'}")
     record("agent.compliance",
            compl_ev is not None and (compl_ev.get("data") or {}).get("status") in ("GREEN", "YELLOW", "RED"),
            f"compliance={(compl_ev or {}).get('data', {}).get('status', '?')}")
@@ -306,7 +307,7 @@ async def verify_training(session: AsyncSession, agent: User) -> None:
             d = _json.loads(ev)
         except Exception:
             d = {"event": "raw"}
-        if d.get("event") in ("score", "session_complete", "training_score", "complete"):
+        if d.get("event") in ("score_data", "scoring_complete", "scoring_start"):
             score_found = True
     record("training.complete_score", score_found, "评分事件已生成" if score_found else "评分事件缺失")
 
