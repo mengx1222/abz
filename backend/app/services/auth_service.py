@@ -120,10 +120,8 @@ class AuthService:
         if user.status != "active":
             raise ValueError("账号已被禁用")
 
-        if user.password_hash is None:
-            raise ValueError("该账号未设置密码，请联系管理员")
-
-        if not verify_password(password, user.password_hash):
+        if user.password_hash is None or not verify_password(password, user.password_hash):
+            # ULTIMATE P1-6：密码哈希为空也统一提示，不泄露账号存在性
             raise ValueError("手机号或密码错误")
 
         # 更新最后登录时间

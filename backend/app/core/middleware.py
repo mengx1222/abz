@@ -54,7 +54,7 @@ class ErrorHandlerMiddleware(BaseHTTPMiddleware):
                     "success": False,
                     "error": {
                         "code": "INTERNAL_SERVER_ERROR",
-                        "message": "服务器内部错误，请稍后重试" if not settings.DEBUG else str(exc),
+                        "message": "服务器内部错误，请稍后重试",
                     },
                     "request_id": request_id,
                 },

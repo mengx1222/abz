@@ -137,7 +137,14 @@ async def get_current_user(
             detail={"code": "INVALID_TOKEN", "message": "令牌中缺少用户标识"},
         )
 
-    user_id = uuid.UUID(user_id_str)
+    try:
+        user_id = uuid.UUID(user_id_str)
+    except (ValueError, TypeError):
+        # ULTIMATE P1-1：sub 非合法 UUID → 401（此前 ValueError 冒泡为 500）
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail={"code": "INVALID_TOKEN", "message": "令牌中用户标识无效"},
+        )
     user: User | None = None
 
     # 尝试从数据库查询

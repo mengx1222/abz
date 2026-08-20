@@ -289,6 +289,32 @@ class OpenAIProvider:
                 )
                 for r in results[:top_k]
             ]
+        except httpx.HTTPStatusError as e:
+            _sc = e.response.status_code
+            if _sc in (401, 403):
+                # ULTIMATE P1-3：鉴权错误不回退（静默回退会掩盖权限问题）
+                logger.error(
+                    "rerank_auth_error",
+                    status=_sc,
+                    error_code=_ai_error_code("RERANK", _sc),
+                    request_id=request_id,
+                )
+                raise RuntimeError(f"Rerank API 鉴权失败 {_sc}") from e
+            # 5xx/其他：回退 cosine（临时服务故障）
+            logger.warning(
+                "rerank_fallback_to_cosine",
+                status=_sc,
+                error_code=_ai_error_code("RERANK", _sc),
+                request_id=request_id,
+            )
+        except httpx.RequestError as e:
+            # 连接超时/网络错误：回退 cosine
+            logger.warning(
+                "rerank_fallback_to_cosine",
+                error=str(e),
+                error_code=_ai_error_code("RERANK", None),
+                request_id=request_id,
+            )
         except Exception as e:
             logger.warning(
                 "rerank_fallback_to_cosine",

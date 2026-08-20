@@ -79,7 +79,7 @@ async def product_qa_chat(
         "product_qa_chat_start",
         user_id=str(current_user.id),
         conversation_id=conversation_id,
-        question=body.question[:100],
+        question_length=len(body.question),  # ULTIMATE P1-6：不记录问题原文（可能含客户 PII）
         request_id=request_id,
     )
 

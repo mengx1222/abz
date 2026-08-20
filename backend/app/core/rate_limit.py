@@ -99,6 +99,20 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
                 return real_ip.strip()
         return request.client.host if request.client else "unknown"
 
+    @staticmethod
+    def _route_template(path: str) -> str:
+        """将路径中的 UUID 段替换为 {id}，限流 key 按路由模板聚合（ULTIMATE P1-2）。
+
+        示例：/api/v1/customers/3f3a.../interactions → /api/v1/customers/{id}/interactions
+        避免每个 UUID 独立限流桶（换 UUID 即可绕过限流）。
+        """
+        import re as _re
+        return _re.sub(
+            r"/[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}",
+            "/{id}",
+            path,
+        )
+
     def _match_rule(self, path: str) -> tuple[float, int]:
         """根据路径匹配限流规则，返回 (rate, capacity)。"""
         for rule_path, rate, capacity in self.RULES:
@@ -130,7 +144,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         rate *= self.DEMO_RELAX_FACTOR
         capacity = int(capacity * self.DEMO_RELAX_FACTOR)
 
-        key = f"{client_ip}:{path}"
+        key = f"{client_ip}:{self._route_template(path)}"
         limiter = self._get_limiter(key, rate, capacity)
 
         if not limiter.acquire():
@@ -183,7 +197,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         Redis 不可用 → fail-closed 503（安全关键限流不放行、不静默内存降级）。
         """
         window = max(1, ceil(capacity / rate)) if rate > 0 else 1
-        key = f"rl:{client_ip}:{path}"
+        key = f"rl:{client_ip}:{self._route_template(path)}"
 
         current = await redis_incr_with_ttl(key, window)
         if current is None:
