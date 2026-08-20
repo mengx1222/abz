@@ -86,6 +86,7 @@ def _should_audit(method: str, path: str) -> bool:
 async def record_audit_log(
     *,
     user_id=None,
+    organization_id=None,
     action: str,
     resource_type: str,
     resource_id=None,
@@ -118,6 +119,7 @@ async def record_audit_log(
         try:
             await repo.create_log(
                 user_id=user_id,
+                organization_id=organization_id,
                 action=action,
                 resource_type=resource_type,
                 resource_id=resource_id,
@@ -156,6 +158,7 @@ async def write_audit_to_db(audit_data: dict) -> None:
     detail = {"status_code": status_code}
     await record_audit_log(
         user_id=audit_data.get("user_id"),
+        organization_id=audit_data.get("organization_id"),
         action=action,
         resource_type=audit_data.get("resource_type") or "unknown",
         resource_id=audit_data.get("resource_id"),
@@ -182,10 +185,14 @@ class AuditMiddleware(BaseHTTPMiddleware):
 
         resource_type, resource_id = _extract_resource_info(path)
 
-        # 尝试获取用户信息
+        # 尝试获取用户信息（含组织归属，用于审计查询的组织范围隔离）
         user_id = None
+        organization_id = None
         try:
-            user_id = str(request.state.user.id) if hasattr(request.state, "user") else None
+            _u = request.state.user if hasattr(request.state, "user") else None
+            if _u is not None:
+                user_id = str(_u.id)
+                organization_id = str(_u.organization_id) if _u.organization_id else None
         except Exception:
             pass
 
@@ -196,6 +203,7 @@ class AuditMiddleware(BaseHTTPMiddleware):
             "resource_type": resource_type,
             "resource_id": resource_id,
             "user_id": user_id,
+            "organization_id": organization_id,
             "ip_address": _get_client_ip(request),
             "user_agent": request.headers.get("user-agent", ""),
             "request_id": request_id,

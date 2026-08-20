@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, Request, status
 from fastapi.responses import JSONResponse
+import uuid
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
@@ -44,7 +45,7 @@ async def login(
     except ValueError as e:
         logger.warning("login_failed", phone=body.phone, reason=str(e))
         await record_audit_log(
-            action="login", resource_type="auth",
+            organization_id=None, action="login", resource_type="auth",
             description=f"登录失败: {body.phone} ({e})", status="failure", request_id=request_id,
         )
         return JSONResponse(
@@ -61,8 +62,15 @@ async def login(
         _user_id = _payload.get("sub")
     except Exception:
         _user_id = None
+    _org_id = None
+    if _user_id:
+        try:
+            _u = await db.get(User, uuid.UUID(_user_id))
+            _org_id = _u.organization_id if _u else None
+        except Exception:
+            _org_id = None
     await record_audit_log(
-        user_id=_user_id, action="login", resource_type="auth",
+        user_id=_user_id, organization_id=_org_id, action="login", resource_type="auth",
         description=f"用户登录: {body.phone}", status="success", request_id=request_id,
     )
     return SuccessResponse(data=token_resp, request_id=request_id)

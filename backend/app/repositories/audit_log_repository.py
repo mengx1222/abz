@@ -52,6 +52,7 @@ class AuditLogRepository:
         self,
         *,
         user_id=None,
+        organization_id=None,
         action: str,
         resource_type: str,
         resource_id=None,
@@ -65,6 +66,7 @@ class AuditLogRepository:
         """创建一条审计日志（调用方负责 commit）。"""
         log = AuditLog(
             user_id=_coerce_uuid(user_id),
+            organization_id=_coerce_uuid(organization_id),
             action=action[:50],
             resource_type=resource_type[:50],
             resource_id=_coerce_uuid(resource_id),
@@ -83,6 +85,7 @@ class AuditLogRepository:
         self,
         *,
         user_id=None,
+        organization_ids: Optional[list[str]] = None,
         action: Optional[str] = None,
         resource_type: Optional[str] = None,
         start_time: Optional[str] = None,
@@ -94,6 +97,10 @@ class AuditLogRepository:
         stmt = select(AuditLog)
         if user_id:
             stmt = stmt.where(AuditLog.user_id == _coerce_uuid(user_id))
+        if organization_ids:
+            org_uuids = [u for u in (_coerce_uuid(x) for x in organization_ids) if u is not None]
+            if org_uuids:
+                stmt = stmt.where(AuditLog.organization_id.in_(org_uuids))
         if action:
             stmt = stmt.where(AuditLog.action == action)
         if resource_type:
