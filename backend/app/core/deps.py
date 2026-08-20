@@ -97,7 +97,7 @@ security_scheme = HTTPBearer(auto_error=False)
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
-    request: Request | None = None,
+    request: Request,
 ) -> User:
     """FastAPI 依赖：从 JWT token 中解析当前用户。"""
     if credentials is None:
@@ -171,8 +171,7 @@ async def get_current_user(
         )
 
     # Task 37：写回 request.state，供 AuditMiddleware 捕获操作人（user_id 归属）。
-    if request is not None:
-        request.state.user = user
+    request.state.user = user
 
     return user
 
