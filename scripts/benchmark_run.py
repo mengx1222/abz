@@ -197,7 +197,7 @@ async def bench_http(base_url: str, out_path: str, concurrency: int) -> None:
         results.append(summarize("http_sse_product_qa", lat, err, sse))
         lat, err, sse = await bench_request(
             c, "POST", "/api/v1/ai/sales-agent/chat",
-            json_body={"message": "客户想了解百万医疗险，请生成销售话术", "session_id": "bench-agent"},
+            json_body={"message": "客户想了解百万医疗险，请生成销售话术", "session_id": "bench-agent", "customer_id": "00000000-0000-0000-0000-000000000001"},
             headers=admin_headers, n=5, sse=True,
         )
         results.append(summarize("http_sse_sales_agent", lat, err, sse))
@@ -232,7 +232,7 @@ async def bench_ai(base_url: str, api_key: str, out_path: str) -> None:
         admin_headers = await _login(c)
         for name, path, body in [
             ("ai_product_qa", "/api/v1/ai/product-qa/chat", {"question": "百万医疗险等待期多久？", "conversation_id": "bench-ai-qa"}),
-            ("ai_sales_agent", "/api/v1/ai/sales-agent/chat", {"message": "介绍百万医疗险", "session_id": "bench-ai-agent"}),
+            ("ai_sales_agent", "/api/v1/ai/sales-agent/chat", {"message": "介绍百万医疗险", "session_id": "bench-ai-agent", "customer_id": "00000000-0000-0000-0000-000000000001"}),
         ]:
             lat, err, sse = await bench_request(
                 c, "POST", path, json_body=body, headers=admin_headers, n=2, sse=True,
