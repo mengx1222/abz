@@ -23,5 +23,5 @@ test -s "$DUMP" || { echo "RESTORE_FAILED empty_dump $DUMP" >&2; exit 1; }
 LIBPQ_URL="$(printf '%s' "$AZB_DATABASE_URL" | sed 's|^postgresql+asyncpg://|postgresql://|')"
 
 echo "RESTORE_START dump=${DUMP}"
-pg_restore "$LIBPQ_URL" --clean --if-exists --no-owner --no-privileges "$DUMP"
+pg_restore -d "$LIBPQ_URL" --clean --if-exists --no-owner --no-privileges "$DUMP"
 echo "RESTORE_OK dump=${DUMP}"

@@ -86,7 +86,9 @@ jobs:
         env:
           AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bk
           AZB_BACKUP_DIR: /tmp/backups
-        run: bash ../scripts/backup_database.sh | tee /tmp/backup.log
+        run: |
+          set -o pipefail
+          bash ../scripts/backup_database.sh 2>&1 | tee /tmp/backup.log
 
       - name: Backup integrity (file/size/checksum/exit)
         run: |
@@ -106,7 +108,9 @@ jobs:
       - name: Restore (pg_restore into clean target)
         env:
           AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_restore
-        run: bash ../scripts/restore_database.sh "$DUMP_NAME" | tee /tmp/restore.log
+        run: |
+          set -o pipefail
+          bash ../scripts/restore_database.sh "$DUMP_NAME" 2>&1 | tee /tmp/restore.log
 
       - name: Verify restored database vs baseline
         env:
