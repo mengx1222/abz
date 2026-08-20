@@ -9,6 +9,7 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from structlog import get_logger
 
+from app.core.authorization import DataPermissionChecker
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db, require_role
 from app.models.user import User
@@ -764,9 +765,18 @@ async def list_audit_logs(
     Demo 模式：内存演示数据（兼容）。
     """
     if not settings.DEMO_MODE:
+        # 组织范围隔离（Task 37b）：SYSTEM_ADMIN/COMPLIANCE 全库可见；
+        # HQ_ADMIN/BRANCH_ADMIN 仅见本机构+子机构（DataPermissionChecker 现有规则）。
+        # require_role 已挡住 AGENT/TEAM_LEADER（403），此处仅缩窄管理角色的可见域。
+        checker = DataPermissionChecker(current_user)
+        accessible = checker.filter_accessible_org_ids()
+        org_filter = None
+        if current_user.role_code not in ("SYSTEM_ADMIN", "COMPLIANCE") and accessible != ["__ALL__"]:
+            org_filter = accessible
         repo = AuditLogRepository(db)
         rows, total = await repo.list_logs(
             user_id=user_id or None,
+            organization_ids=org_filter,
             action=action or None,
             resource_type=resource_type or None,
             start_time=start_time or None,
