@@ -57,11 +57,15 @@ class DataPermissionChecker:
     # 公开方法
     # ------------------------------------------------------------------
 
-    def can_access_customer(self, customer_org_id: str | None) -> bool:
-        """判断当前用户是否有权访问指定 organization_id 的客户数据。
+    def can_access_customer(
+        self, customer_org_id: str | None, assigned_to: str | None = None
+    ) -> bool:
+        """判断当前用户是否有权访问指定客户数据。
 
         Args:
             customer_org_id: 目标客户所属的 organization_id。
+            assigned_to: 目标客户的 assigned_to（归属用户 ID）。
+                生产模式 AGENT 依赖该字段判定归属（与列表过滤同源）。
 
         Returns:
             True 表示允许访问。
@@ -86,7 +90,15 @@ class DataPermissionChecker:
             # Demo 模式放宽限制：允许 AGENT 查看同 organization_id 的所有客户
             return customer_org_id == self._org_id
 
-        # 正式模式：仅可访问自己的数据
+        # 正式模式（Task 44 P0-1）：仅可访问自己 assigned 的客户（兼验组织匹配），
+        # 与列表过滤 restrict_to_own_customers 同一谓词来源，杜绝列表/详情判定不同源。
+        if self._role_code == "AGENT":
+            return (
+                assigned_to is not None
+                and str(assigned_to) == self._user_id
+                and customer_org_id == self._org_id
+            )
+
         return False
 
     def can_access_document(self, document_org_id: str | None) -> bool:
@@ -170,6 +182,14 @@ class DataPermissionChecker:
 
         # 正式模式：仅返回自己的组织 ID（实际还需配合 assigned_to 过滤）
         return [self._org_id]
+
+    def restrict_to_own_customers(self) -> bool:
+        """生产模式 AGENT：客户数据仅限本人 assigned（列表过滤谓词）。
+
+        与 can_access_customer 的 AGENT 分支同源：列表加 ``assigned_to == user.id``
+        WHERE 条件，详情判定同一谓词，保证列表/详情行为一致。
+        """
+        return (not self._is_demo) and self._role_code == "AGENT"
 
     # ------------------------------------------------------------------
     # 内部方法

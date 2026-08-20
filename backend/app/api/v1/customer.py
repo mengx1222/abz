@@ -233,7 +233,7 @@ async def add_interaction(
     request_id = getattr(request.state, "request_id", None)
 
     service = CustomerService(session=db)
-    interaction = await service.add_interaction(customer_id, body, user_id=current_user.id)
+    interaction = await service.add_interaction(customer_id, body, user_id=current_user.id, current_user=current_user)
     if interaction is None:
         raise HTTPException(
             status_code=404,
@@ -270,7 +270,7 @@ async def add_followup(
     request_id = getattr(request.state, "request_id", None)
 
     service = CustomerService(session=db)
-    followup = await service.add_followup(customer_id, body, user_id=current_user.id)
+    followup = await service.add_followup(customer_id, body, user_id=current_user.id, current_user=current_user)
     if followup is None:
         raise HTTPException(
             status_code=404,

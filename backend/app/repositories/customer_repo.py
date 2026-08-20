@@ -24,8 +24,12 @@ class CustomerRepository(BaseRepository[Customer]):
         tag: str | None = None,
         search: str | None = None,
         organization_id: uuid.UUID | list[uuid.UUID] | None = None,
+        assigned_to: uuid.UUID | None = None,
     ) -> tuple[list[Customer], int]:
-        """带筛选的客户列表查询。organization_id 支持单个 UUID 或 UUID 列表。"""
+        """带筛选的客户列表查询。organization_id 支持单个 UUID 或 UUID 列表。
+
+        assigned_to（Task 44 P0-1）：生产 AGENT 列表与详情同源的归属过滤。
+        """
         query = select(Customer).where(Customer.is_deleted == False)
         count_query = select(Customer.id).where(Customer.is_deleted == False)
 
@@ -45,6 +49,9 @@ class CustomerRepository(BaseRepository[Customer]):
             else:
                 query = query.where(Customer.organization_id == organization_id)
                 count_query = count_query.where(Customer.organization_id == organization_id)
+        if assigned_to is not None:
+            query = query.where(Customer.assigned_to == assigned_to)
+            count_query = count_query.where(Customer.assigned_to == assigned_to)
         if tag:
             # JSONB 包含匹配
             query = query.where(Customer.tags.contains([tag]))

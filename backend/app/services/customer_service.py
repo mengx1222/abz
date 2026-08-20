@@ -177,11 +177,15 @@ class CustomerService:
 
         # DB 模式：根据当前用户角色过滤可访问的 org
         org_filter = _DEMO_ORG_ID
+        assigned_to_filter: uuid.UUID | None = None
         if current_user is not None:
             checker = DataPermissionChecker(current_user)
             accessible_orgs = checker.filter_accessible_org_ids()
             if accessible_orgs != ["__ALL__"]:
                 org_filter = [uuid.UUID(oid) for oid in accessible_orgs]
+                # Task 44 P0-1：生产 AGENT 列表与详情同源 —— 仅 assigned_to == 本人
+                if checker.restrict_to_own_customers():
+                    assigned_to_filter = current_user.id
 
         records, total = await self.customer_repo.search_list(
             page=page,
@@ -192,6 +196,7 @@ class CustomerService:
             tag=tag,
             search=search,
             organization_id=org_filter,
+            assigned_to=assigned_to_filter,
         )
         items = [self._customer_to_dict(r) for r in records]
         return items, total
@@ -251,10 +256,13 @@ class CustomerService:
         if customer is None:
             return None
 
-        # IDOR 防护：检查当前用户是否有权访问该客户的组织数据
+        # IDOR 防护：检查当前用户是否有权访问该客户（生产 AGENT 校验 assigned_to 归属）
         if current_user is not None:
             checker = DataPermissionChecker(current_user)
-            if not checker.can_access_customer(str(customer.organization_id)):
+            if not checker.can_access_customer(
+                str(customer.organization_id),
+                str(customer.assigned_to) if customer.assigned_to else None,
+            ):
                 return None
 
         return self._customer_detail_to_dict(customer)
@@ -361,10 +369,13 @@ class CustomerService:
         if customer is None:
             return None
 
-        # IDOR 防护：检查当前用户是否有权修改该客户
+        # IDOR 防护：检查当前用户是否有权修改该客户（生产 AGENT 校验 assigned_to 归属）
         if current_user is not None:
             checker = DataPermissionChecker(current_user)
-            if not checker.can_access_customer(str(customer.organization_id)):
+            if not checker.can_access_customer(
+                str(customer.organization_id),
+                str(customer.assigned_to) if customer.assigned_to else None,
+            ):
                 return None
 
         update_fields = data.model_dump(exclude_unset=True)
@@ -413,10 +424,13 @@ class CustomerService:
         if customer is None:
             return False
 
-        # IDOR 防护：检查当前用户是否有权删除该客户
+        # IDOR 防护：检查当前用户是否有权删除该客户（生产 AGENT 校验 assigned_to 归属）
         if current_user is not None:
             checker = DataPermissionChecker(current_user)
-            if not checker.can_access_customer(str(customer.organization_id)):
+            if not checker.can_access_customer(
+                str(customer.organization_id),
+                str(customer.assigned_to) if customer.assigned_to else None,
+            ):
                 return False
 
         await self.customer_repo.soft_delete(customer_id)
@@ -443,7 +457,8 @@ class CustomerService:
     # ------------------------------------------------------------------
 
     async def add_interaction(
-        self, customer_id: uuid.UUID, data: CustomerInteractionCreate, user_id: uuid.UUID
+        self, customer_id: uuid.UUID, data: CustomerInteractionCreate, user_id: uuid.UUID,
+        current_user: User | None = None,
     ) -> dict | None:
         """为客户添加互动记录。"""
         if settings.DEMO_MODE:
@@ -452,6 +467,15 @@ class CustomerService:
         customer = await self.customer_repo.get_by_id_active(customer_id)
         if customer is None:
             return None
+
+        # Task 44 P0-1：生产 AGENT 仅可操作本人 assigned 客户（与详情判定同源）
+        if current_user is not None:
+            checker = DataPermissionChecker(current_user)
+            if not checker.can_access_customer(
+                str(customer.organization_id),
+                str(customer.assigned_to) if customer.assigned_to else None,
+            ):
+                return None
 
         interaction = await self.interaction_repo.create(
             customer_id=customer_id,
@@ -502,7 +526,8 @@ class CustomerService:
     # ------------------------------------------------------------------
 
     async def add_followup(
-        self, customer_id: uuid.UUID, data: CustomerFollowupCreate, user_id: uuid.UUID
+        self, customer_id: uuid.UUID, data: CustomerFollowupCreate, user_id: uuid.UUID,
+        current_user: User | None = None,
     ) -> dict | None:
         """为客户添加跟进任务。"""
         if settings.DEMO_MODE:
@@ -511,6 +536,15 @@ class CustomerService:
         customer = await self.customer_repo.get_by_id_active(customer_id)
         if customer is None:
             return None
+
+        # Task 44 P0-1：生产 AGENT 仅可操作本人 assigned 客户（与详情判定同源）
+        if current_user is not None:
+            checker = DataPermissionChecker(current_user)
+            if not checker.can_access_customer(
+                str(customer.organization_id),
+                str(customer.assigned_to) if customer.assigned_to else None,
+            ):
+                return None
 
         completed_date = None
         if data.status == "completed":
