@@ -88,12 +88,18 @@ jobs:
           AZB_AI_PROVIDER: mock
         run: |
           nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 > /tmp/bench-app.log 2>&1 &
+          APP_OK=0
           for i in $(seq 1 40); do
             if curl -sf http://127.0.0.1:8001/api/v1/ready >/dev/null 2>&1; then
-              echo "APP_READY after ${i}x2s"; break
+              echo "APP_READY after ${i}x2s"; APP_OK=1; break
             fi
             sleep 2
           done
+          if [ "$APP_OK" != "1" ]; then
+            echo "=== APP LOG (tail) ==="
+            tail -80 /tmp/bench-app.log || true
+            exit 1
+          fi
           curl -sf http://127.0.0.1:8001/api/v1/ready
 
       - name: Layer B — Production-like HTTP + SSE + capacity
