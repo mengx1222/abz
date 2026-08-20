@@ -104,7 +104,8 @@ jobs:
         run: python ../scripts/benchmark_run.py --mode http --base-url http://127.0.0.1:8001 --out /tmp/benchmark_http.json
 
       - name: Layer C — Real AI smoke (opt-in)
-        if: ${{ inputs.run_ai == true && secrets.AZB_AI_API_KEY != '' }}
+        # 仅 workflow_dispatch 提供 inputs；push 触发时短路（避免 inputs 上下文不可用报错）
+        if: ${{ github.event_name == 'workflow_dispatch' && inputs.run_ai == true && secrets.AZB_AI_API_KEY != '' }}
         env:
           AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
           AZB_REDIS_URL: redis://localhost:6379/0
@@ -112,7 +113,7 @@ jobs:
         run: python ../scripts/benchmark_run.py --mode ai --base-url http://127.0.0.1:8001 --api-key "$AZB_AI_API_KEY" --out /tmp/benchmark_ai.json
 
       - name: Layer C — skip notice (no AI secret)
-        if: ${{ inputs.run_ai != true || secrets.AZB_AI_API_KEY == '' }}
+        if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.run_ai == true && secrets.AZB_AI_API_KEY != '') }}
         run: echo "AI_SMOKE=NOT_RUN (run_ai=${{ inputs.run_ai }}, secret configured=${{ secrets.AZB_AI_API_KEY != '' }})"
 
       - name: Upload benchmark artifacts (latency numbers only, no sensitive data)
