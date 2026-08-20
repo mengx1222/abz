@@ -934,3 +934,11 @@ LOG_LEVEL=WARNING
 - **Redis client**：每操作短生命周期连接（`core/redis_store.py`），避免跨 event loop/多 worker 耦合；`get_redis` no-op fallback 已移除。
 - **部署**：所有实例使用统一 `AZB_REDIS_URL`；`/ready` 已检查 Redis；CI（backend/backend-pg）与 `redis-multiinstance.yml` 均起真实 Redis 验证。
 - **Production Dependency（外部）**：Redis 高可用（哨兵/集群）、持久化策略未配置，正式生产需接入；性能 benchmark 留后续。
+
+## 14. 性能基线（Task 41 · Cloud CI Capacity Baseline）
+
+- **harness**：`scripts/benchmark_run.py`（三模式 deterministic/http/ai）+ `performance-benchmark.yml`（workflow_dispatch 或 push 限路径触发；AI 层 opt-in，需 `AZB_AI_API_KEY` secret）。
+- **基线（0d47da0，CI Runner）**：health 2.1ms p50/427tps；kb-list 20.8ms；DB count 0.3ms；Redis incr 2.3ms / session 4.7ms；
+  容量 1→10 并发 health 2.4→12.5ms（线性，0 err）；RAG 检索 0.36-0.80s；Sales Agent 28.8ms（mock）；Product QA SSE TTFE 19.5ms。
+- **结论**：基础链路毫秒级、无退化迹象；**CI Runner benchmark ≠ production capacity**；真实 AI/生产硬件性能待专项（配 secret 后手动跑层 C）。
+- 详见 [performance-baseline.md](performance-baseline.md)。

@@ -2995,3 +2995,29 @@ Stage Summary:
 
 - 运行状态跨实例共享闭环：RateLimit Redis 原子计数（fail-closed）+ Agent session Redis 共享（TTL）+ 移除 no-op fallback；
   多实例共享语义经真实 Redis 集成验证（9/9）；外部 Redis HA 明确为 Production Dependency，不伪造生产就绪
+---
+
+Task ID: 62
+
+Agent: main
+
+Task: Task 41 — Performance Benchmark + Capacity Baseline（100% Cloud-only）
+
+Work Log:
+
+- 基线 main@1cbe101（Task 40 完成）→ 最终 HEAD=0d47da0；备份分支 backup/task-41-20260820-1750
+- 审计（docs/performance-baseline-audit.md）：现有可观测信号（request latency_ms/AI tokens/RAG retrieval/latency 日志）；Unknowns：无 QPS/SLA/p50-p95/分项耗时；潜在瓶颈：Redis 短生命周期 client、pool 10/20、RAG 双查询、SSE 长连接、AI embedding
+- 实现（7 提交）：ad8bda3 docs → 0c29b7e harness+workflow → 909336e/97a1fe1/01cfc9c（workflow 静态校验修复 ×3：inputs/secrets 不能在 step if）→ d3ed294（redis /1 修复 ready）→ 128c6a1/7132aa5/0d47da0（SSE 诊断+路径修复+sales-agent customer_id）
+- 云端执行（0d47da0 三 workflow 全绿）：CI ✅ + Prod ✅ + Performance Benchmark ✅
+- **基准（全部 err=0）**：health 1.65/2.45ms（572tps）、ready 31.5/32.9、kb-list 20.8/74.5、http_health 2.14/3.22（427tps）、
+  DB count 0.30/1.22ms（2908tps）、redis incr 2.32/2.63、session 4.69/5.19、容量 c1/c5/c10 2.4/8.0/12.5ms（线性 0 err）、
+  RAG 检索 0.36-0.80s（真实）、Product QA SSE p50 3.2s（TTFE 19.5ms + mock 流延迟）、Sales Agent 28.8/83.4ms（mock）
+- **主要瓶颈**：Product QA SSE 总延迟（RAG 0.5s 真实热点 + mock 流 ~2.8s）；真实 AI latency = NOT RUN（无 AZB_AI_API_KEY secret，workflow 明确输出 NOT_RUN）
+- 未测（明确标注）：Script SSE、ingestion/embedding、Training/score、真实 AI token、CPU/Memory、PG 连接池、Redis P99 长尾
+- 文档：performance-baseline.md（CLOUD CI CAPACITY BASELINE，非 SLA）+ 同步 project-status/release-verification/release-readiness/deployment（§14）/testing（§21）/worklog
+- Release 维持 READY FOR INTERNAL PILOT ONLY；差距保留：告警平台、Redis HA、真实硬件/真实 AI 性能基准、凭据轮换、安全复审、滚动发布
+
+Stage Summary:
+
+- 建立可复现的云端性能基线：harness + workflow 全绿；核心 API/RAG/SSE/Agent/容量 p50/p95 数据；识别 Product QA SSE
+  与 RAG 检索为主要观察热点；真实 AI/生产硬件性能明确 NOT Benchmarked；不虚构 SLA/QPS

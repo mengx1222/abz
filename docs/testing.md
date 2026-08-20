@@ -398,3 +398,29 @@ Task 37b 增补 5 用例（`TestAuditLogPermission`）：角色越权 AGENT→40
 2. `service._sessions[sid]` 在 Redis 分支不填充 → test_session_continuity 改经 `_get_or_create_session` 取回。
 3. **全局 Redis client 单例绑定 pytest event loop → "Event loop is closed"** → 改为每操作短生命周期 client（`redis_store.py`）。
 4. 并发 gather 返回值乱序 → 集合断言。
+
+---
+
+## 21. Performance Benchmark（Task 41）
+
+### 21.1 Harness 与触发
+
+- `scripts/benchmark_run.py`：`--mode deterministic`（ASGI，AI=mock：API/DB/Redis/RAG-SSE/容量 10 并发）、
+  `--mode http`（真实 uvicorn：HTTP/SSE/容量 1/5/10）、`--mode ai`（真实 AI opt-in，需 API key）。
+- `performance-benchmark.yml`：workflow_dispatch（profile/run_ai 参数）或 push 限 benchmark 相关路径；
+  PG16+pgvector+Redis 容器 + alembic + seed + fixture；Layer A/B 默认跑，Layer C 仅 `run_ai=true` 且 secret 存在。
+
+### 21.2 结果（0d47da0 run 32358977127，全部 err=0）
+
+- API：health 1.65/2.45ms（p50/p95）、ready 31.5/32.9、kb-list 20.8/74.5；http_health 2.14/3.22（427tps）
+- DB/Redis：org count 0.30/1.22ms（2908tps）、redis incr 2.32/2.63（424tps）、session 4.69/5.19（210tps）
+- SSE（mock）：Product QA p50 3.2-3.5s（TTFE 19.5ms；含 mock 流延迟 ~2.8s + RAG 0.36-0.8s 真实）、Sales Agent 28.8/83.4ms（TTFE 20.4ms）
+- 容量：health c1/c5/c10 p50 2.4/8.0/12.5ms，0 err（线性）
+- AI 层：**NOT RUN**（无 AZB_AI_API_KEY secret；配置后手动触发）
+
+### 21.3 排障记录
+
+1. workflow 静态校验：step `if` 引用 `inputs`/`secrets` 在 push 触发时 Unrecognized named-value → 移到 env 运行时求值。
+2. `/ready` 将默认 `redis://localhost:6379/0` 视为 not_configured → benchmark 用 `/1`。
+3. `/api/v1/ai/product-qa` 404 → 实际路由 `/api/v1/ai/product-qa/chat`。
+4. Sales Agent 422：`customer_id` 必填 → benchmark body 补齐。

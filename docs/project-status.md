@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 40（Redis Multi-instance + Session/RateLimit Hardening）
+> 上一轮 Task: Task 41（Performance Benchmark + Capacity Baseline）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-20 · HEAD Task 40（c2a6eae））
+## Current Snapshot（2026-08-20 · HEAD Task 41（0d47da0））
 
 
 
@@ -86,6 +86,7 @@
 | **DB Backup & Restore（Task 38，P1 B1）** | **IMPLEMENTED + CLOUD VERIFIED**：`scripts/backup_database.sh`（pg_dump custom）+ `scripts/restore_database.sh`（pg_restore）+ `database-backup-restore.yml`（PG16+pgvector 演练：backup→clean restore→verify 全绿，restored==baseline mismatches={}，pgvector 1536 维恢复成功）；生产自动备份/对象存储为外部依赖（见 [database-backup-audit.md](database-backup-audit.md)） |
 | **Observability（Task 39）** | **Signals Ready + CLOUD VERIFIED**：/ready 依赖异常 503 + READINESS_FAILED；request 日志 user_id/org/error_code；AI error_code（401/429/5xx/连接）+ 移除 body；RAG retrieval_count/latency；redaction 测试 7 用例（含 request_id 传播）；外部告警平台 = Integration Required（见 [observability-audit.md](observability-audit.md)） |
 | **Redis Multi-instance（Task 40）** | **IMPLEMENTED + CLOUD VERIFIED**：RateLimit → Redis 原子计数（Lua INCR+TTL，跨实例共享，fail-closed 503）；Agent session → Redis（TTL 3600s，实例 A 写 B 读一致）；移除 get_redis no-op；redis-multiinstance.yml 9/9 全绿（真实 Redis）；外部 Redis HA = Production Dependency（见 [redis-multinstance-audit.md](redis-multinstance-audit.md)） |
+| **Performance Baseline（Task 41）** | **CLOUD CI CAPACITY BASELINE（非 SLA）**：health 2.1ms p50/427tps、kb-list 20.8ms、DB count 0.3ms、Redis 2.3-4.7ms、容量 1→10 并发线性（2.4→12.5ms，0 err）；RAG 检索 0.36-0.80s（真实）；Product QA SSE 3.2s（含 mock 流延迟）；真实 AI = NOT RUN（无 secret）；CI Runner ≠ production capacity（见 [performance-baseline.md](performance-baseline.md)） |
 
 | **TypeScript（Task 19）** | **`tsc -b` 0 errors** + **CI Hard Gate 恢复**（backend-tests frontend job 显式 typecheck 步骤 + `npm run build`；详见 [typescript-cleanup-audit.md](typescript-cleanup-audit.md)） |
 | **Knowledge Production Ingestion（Task 20）** | **Implemented + Tested**：index_document 生产分支持久化 Document/Chunk/Embedding（PG + pgvector，1536 维），权限/产品 metadata 继承 KB，事务 rollback、重复索引幂等、空文档拒绝；PG 集成 8 用例（test_ingestion_pg.py）；详见 [rag.md](rag.md) §7 |
