@@ -124,10 +124,22 @@ function StarRating({ level, max = 5 }: { level: number; max?: number }) {
 }
 
 function InfoField({ label, value }: { label: string; value: React.ReactNode }) {
+  // RDY P4 修复：ReactNode（Badge/StarRating/tags div 等元素）不能渲染在 <p> 内
+  // （HTML 非法嵌套 → hydration error，被 Pilot E2E console.error 监控发现）。
+  // 元素值用 <div> 包裹（合法），纯文本值保持 <p> 原样。
+  const isElement =
+    value !== null &&
+    value !== undefined &&
+    typeof value !== 'string' &&
+    typeof value !== 'number';
   return (
     <div>
       <p className="text-xs text-muted mb-1">{label}</p>
-      <p className="text-sm text-text">{value || '-'}</p>
+      {isElement ? (
+        <div className="text-sm text-text">{value}</div>
+      ) : (
+        <p className="text-sm text-text">{value || '-'}</p>
+      )}
     </div>
   );
 }
