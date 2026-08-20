@@ -1,6 +1,12 @@
-"""Rate Limiting 中间件 —— 基于内存的令牌桶限流。"""
+"""Rate Limiting 中间件。
+
+- Demo 模式：内存令牌桶（兼容历史行为）。
+- Production 模式：Redis 原子计数（Lua INCR+EXPIRE，跨实例共享）；
+  Redis 不可用 → fail-closed 503（禁止静默内存降级，Task 40）。
+"""
 import threading
 import time
+from math import ceil
 
 from fastapi import Request, Response
 from fastapi.responses import JSONResponse
@@ -8,6 +14,7 @@ from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoin
 from structlog import get_logger
 
 from app.core.config import settings
+from app.core.redis_store import redis_incr_with_ttl, redis_ttl
 
 logger = get_logger()
 
@@ -112,10 +119,13 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         client_ip = self._get_client_ip(request)
         rate, capacity = self._match_rule(path)
 
-        # Demo 模式放宽
-        if self._demo_mode:
-            rate *= self.DEMO_RELAX_FACTOR
-            capacity = int(capacity * self.DEMO_RELAX_FACTOR)
+        # Task 40：production → Redis 原子计数（跨实例共享）
+        if not self._demo_mode:
+            return await self._dispatch_redis(request, call_next, client_ip, path, rate, capacity)
+
+        # Demo 模式放宽（内存令牌桶）
+        rate *= self.DEMO_RELAX_FACTOR
+        capacity = int(capacity * self.DEMO_RELAX_FACTOR)
 
         key = f"{client_ip}:{path}"
         limiter = self._get_limiter(key, rate, capacity)
@@ -153,4 +163,75 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         response.headers["X-RateLimit-Remaining"] = str(int(limiter.remaining))
         response.headers["X-RateLimit-Reset"] = str(int(limiter.reset_in) + 1)
 
+        return response
+
+    async def _dispatch_redis(
+        self,
+        request: Request,
+        call_next: RequestResponseEndpoint,
+        client_ip: str,
+        path: str,
+        rate: float,
+        capacity: int,
+    ) -> Response:
+        """Production：Redis 原子固定窗口计数（跨实例共享）。
+
+        窗口秒数 = ceil(capacity / rate)（近似令牌桶的桶满时间）；窗口上限 = capacity（不削弱限制）。
+        Redis 不可用 → fail-closed 503（安全关键限流不放行、不静默内存降级）。
+        """
+        window = max(1, ceil(capacity / rate)) if rate > 0 else 1
+        key = f"rl:{client_ip}:{path}"
+
+        current = await redis_incr_with_ttl(key, window)
+        if current is None:
+            logger.warning(
+                "rate_limiter_unavailable",
+                ip=client_ip,
+                path=path,
+                error_code="RATE_LIMITER_UNAVAILABLE",
+            )
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "RATE_LIMITER_UNAVAILABLE",
+                        "message": "限流服务暂不可用，请稍后重试",
+                    },
+                },
+            )
+
+        remaining = max(0, capacity - current)
+        ttl = await redis_ttl(key) or window
+
+        if current > capacity:
+            logger.warning(
+                "rate_limited",
+                ip=client_ip,
+                path=path,
+                retry_after=ttl,
+                error_code="RATE_LIMITED",
+            )
+            return JSONResponse(
+                status_code=429,
+                content={
+                    "success": False,
+                    "error": {
+                        "code": "RATE_LIMITED",
+                        "message": "请求过于频繁，请稍后再试",
+                    },
+                    "retry_after": int(ttl),
+                },
+                headers={
+                    "Retry-After": str(int(ttl) + 1),
+                    "X-RateLimit-Limit": str(capacity),
+                    "X-RateLimit-Remaining": "0",
+                    "X-RateLimit-Reset": str(int(ttl) + 1),
+                },
+            )
+
+        response = await call_next(request)
+        response.headers["X-RateLimit-Limit"] = str(capacity)
+        response.headers["X-RateLimit-Remaining"] = str(remaining)
+        response.headers["X-RateLimit-Reset"] = str(int(ttl) + 1)
         return response

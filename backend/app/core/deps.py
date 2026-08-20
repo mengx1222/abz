@@ -75,13 +75,22 @@ _redis_client: Optional[Redis] = None
 
 
 async def get_redis() -> AsyncGenerator[Redis, None]:
-    """FastAPI 依赖：获取 Redis 连接。"""
+    """FastAPI 依赖：获取 Redis 连接。
+
+    Task 40：移除 silent no-op fallback——production 初始化失败明确报错（禁止静默降级）；
+    demo 模式保持兼容（返回空生成器）。
+    """
     global _redis_client
     if _redis_client is None:
         try:
             _redis_client = Redis.from_url(settings.REDIS_URL, decode_responses=True)
         except Exception:
-            logger.warning("Redis connection failed, using no-op client")
+            logger.error(
+                "redis_connection_failed",
+                error_code="REDIS_INIT_FAILED",
+            )
+            if not settings.DEMO_MODE:
+                raise RuntimeError("Redis 连接初始化失败（production 禁止静默 no-op）")
             return
     try:
         yield _redis_client
