@@ -30,10 +30,17 @@ from app.models.knowledge import KnowledgeBase, Document, DocumentChunk
 DB_URL = settings.DATABASE_URL
 
 KB_NAME = "E2E产品知识库"
-DOC_TITLES = ["安诊保百万医疗险产品手册", "安诊保重疾险产品手册"]
+DOC_TITLES = [
+    "安诊保百万医疗险产品手册", "安诊保重疾险产品手册",
+    "安诊保销售合规与常见异议指南",
+]
 
 # 确定性知识文本（含 E2E 查询关键词 + product_type 用于 RAG 产品边界测试）
 # 每个产品拆分为 ≥3 个 chunk：产品边界过滤后仍达到 Confidence Gate（HIGH 需 count>=3）
+# RDY 阶段1：新增第 3 个文档「销售合规与常见异议指南」（product_type=通用销售话术，
+# 不被医疗险/重疾险 product_type 精确过滤召回；Agent 自由召回场景可命中异议/合规依据）。
+# 数据标识：KB.metadata_["dataset_tag"]="E2E_TEST/PILOT"，chunk metadata 同步携带，
+# 与 DEMO（demo_mode 用户）区分，供 Pilot 数据审计追溯。
 KB_DOCS = [
     {
         "title": "安诊保百万医疗险产品手册",
@@ -53,6 +60,19 @@ KB_DOCS = [
             "安诊保重疾险保障 120 种重大疾病，确诊即赔，一次性给付保额。",
             "等待期：180 天。轻症保障：30 种轻症，赔付基本保额的 30%。",
             "投保年龄：28 天至 55 周岁。保费与投保年龄、保额相关。",
+        ],
+    },
+    {
+        "title": "安诊保销售合规与常见异议指南",
+        "product_type": "通用销售话术",
+        "chunks": [
+            "常见异议应对：客户质疑保费贵时，可从保障范围与理赔服务切入，说明费率与"
+            "保障责任对应关系，不夸大收益；客户质疑理赔难时，引用理赔时效条款（审核 10 个工作日）"
+            "并建议保留发票与诊断证明。",
+            "合规红线：销售过程中严禁向客户承诺保本保收益、严禁返佣或变相返佣、严禁代客户"
+            "签字或代操作投保；违反红线须立即停止沟通并按公司合规流程上报。",
+            "高风险客户识别：客户提出返佣、承诺收益、私下打款等要求时，判定为合规高风险，"
+            "应拒绝不合理要求、记录沟通内容并上报合规专员。",
         ],
     },
 ]
@@ -101,6 +121,9 @@ async def seed_e2e_knowledge(session: AsyncSession) -> bool:
         category="product",
         status="active",
         is_public=True,
+        # RDY 阶段1：稳定数据标识 —— 该 KB 同时服务 E2E 测试与 Internal Pilot 演示，
+        # metadata_["dataset_tag"] 与 DEMO 数据区分（无真实业务文档/客户信息）
+        metadata_={"dataset_tag": "E2E_TEST/PILOT"},
     )
     session.add(kb)
     await session.flush()
@@ -149,6 +172,7 @@ async def seed_e2e_knowledge(session: AsyncSession) -> bool:
                     "document_title": doc_spec["title"],
                     "knowledge_base_id": str(kb.id),
                     "product_type": doc_spec["product_type"],
+                    "dataset_tag": "E2E_TEST/PILOT",
                 },
             )
             session.add(chunk)

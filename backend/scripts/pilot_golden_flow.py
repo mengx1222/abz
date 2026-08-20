@@ -195,7 +195,7 @@ async def verify_rag(session: AsyncSession, agent: User) -> None:
                f"citation: title={top.document_title!r}, section={top.metadata.get('section', '')!r}")
 
     # 2) 无依据产品 → REFUSE（product_type 边界，Task 17B 语义，不编造产品条款）。
-    # 注意：REFUSE 的真实机制是「检索按 product_type 精确过滤」——KB 仅 6 chunks 时
+    # 注意：REFUSE 的真实机制是「检索按 product_type 精确过滤」——KB 仅 9 chunks 时
     # top_k=8 恒返回全部（RRF 分数恒高于阈值 0.3），语义分数阈值在此规模下无法触发。
     # 因此用「知识库中不存在的产品」验证 product_type 边界 REFUSE（mock/真实 AI 均可验证）。
     results_n, _ = await pipeline.query(

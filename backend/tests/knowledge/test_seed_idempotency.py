@@ -20,9 +20,9 @@ from sqlalchemy.pool import NullPool
 from app.core.config import settings
 from app.models import Base, Organization, Role, User
 from app.models.customer import Customer
-from app.models.knowledge import KnowledgeBase
+from app.models.knowledge import Document, KnowledgeBase
 from app.models.permission import Permission, role_permissions
-from scripts.e2e_seed_knowledge import KB_NAME
+from scripts.e2e_seed_knowledge import KB_DOCS, KB_NAME
 from scripts.seed import (
     DEMO_USERS,
     ORGANIZATIONS,
@@ -82,10 +82,30 @@ class TestSeedIdempotency:
             assert await _count(session, Organization, Organization.name, o["name"]) == 1, f"org {o['name']}"
         for u in DEMO_USERS:
             assert await _count(session, User, User.phone, u["phone"]) == 1, f"user {u['phone']}"
-        # ULTIMATE Pilot Prep：试点客户 + 产品知识库（幂等创建）
+        # ULTIMATE Pilot Prep + RDY 阶段1：试点客户 + 产品知识库（幂等创建）
         for c in PILOT_CUSTOMERS:
             assert await _count(session, Customer, Customer.phone, c["phone"]) == 1, f"customer {c['phone']}"
         assert await _count(session, KnowledgeBase, KnowledgeBase.name, KB_NAME) == 1, "pilot KB"
+        # RDY 阶段1：数据标识审计 —— 每个客户 tags 含 PILOT；合规高风险/异议案例带专属 tag
+        risk = (
+            await session.execute(select(Customer).where(Customer.phone == "13900000004"))
+        ).scalar_one_or_none()
+        assert risk is not None and risk.tags and "COMPLIANCE_RISK" in risk.tags, "compliance risk tag"
+        obj = (
+            await session.execute(select(Customer).where(Customer.phone == "13900000005"))
+        ).scalar_one_or_none()
+        assert obj is not None and obj.tags and "OBJECTION" in obj.tags, "objection tag"
+        # 知识库文档数 = KB_DOCS（RDY 阶段1 = 3），metadata_ 携带 dataset_tag
+        kb = (
+            await session.execute(select(KnowledgeBase).where(KnowledgeBase.name == KB_NAME))
+        ).scalar_one()
+        doc_count = (
+            await session.execute(
+                select(Document).where(Document.knowledge_base_id == kb.id)
+            )
+        ).scalars().all()
+        assert len(doc_count) == len(KB_DOCS), f"docs {len(doc_count)} != {len(KB_DOCS)}"
+        assert kb.metadata_ and kb.metadata_.get("dataset_tag") == "E2E_TEST/PILOT", "kb dataset tag"
 
     async def test_seed_second_run_idempotent_no_duplicates(self, session: AsyncSession):
         """第二次运行：成功且不产生重复数据（数量仍为 1）。"""
@@ -99,10 +119,19 @@ class TestSeedIdempotency:
             assert await _count(session, Organization, Organization.name, o["name"]) == 1, f"org {o['name']} duplicated"
         for u in DEMO_USERS:
             assert await _count(session, User, User.phone, u["phone"]) == 1, f"user {u['phone']} duplicated"
-        # ULTIMATE Pilot Prep：重跑不产生重复试点数据
+        # ULTIMATE Pilot Prep + RDY 阶段1：重跑不产生重复试点数据
         for c in PILOT_CUSTOMERS:
             assert await _count(session, Customer, Customer.phone, c["phone"]) == 1, f"customer {c['phone']} duplicated"
         assert await _count(session, KnowledgeBase, KnowledgeBase.name, KB_NAME) == 1, "pilot KB duplicated"
+        # RDY 阶段1：重跑后 tags/metadata 标识仍稳定（不重复叠加）
+        risk2 = (
+            await session.execute(select(Customer).where(Customer.phone == "13900000004"))
+        ).scalar_one_or_none()
+        assert risk2 is not None and risk2.tags.count("PILOT") == 1, "tag not duplicated"
+        kb2 = (
+            await session.execute(select(KnowledgeBase).where(KnowledgeBase.name == KB_NAME))
+        ).scalar_one()
+        assert kb2.metadata_.get("dataset_tag") == "E2E_TEST/PILOT", "kb tag stable"
 
     async def test_seed_permission_relationships_correct(self, session: AsyncSession):
         """权限关系：角色-权限绑定与 ROLE_PERMISSIONS 一致；用户角色/组织映射正确。"""
