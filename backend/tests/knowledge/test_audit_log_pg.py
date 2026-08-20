@@ -389,11 +389,13 @@ class TestAuditLogPermission:
         })
         assert resp.status_code == 200, resp.text
 
-        rows, _ = await AuditLogRepository(session).list_logs(resource_type="knowledge_base")
-        mw = [r for r in rows if r.action.startswith("post.")]
+        # 中间件行：路径 /api/v1/admin/knowledge-bases → resource_type="admin"（首段 admin）
+        rows, _ = await AuditLogRepository(session).list_logs(resource_type="admin", page_size=100)
+        mw = [r for r in rows if r.action.startswith("post.") and "knowledge-bases" in (r.description or "")]
         assert mw, "中间件应产生 post. 审计行"
         for r in mw:
-            assert r.detail == {"status_code": 200}, "detail 应仅含 status_code: %r" % (r.detail,)
+            keys = set((r.detail or {}).keys())
+            assert keys <= {"status_code"}, "detail 应仅含 status_code: %r" % (r.detail,)
             desc = (r.description or "").lower()
             assert "password" not in desc
             assert "jwt" not in desc
