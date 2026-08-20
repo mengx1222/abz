@@ -91,6 +91,10 @@
   5. localStorage token（XSS 面）与上传无病毒扫描（已知 P2）
   6. 演示凭据 888888 未轮换（生产上线前置）
   7. 真实硬件/真实 AI 性能基准未测（Cloud CI Baseline 非 SLA）
+  8. refresh token 吊销（jti + Redis 黑名单）未实现（ULTIMATE P1-7 评估）：refresh token 7 天有效期，
+     泄露面低于 access token；实现需 Redis 强依赖（与 Task 40 failure policy 联动增加运维复杂度）；
+     且前端 localStorage token 本身是更大暴露面（上述第 5 项）——在此架构下吊销收益有限，记录为 Accepted Risk；
+     生产上线建议随“localStorage token 迁移（内存 + refresh）”一并评估（Phase 2 Next Tasks 已列）。
 
 ## Remaining Blockers（无 P0）
 
