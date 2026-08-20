@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 35（Seed & Deployment Consistency）** |
+| Git HEAD（验证时 Current main） | **Task 36（Release Candidate Final Audit）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 

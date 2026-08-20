@@ -142,7 +142,7 @@ Known:                      无 P0；P1：B1 数据库备份 NOT IMPLEMENTED、B
 
 | READY FOR INTERNAL DEMO | 可演示 | — |
 
-| **READY FOR INTERNAL PILOT** | 内部试点：真实环境核心链路全验证，剩余项为低风险改进 | ✅ **当前状态（Task 30 复核确认）** |
+| **READY FOR INTERNAL PILOT** | 内部试点：真实环境核心链路全验证，剩余项为低风险改进 | ✅ **当前状态（Task 30 复核 + Task 36 RC Final Audit 再确认）** |
 
 | PRODUCTION READY | 生产上线：需完成 P1/P2 收敛、生产 Secret 管理、安全加固复审 | 未达到 |
 

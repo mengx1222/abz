@@ -296,3 +296,10 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 ### 15.4 验证（df00d11 全矩阵）
 
 - Backend pytest **296 passed / 48 skipped**；backend-pg **48 passed**（+3 seed 幂等）；Frontend Vitest **107（16 files）**、tsc 0、build ✓；Production Validation ✅；E2E 未触发（无 frontend/src 变更）。
+
+---
+
+## 16. Release Candidate Final Audit（Task 36）
+
+- 只读审计（docs/release-candidate-audit.md）：199 个源码文件全文扫描（TODO/FIXME 4 处已知限制、NotImplemented 0、bare except 全部复核无害、console.log 0、@ts-ignore 0、`any` 5 处低优先级）；六域全部 PASS，**无新增修复/测试**（前序任务已收敛）。
+- 测试数字维持（df00d11/783cb61）：Backend **296 passed / 48 skipped**、backend-pg **48 passed**、Vitest **107（16 files）**、tsc 0、build ✓、E2E **27 passed**、Prod ✅。

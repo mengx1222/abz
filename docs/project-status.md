@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 35（Seed & Deployment Consistency）
+> 上一轮 Task: Task 36（Release Candidate Final Audit）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-20 · HEAD Task 35）
+## Current Snapshot（2026-08-20 · HEAD Task 36）
 
 
 
@@ -103,7 +103,7 @@
 
 | P1 | P1-3（growth course_detail Demo Only，前端空状态友好处理已 E2E 覆盖；**P1-6 TypeScript hard gate 已 RESOLVED（Task 19）**） |
 
-| P2 | P2-1~P2-4 已收敛（Task 24/32）；ErrorBoundary 已收敛（Task 33）；上传大小限制已收敛（Task 34）；版本/构建一致性 + seed 权限绑定已收敛（Task 35）；剩余：health/detail 无鉴权（有意开放）、token localStorage、环境 badge、Redis no-op |
+| P2 | P2-1~P2-4 已收敛（Task 24/32）；ErrorBoundary（Task 33）/上传大小限制（Task 34）/版本-构建-种子一致性（Task 35）已收敛；Task 36 RC 审计复核无新增（维持 READY FOR INTERNAL PILOT）；剩余：token localStorage、环境 badge、Redis no-op |
 
 | Current Next Tasks | 见「Current Next Tasks」节（Training/Growth E2E、TS 清理、AI Sales Agent） |
 

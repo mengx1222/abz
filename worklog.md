@@ -2828,3 +2828,31 @@ Stage Summary:
 
 - Seed & Deployment 一致性审计完成：修复版本号失真、镜像构建绕过 tsc、seed 权限绑定静默丢失
   （await bug，由新增回归测试首跑暴露）；backend-pg 48 passed 全绿，重复部署能力确认
+
+---
+
+Task ID: 56
+
+Agent: main
+
+Task: Task 36 — Release Candidate Final Audit（100% Cloud-only，只读审计）
+
+Work Log:
+
+- 云端基线：main@783cb61（Task 35 全绿：Backend 296/48、PG 48、Vitest 107、E2E 27、Prod ✅）；备份分支 backup/task-36-20260820-0804
+- 六域只读审计（199 个源码文件全文扫描 + 既有结论复核）：
+  Backend（DB backed ✅ / NotImplemented 0 / 生产无 mock fallback ✅ / 24 处 except 逐一复核无害 ✅ / TODO 4 处=AI 会话未持久化已知限制）
+  Frontend（tsc 0 / console.log 0 / @ts-ignore 0 / any 5 处低优先级）
+  Database（alembic 0001→0009 线性 ✅ / FK-Cascade ✅）
+  AI/RAG（Task 17B 后能力保持 ✅：Real AI/Citation/Refusal/权限过滤/SSE/注入防护）
+  Security（JWT/CORS/Headers/Rate Limit/CSRF N-A/Secret ✅ 无新增）
+  Deployment（compose/healthcheck/migration 启动/CI ✅；多实例/滚动未实现 P2）
+- 发现：**无新增生产阻断 bug / 无安全漏洞 / 无文档-CI 错误** → 无 fix/test commit（Phase 3 最小修复 N/A，如实记录）；记录 23 个 CRLF 源文件卫生项（建议后续 .gitattributes）
+- 产出：docs/release-candidate-audit.md（Commit 9bd40f3）
+- 文档同步：project-status / release-verification / release-readiness / security / deployment / testing / worklog
+- **Final Decision：READY FOR INTERNAL PILOT ONLY**（维持 Task 30；未达 PRODUCTION CANDIDATE）——差距：P1 B1 数据库备份、P1 B2 Audit Log 落库、P2 会话持久化/Redis 化限流/多实例、监控告警、性能基准、演示凭据轮换
+
+Stage Summary:
+
+- Release Candidate Final Audit 完成：六域全 PASS、无新增问题；确认与真实生产上线的最后差距
+  （B1/B2 + 监控 + 多实例 + 性能 + 凭据轮换），判定维持 READY FOR INTERNAL PILOT ONLY

@@ -913,3 +913,5 @@ LOG_LEVEL=WARNING
 - **demo 用户默认凭据**：`scripts/seed.py` 无条件创建 4 个演示用户（密码 `888888`、`demo_mode=True`），与 DEMO_MODE 无关。内部试点可接受；**正式生产执行 seed 后必须轮换/停用这些账号**（PRODUCTION READY 前置项，与 B1/B2 并列）。
 - **`.env.production` 路径**：compose.prod `env_file: .env.production` 指向**仓库根目录**（未提交，部署时创建）；模板位于 `backend/.env.production`（CHANGE_ME 占位），部署时复制到根目录并填真实值；CI（production-validation）内联生成根 `.env.production`。
 - seed 幂等 ✅（exists-check-skip，重复执行安全）；`alembic upgrade head && python -m scripts.seed` 由 compose.prod 启动命令自动执行。
+
+> **Task 36 RC Final Audit 复核**（docs/release-candidate-audit.md）：Deployment 六项检查（Docker/compose/env/healthcheck/migration 启动/CI pipeline）全部 PASS（PILOT 级）；多实例/滚动部署未实现（P2 A1/A5）为 PRODUCTION CANDIDATE 差距之一。
