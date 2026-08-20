@@ -12,6 +12,18 @@ from app.api.v1 import router as v1_router
 async def lifespan(app: FastAPI):
     """应用生命周期管理。"""
     # Startup
+    # ULTIMATE P0-4：生产环境禁止默认/空 JWT 密钥（弱密钥可被伪造令牌）
+    if settings.APP_ENV.lower() == "production":
+        _weak_secret = (
+            not settings.JWT_SECRET_KEY
+            or settings.JWT_SECRET_KEY
+            in {"change-me-to-a-random-secret-key-in-production", "change-me"}
+        )
+        if _weak_secret:
+            raise RuntimeError(
+                "JWT_SECRET_KEY 未配置强随机密钥（production 禁止启动）。"
+                "生成命令: python -c \"import secrets;print(secrets.token_urlsafe(48))\""
+            )
     print(f"🚀 {settings.APP_NAME} 启动中... (env={settings.APP_ENV}, demo={settings.DEMO_MODE})")
     yield
     # Shutdown
