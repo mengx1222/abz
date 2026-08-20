@@ -40,7 +40,7 @@
 
 | Frontend | ✅ | Vitest **107 passed（16 files）** + Vite build + `tsc -b` 0 errors（Task 32：Admin 8 页面全覆盖 +22 用例；Task 33：全局 ErrorBoundary +4 用例） |
 
-| Backend | ✅ | pytest 全绿（307/59；backend-pg 59 passed，含 Task 27 Agent 集成 + Task 34 上传大小限制 + Task 35 seed 幂等 3 + Task 37/37b audit log 11 + Task 39 observability 7） |
+| Backend | ✅ | pytest 全绿（307/68；backend-pg 59 passed，含 Task 27 Agent 集成 + Task 34/35/37/39 各项 + Task 40 redis multi-instance 9 用例经专用 workflow 全绿） |
 
 | Docker 部署 | ✅ | 开发 + 生产 compose 均通过 Production Validation |
 
@@ -125,7 +125,7 @@ Playwright:                 27/27 PASS（Task 29，含 GF-1 Golden Business Flow
 
 Production Validation:      PASS（Task 29 最终代码 2f183e3）
 
-Known:                      无 P0；~~P1 B1~~ IMPLEMENTED/CLOUD VERIFIED（Task 38）；~~P2 B2~~ RESOLVED（Task 37/37b）；Observability **Signals Ready**（Task 39，外部告警平台 Integration Required）；仍差：监控告警平台接入、多实例 Redis、性能基准、凭据轮换、安全复审、滚动发布
+Known:                      无 P0；~~P1 B1~~ IMPLEMENTED/CLOUD VERIFIED（Task 38）；~~P2 B2~~ RESOLVED（Task 37/37b）；Observability **Signals Ready**（Task 39）；~~多实例 Redis~~ **IMPLEMENTED/CLOUD VERIFIED（Task 40）**：RateLimit+Agent session Redis 共享（外部 Redis HA 为 Production Dependency）；仍差：告警平台接入、Redis 高可用、性能基准、凭据轮换、安全复审、滚动发布
 
 ```
 

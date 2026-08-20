@@ -369,3 +369,32 @@ Task 37b 增补 5 用例（`TestAuditLogPermission`）：角色越权 AGENT→40
 ### 19.3 排障记录
 
 - `_mask_url` 原正则 `(://[^:]+:)([^@]+)(@)` 不匹配无用户名 URL（`redis://:pass@host`）→ 放宽为 `(://[^:@]*:)([^@]+)(@)`。
+
+---
+
+## 20. Redis Multi-instance（Task 40）
+
+### 20.1 云端验证（c2a6eae 全矩阵 + 专用 workflow）
+
+- CI：Backend pytest **307 passed / 68 skipped**；backend-pg **59 passed**（production 限流在真实 Redis 上正常）；
+  Vitest **107**；Prod ✅。
+- `redis-multiinstance.yml`（真实 Redis）：**9/9 PASSED**。
+
+### 20.2 `test_redis_multiinstance.py` 覆盖（9 用例，AZB_TEST_REDIS_URL 跳过逻辑）
+
+1. `test_ping`：Redis connectivity
+2. `test_concurrent_incr_exact_count_and_ttl`：20 并发 INCR → 精确 1..20（原子无竞态）+ TTL>0
+3. `test_ttl_reapplied_on_same_key`：同 key 后续 INCR 不重置 TTL（递减）
+4. `test_counter_shared_across_clients`：实例 A/B（独立 client）共享同一计数
+5. `test_set_get_delete_and_ttl`：session store CRUD + TTL
+6. `test_instance_a_writes_instance_b_reads`：实例 A 写 → 实例 B 读一致
+7. `test_incr_returns_none_when_redis_down`：Redis 不可用 → incr None（fail-closed 信号，不静默）
+8. `test_session_store_get_none_set_false_when_down`：session down → get None/set False（不静默内存）
+9. `test_session_continuity_across_instances`：Agent session 跨实例连续性（customer/product/stage/history 一致）
+
+### 20.3 排障记录（CI 驱动）
+
+1. backend-pg 无 Redis → production 限流 fail-closed 503 破坏 audit/kb 测试 → backend-tests 两 job 起 Redis 容器。
+2. `service._sessions[sid]` 在 Redis 分支不填充 → test_session_continuity 改经 `_get_or_create_session` 取回。
+3. **全局 Redis client 单例绑定 pytest event loop → "Event loop is closed"** → 改为每操作短生命周期 client（`redis_store.py`）。
+4. 并发 gather 返回值乱序 → 集合断言。

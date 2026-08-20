@@ -1,7 +1,7 @@
 # Redis Multi-instance Audit（Task 40 · Session / RateLimit Production Hardening）
 
-> 状态：**GAP 确认 → 本 Task 收敛**（RateLimit 与 Agent Session 迁移 Redis 共享；AI conversation 已 DB-backed 不重复实现）
-> 更新：2026-08-20
+> 状态：**IMPLEMENTED / CLOUD VERIFIED**——RateLimit 与 Agent Session 迁移 Redis 共享（原子计数 + TTL + 短生命周期 client）；AI conversation 保持 DB-backed
+> 更新：2026-08-20（Task 40 落地，c2a6eae）
 
 ---
 
@@ -60,6 +60,27 @@
 3. `agent/orchestrator.py`：session 方法 async 化，production 走 Redis store。
 4. 测试 + 云端验证（专用 workflow，真实 Redis）。
 5. 文档同步。
+
+## Implemented（Task 40 落地清单，c2a6eae 全矩阵全绿）
+
+- **RateLimit → Redis 原子计数**（`core/rate_limit.py` `_dispatch_redis`）：Lua `INCR+EXPIRE-if-first` 原子执行；
+  固定窗口（window=ceil(capacity/rate)）；key=`rl:{ip}:{path}` 不变；demo 模式保留内存令牌桶。
+- **Failure Policy（Step 4）**：production Redis 不可用 → **fail-closed 503 RATE_LIMITER_UNAVAILABLE**（不放行、不静默内存降级）；
+  Agent session 持久化失败 → 明确日志 `AGENT_SESSION_UNAVAILABLE`（非关键状态不阻塞主流程，行为已文档化）。
+- **Agent Session → Redis**（`agent/orchestrator.py`）：production 走 `RedisSessionStore`（namespace `agent:session`，TTL 3600s）；
+  实例 A 写入 → 实例 B 同 session_id 读取一致（test 验证）；demo 保留内存 dict。
+- **get_redis no-op 移除**（`core/deps.py`）：production 初始化失败明确报错，demo 兼容。
+- **Redis client 生命周期**：改为每操作短生命周期 client（`core/redis_store.py`），消除跨 event loop "Event loop is closed" 问题
+  （pytest-asyncio 每测试新 loop；生产多 worker 同理）。
+- **CI 基建**：backend-tests backend/backend-pg job 起真实 Redis 容器（production 语义测试依赖）；新增
+  `redis-multiinstance.yml`（专用 workflow：真实 Redis + 9 用例集成验证）。
+
+## Cloud Verification（c2a6eae）
+
+- CI：Backend **307 passed / 68 skipped**（+9 redis skip 由专用 workflow 覆盖）；backend-pg **59 passed**；Vitest **107**；Prod ✅。
+- `redis-multiinstance.yml`：**9/9 PASSED**（真实 Redis）——ping / 20 并发 INCR 精确计数+TTL / TTL 递减不重置 /
+  跨 client 计数共享 / session set-get-delete+TTL / 实例 A 写 B 读 / Redis down → incr None（fail-closed 信号）/
+  session down → get None+set False / Agent session 跨实例连续性（history 一致）。
 
 ## Accepted Limitations（Production Dependency，不伪造）
 

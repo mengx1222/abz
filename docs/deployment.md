@@ -923,3 +923,14 @@ LOG_LEVEL=WARNING
   `/health/detail` = masked URL + middleware 栈 + metrics。
 - **外部告警平台 = Integration Required**：Prometheus/Alertmanager 抓取与告警规则、云日志/Sentry、日志采集管道需在正式生产接入
   （本阶段以结构化事件与 error_code 提供稳定可消费信号，不假装已接入）。
+
+## 13. Redis 多实例与状态共享（Task 40）
+
+- **RateLimit**：production 模式 Redis 原子计数（Lua INCR+EXPIRE，跨实例共享）；Redis 不可用 → **fail-closed 503 RATE_LIMITER_UNAVAILABLE**；
+  demo 模式内存令牌桶（兼容）。窗口参数：login=3s/cap5、/api/v1/ai/=4s/cap20、default=4s/cap100（不削弱限制）。
+- **Agent Session**：production 模式 Redis JSON store（namespace `agent:session`，TTL 3600s，自动过期无无限 key）；
+  多实例共享（实例 A 写 → 实例 B 读一致）；持久化失败明确日志 `AGENT_SESSION_UNAVAILABLE`（不静默降级）。
+- **AI conversation**：保持 DB-backed（Conversation/Message），不重复实现。
+- **Redis client**：每操作短生命周期连接（`core/redis_store.py`），避免跨 event loop/多 worker 耦合；`get_redis` no-op fallback 已移除。
+- **部署**：所有实例使用统一 `AZB_REDIS_URL`；`/ready` 已检查 Redis；CI（backend/backend-pg）与 `redis-multiinstance.yml` 均起真实 Redis 验证。
+- **Production Dependency（外部）**：Redis 高可用（哨兵/集群）、持久化策略未配置，正式生产需接入；性能 benchmark 留后续。

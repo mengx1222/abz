@@ -2965,3 +2965,33 @@ Stage Summary:
 
 - Observability 从"有日志"升级为"Signals Ready"：/ready 语义化（依赖异常 503）、请求/AI/RAG 结构化字段与统一
   error_code、敏感信息脱敏与回归测试；外部告警平台明确为 Integration Required，不假装已接入
+---
+
+Task ID: 61
+
+Agent: main
+
+Task: Task 40 — Redis Multi-instance + Session / RateLimit Production Hardening（100% Cloud-only）
+
+Work Log:
+
+- 基线 main@1497c25（Task 39 完成）→ 最终 HEAD=c2a6eae；备份分支 backup/task-40-20260820-1716
+- 审计（docs/redis-multinstance-audit.md）：① RateLimit 内存令牌桶（多实例不共享）② Agent session 进程内 dict（不共享）
+  ③ get_redis no-op silent fallback ④ AI conversation 已 DB-backed（保留）⑤ auth JWT stateless（无需 session）
+- 实现（6 提交）：
+  - ae5f69d docs：redis-multinstance-audit.md
+  - 2d05d09 feat：core/redis_store.py（Lua INCR+TTL 原子计数 + RedisSessionStore JSON+TTL）
+  - 47b3cf6 fix：rate_limit production → Redis 原子固定窗口（fail-closed 503 RATE_LIMITER_UNAVAILABLE；demo 内存桶兼容）；
+    get_redis 移除 no-op（production 明确报错）
+  - d387120 feat：agent orchestrator session → Redis（_get_or_create_session/_remember async 化，TTL 3600s）
+  - 4b07fd0 test：test_redis_multiinstance.py 9 用例 + redis-multiinstance.yml（真实 Redis 专用 workflow）
+  - f1b900e/c2a6eae fix：CI jobs 起 Redis 容器；test_session_continuity 适配 Redis 分支；**全局 client 单例绑定 event loop → "Event loop is closed" → 改每操作短生命周期 client**
+- CI 驱动排障 4 轮：① backend-pg 无 Redis → 503 破坏 audit/kb 测试 → 两 job 起 Redis ② _sessions[sid] Redis 分支不填充 → 测试改经 _get_or_create_session ③ event loop closed → 短生命周期 client ④ 并发 gather 乱序 → 集合断言
+- 验证（c2a6eae 全矩阵全绿）：Backend 307/68、backend-pg 59、Vitest 107、Prod ✅、**redis-multiinstance.yml 9/9 PASSED（真实 Redis）**
+- 文档同步：redis-multinstance-audit（IMPLEMENTED/CLOUD VERIFIED）/ project-status / security / deployment（§13）/ testing（§20）/ release-verification / release-readiness / worklog
+- Release 维持 READY FOR INTERNAL PILOT ONLY；Production Dependency 保留：外部 Redis HA（哨兵/集群）、性能 benchmark、告警平台、凭据轮换、安全复审、滚动发布
+
+Stage Summary:
+
+- 运行状态跨实例共享闭环：RateLimit Redis 原子计数（fail-closed）+ Agent session Redis 共享（TTL）+ 移除 no-op fallback；
+  多实例共享语义经真实 Redis 集成验证（9/9）；外部 Redis HA 明确为 Production Dependency，不伪造生产就绪

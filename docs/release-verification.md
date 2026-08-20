@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 39（Monitoring + Alerting + Observability，0425d67）** |
+| Git HEAD（验证时 Current main） | **Task 40（Redis Multi-instance + Session/RateLimit，c2a6eae）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -84,11 +84,12 @@
 
 |--------|------|------|
 
-| Backend pytest（SQLite） | **307 passed, 59 skipped**（含安全态势 12；audit demo 回归 4 Task 37；observability/redaction 7 Task 39；audit PG 11 无 PG 环境 skip） | CI `backend-tests` @ Task 39（0425d67） |
+| Backend pytest（SQLite） | **307 passed, 68 skipped**（含安全态势 12；audit demo 回归 4 Task 37；observability 7 Task 39；redis multi-instance 9 Task 40 由专用 workflow 覆盖） | CI `backend-tests` @ Task 40（c2a6eae） |
 
 | Backend PG 集成（真实 PG16+pgvector） | **59 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34；+seed 幂等 3 Task 35；+audit log 6 Task 37；+org/role 隔离与敏感字段 5 Task 37b） | CI `backend-pg` @ Task 37b（6fc74db） |
 | DB Backup & Restore 演练（Task 38） | **PASS**：backup(131217B)→clean restore→verify 全绿（restored==baseline，mismatches={}；pgvector 1536 维恢复；alembic 0010；app /ready） | `database-backup-restore.yml` @ Task 38（24cc2b1） |
 | Observability（Task 39） | **Signals Ready**：/ready 503 + READINESS_FAILED；request 日志 user_id/org/error_code；AI error_code（401/429/5xx）+ 去 body；RAG retrieval/latency；redaction 7 用例全过 | `backend-tests` @ Task 39（0425d67） |
+| Redis Multi-instance（Task 40） | **PASS**：RateLimit Redis 原子计数（跨实例共享）+ Agent session 共享（TTL 3600s）+ fail-closed 503 + 9/9 真实 Redis 集成用例 | `redis-multiinstance.yml` @ Task 40（c2a6eae） |
 
 | Frontend Vitest | **107 passed（16 files）**（含 ErrorBoundary 4，Task 33；Admin 8/8 页面组件全覆盖） | CI `backend-tests` frontend job @ Task 33（045f87d） |
 
