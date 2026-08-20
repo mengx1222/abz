@@ -18,7 +18,7 @@ import pytest_asyncio
 from app.core.config import settings
 from app.core.redis_store import (
     RedisSessionStore,
-    get_redis_client,
+    _new_client,
     redis_incr_with_ttl,
     redis_ttl,
 )
@@ -31,21 +31,54 @@ pytestmark = [
 ]
 
 
+class _BrokenClient:
+    """模拟 Redis 不可用：所有命令抛 ConnectionError。"""
+
+    async def eval(self, *a, **k):
+        raise ConnectionError("redis down")
+
+    async def get(self, *a, **k):
+        raise ConnectionError("redis down")
+
+    async def set(self, *a, **k):
+        raise ConnectionError("redis down")
+
+    async def delete(self, *a, **k):
+        raise ConnectionError("redis down")
+
+    async def ttl(self, *a, **k):
+        raise ConnectionError("redis down")
+
+    async def ping(self, *a, **k):
+        raise ConnectionError("redis down")
+
+    async def aclose(self):
+        pass
+
+
+def _broken_client():
+    return _BrokenClient()
+
+
 @pytest_asyncio.fixture
 async def _reset(monkeypatch):
     """确保每次测试使用独立 Redis（flushdb）。"""
     monkeypatch.setattr(settings, "REDIS_URL", REDIS_URL)
-    import app.core.redis_store as rs
-    rs._redis = None  # 强制重建 client（指向测试 URL）
-    client = get_redis_client()
-    assert client is not None
-    await client.flushdb()
-    yield client
+    client = _new_client()
+    try:
+        await client.flushdb()
+    finally:
+        await client.aclose()
+    yield
 
 
 class TestRedisConnectivity:
     async def test_ping(self, _reset):
-        assert await _reset.ping() is True
+        client = _new_client()
+        try:
+            assert await client.ping() is True
+        finally:
+            await client.aclose()
 
 
 class TestAtomicIncr:
@@ -112,7 +145,7 @@ class TestFailurePolicy:
         async def _broken(*a, **k):
             raise ConnectionError("redis down")
 
-        monkeypatch.setattr(rs.get_redis_client(), "eval", _broken)
+        monkeypatch.setattr(rs, "_new_client", lambda: _broken_client())
         val = await redis_incr_with_ttl("rl:x", 1)
         assert val is None
 
@@ -123,8 +156,7 @@ class TestFailurePolicy:
         async def _fail(*a, **k):
             raise ConnectionError("redis down")
 
-        monkeypatch.setattr(rs.get_redis_client(), "get", _fail)
-        monkeypatch.setattr(rs.get_redis_client(), "set", _fail)
+        monkeypatch.setattr(rs, "_new_client", lambda: _broken_client())
         store = RedisSessionStore(namespace="agent:session")
         assert await store.get("x") is None
         assert await store.set("x", {"a": 1}) is False
