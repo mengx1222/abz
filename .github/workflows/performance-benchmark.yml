@@ -103,10 +103,10 @@ jobs:
           AZB_AI_PROVIDER: mock
         run: python ../scripts/benchmark_run.py --mode http --base-url http://127.0.0.1:8001 --out /tmp/benchmark_http.json
 
-      # 注意：step if 禁止引用 inputs（push 触发时静态校验报 Invalid workflow）；
-      # inputs 仅经 env 在步骤运行时求值（该步骤只在 workflow_dispatch 执行）。
+      # 注意：step if 禁止引用 inputs/secrets（静态校验 Unrecognized named-value）；
+      # 二者仅经 env 在步骤运行时求值（该步骤只在 workflow_dispatch 执行）。
       - name: Layer C — Real AI smoke (opt-in)
-        if: ${{ github.event_name == 'workflow_dispatch' && secrets.AZB_AI_API_KEY != '' }}
+        if: ${{ github.event_name == 'workflow_dispatch' }}
         env:
           RUN_AI: ${{ inputs.run_ai }}
           AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
@@ -117,11 +117,15 @@ jobs:
             echo "AI_SMOKE=NOT_RUN (run_ai=$RUN_AI)"
             exit 0
           fi
+          if [ -z "$AZB_AI_API_KEY" ]; then
+            echo "AI_SMOKE=NOT_RUN (no AZB_AI_API_KEY secret)"
+            exit 0
+          fi
           python ../scripts/benchmark_run.py --mode ai --base-url http://127.0.0.1:8001 --api-key "$AZB_AI_API_KEY" --out /tmp/benchmark_ai.json
 
-      - name: Layer C — skip notice (push trigger or no AI secret)
-        if: ${{ !(github.event_name == 'workflow_dispatch' && secrets.AZB_AI_API_KEY != '') }}
-        run: echo "AI_SMOKE=NOT_RUN (push trigger or no AI secret)"
+      - name: Layer C — skip notice (push trigger)
+        if: ${{ github.event_name != 'workflow_dispatch' }}
+        run: echo "AI_SMOKE=NOT_RUN (push trigger)"
 
       - name: Upload benchmark artifacts (latency numbers only, no sensitive data)
         uses: actions/upload-artifact@v4
