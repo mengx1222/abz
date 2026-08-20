@@ -107,6 +107,11 @@ class Message(Base):
         server_default="[]",
         comment="RAG 检索来源",
     )
+    finish_reason: Mapped[str | None] = mapped_column(
+        String(20),
+        nullable=True,
+        comment="结束原因: stop / refused / error（ULTIMATE P0-2）",
+    )
     compliance_check: Mapped[dict] = mapped_column(
         JSONB,
         default=dict,

@@ -1,7 +1,7 @@
 import uuid
 from typing import AsyncGenerator
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import StreamingResponse
 from pydantic import BaseModel, Field
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -13,6 +13,7 @@ from app.agent.schemas import SalesAgentChatRequest
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
+from app.repositories.conversation_repo import ConversationRepository
 from app.schemas.common import SuccessResponse
 
 logger = get_logger()
@@ -203,6 +204,13 @@ async def sales_agent_chat(
     )
 
 
+def _dt_iso(dt) -> str:
+    """datetime 转 ISO 字符串（缺省返回空串）。"""
+    if dt is None:
+        return ""
+    return dt.isoformat()
+
+
 @router.get(
     "/product-qa/conversations",
     summary="获取会话列表",
@@ -211,10 +219,11 @@ async def sales_agent_chat(
 async def list_conversations(
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse[list[ConversationItem]]:
-    """获取当前用户的产品问答会话列表。
+    """获取当前用户的产品问答会话列表（ULTIMATE P0-2：DB 持久化）。
 
-    演示模式返回空列表。
+    演示模式返回空列表；生产模式按 user_id 隔离查询。
     """
     request_id = getattr(request.state, "request_id", None)
 
@@ -222,8 +231,19 @@ async def list_conversations(
     if settings.DEMO_MODE:
         return SuccessResponse(data=[], request_id=request_id)
 
-    # TODO: 从数据库查询会话列表
-    return SuccessResponse(data=[], request_id=request_id)
+    repo = ConversationRepository(db)
+    convs = await repo.list_by_user(current_user.id, limit=50)
+    items = [
+        ConversationItem(
+            id=str(c.id),
+            title=c.title or "",
+            created_at=_dt_iso(c.created_at),
+            updated_at=_dt_iso(c.updated_at),
+            message_count=c.message_count or 0,
+        )
+        for c in convs
+    ]
+    return SuccessResponse(data=items, request_id=request_id)
 
 
 @router.get(
@@ -235,10 +255,11 @@ async def get_conversation(
     conversation_id: str,
     request: Request,
     current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
 ) -> SuccessResponse[ConversationDetail]:
-    """获取指定会话的详情（含消息历史）。
+    """获取指定会话的详情（含消息历史）（ULTIMATE P0-2：DB 持久化）。
 
-    演示模式返回空会话。
+    演示模式返回空会话；生产模式按 user_id 归属校验，越权/不存在 404。
     """
     request_id = getattr(request.state, "request_id", None)
 
@@ -253,12 +274,31 @@ async def get_conversation(
         )
         return SuccessResponse(data=detail, request_id=request_id)
 
-    # TODO: 从数据库查询会话详情
+    try:
+        conv_uuid = uuid.UUID(conversation_id)
+    except (ValueError, TypeError):
+        raise HTTPException(status_code=404, detail="会话不存在或无权访问")
+
+    repo = ConversationRepository(db)
+    conv = await repo.get_owned(conv_uuid, current_user.id)
+    if conv is None:
+        raise HTTPException(status_code=404, detail="会话不存在或无权访问")
+
+    rows = await repo.get_messages(conv.id, limit=100)
+    messages = [
+        {
+            "role": m.role,
+            "content": m.content,
+            "created_at": _dt_iso(m.created_at),
+            "finish_reason": m.finish_reason,
+        }
+        for m in rows
+    ]
     detail = ConversationDetail(
-        id=conversation_id,
-        title="",
-        created_at="",
-        updated_at="",
-        messages=[],
+        id=str(conv.id),
+        title=conv.title or "",
+        created_at=_dt_iso(conv.created_at),
+        updated_at=_dt_iso(conv.updated_at),
+        messages=messages,
     )
     return SuccessResponse(data=detail, request_id=request_id)

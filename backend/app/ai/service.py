@@ -15,6 +15,7 @@ from structlog import get_logger
 from app.ai.gateway import get_ai_gateway
 from app.core.config import settings
 from app.models.user import User
+from app.repositories.conversation_repo import ConversationRepository
 from app.rag.pipeline import RAGPipeline, init_demo_index, _build_context
 from app.rag.safety import SeverityLevel, sanitize_user_input
 
@@ -246,6 +247,20 @@ class ProductQaService:
 
         # Step 0: 输入消毒 + Prompt Injection 检测（HIGH 级别直接拒答）
         sanitized_question, safety_check = sanitize_user_input(question)
+
+        # Step 0.5: 会话解析与归属（ULTIMATE P0-2 生产持久化）
+        # 越权/不存在 → 按新会话处理；结束后用户/助手消息落库（含拒答）。
+        try:
+            conv_id = uuid.UUID(conversation_id)
+        except (ValueError, TypeError):
+            conv_id = None
+        conv_repo = ConversationRepository(self.db)
+        conv = await conv_repo.get_owned(conv_id, user.id) if conv_id else None
+        if conv is None:
+            conv = await conv_repo.create_conversation(
+                user.id, sanitized_question[:30] or "产品问答", "product_qa",
+            )
+
         if safety_check.is_malicious and safety_check.severity == SeverityLevel.HIGH:
             yield _sse_event("message_start", {
                 "conversation_id": conversation_id,
@@ -261,6 +276,9 @@ class ProductQaService:
                 "finish_reason": "refused",
                 "sources_count": 0,
             })
+            await self._persist_conversation(
+                conv_repo, conv, sanitized_question, _REFUSE_TEXT, [], "refused",
+            )
             return
         question = sanitized_question
 
@@ -299,6 +317,9 @@ class ProductQaService:
                 "finish_reason": "refused",
                 "sources_count": 0,
             })
+            await self._persist_conversation(
+                conv_repo, conv, question, _KB_REFUSE_TEXT, [], "refused",
+            )
             return
 
         # Step 2: 构建系统提示词
@@ -309,9 +330,16 @@ class ProductQaService:
 
         system_prompt = _DEMO_SYSTEM_PROMPT.format(context_section=context_section)
 
-        # TODO: 从DB加载会话历史
+        # 加载最近 N 条会话历史注入上下文（ULTIMATE P0-2）
+        history_rows = await conv_repo.get_messages(conv.id, limit=8)
+        history_messages = [
+            {"role": m.role, "content": m.content}
+            for m in history_rows
+            if m.role in ("user", "assistant")
+        ]
         messages = [
             {"role": "system", "content": system_prompt},
+            *history_messages,
             {"role": "user", "content": question},
         ]
 
@@ -322,6 +350,7 @@ class ProductQaService:
         })
 
         full_content = ""
+        finish_reason = "stop"
         try:
             stream = await self.gateway.chat(messages=messages, stream=True)
             async for token in stream:
@@ -330,6 +359,7 @@ class ProductQaService:
         except Exception as e:
             logger.error("real_chat_stream_error", error=str(e))
             full_content = "抱歉，服务暂时不可用。"
+            finish_reason = "error"
             yield _sse_event("token", {"content": full_content})
 
         # 发送来源
@@ -347,10 +377,39 @@ class ProductQaService:
             "conversation_id": conversation_id,
             "message_id": message_id,
             "content": full_content,
-            "finish_reason": "stop",
+            "finish_reason": finish_reason,
+            "sources_count": len(sources),
         })
 
-        # TODO: 保存消息到数据库
+        # 结束持久化用户/助手消息（ULTIMATE P0-2）
+        await self._persist_conversation(
+            conv_repo, conv, question, full_content, sources, finish_reason,
+        )
+
+    async def _persist_conversation(
+        self,
+        conv_repo: ConversationRepository,
+        conv,
+        question: str,
+        answer: str,
+        sources: list,
+        finish_reason: str,
+    ) -> None:
+        """持久化一轮问答（用户消息 + 助手消息）。失败仅记录，不阻塞主流程。"""
+        try:
+            await conv_repo.append_message(conv.id, "user", question)
+            await conv_repo.append_message(
+                conv.id, "assistant", answer,
+                knowledge_sources=sources,
+                finish_reason=finish_reason,
+            )
+            await self.db.commit()
+        except Exception as e:
+            logger.error(
+                "real_chat_persist_error",
+                error=str(e),
+                error_code="CONVERSATION_PERSIST_FAILED",
+            )
 
 
 def _sse_event(event_type: str, data: dict) -> str:
