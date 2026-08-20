@@ -127,7 +127,7 @@ async def bench_deterministic(out_path: str, concurrency: int) -> None:
 
         # SSE：Product QA（mock AI，覆盖 RAG 端到端）
         lat, err, sse = await bench_request(
-            c, "POST", "/api/v1/ai/product-qa",
+            c, "POST", "/api/v1/ai/product-qa/chat",
             json_body={"question": "安诊保百万医疗险保障范围包括哪些？", "conversation_id": "bench-qa"},
             headers=admin_headers, n=10, sse=True,
         )
@@ -190,7 +190,7 @@ async def bench_http(base_url: str, out_path: str, concurrency: int) -> None:
         lat, err, _ = await bench_request(c, "GET", "/api/v1/health", n=30)
         results.append(summarize("http_health", lat, err))
         lat, err, sse = await bench_request(
-            c, "POST", "/api/v1/ai/product-qa",
+            c, "POST", "/api/v1/ai/product-qa/chat",
             json_body={"question": "安诊保百万医疗险的等待期是多久？"},
             headers=admin_headers, n=8, sse=True,
         )
@@ -231,7 +231,7 @@ async def bench_ai(base_url: str, api_key: str, out_path: str) -> None:
     async with AsyncClient(base_url=base_url, timeout=180) as c:
         admin_headers = await _login(c)
         for name, path, body in [
-            ("ai_product_qa", "/api/v1/ai/product-qa", {"question": "百万医疗险等待期多久？", "conversation_id": "bench-ai-qa"}),
+            ("ai_product_qa", "/api/v1/ai/product-qa/chat", {"question": "百万医疗险等待期多久？", "conversation_id": "bench-ai-qa"}),
             ("ai_sales_agent", "/api/v1/ai/sales-agent/chat", {"message": "介绍百万医疗险", "session_id": "bench-ai-agent"}),
         ]:
             lat, err, sse = await bench_request(
