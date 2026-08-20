@@ -116,6 +116,25 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
 
         request_id = getattr(request.state, "request_id", "-")
 
+        # Task 39（M2）：记录操作人归属（get_current_user 已回写 request.state.user）
+        user_id = None
+        organization_id = None
+        try:
+            _u = request.state.user if hasattr(request.state, "user") else None
+            if _u is not None:
+                user_id = str(_u.id)
+                organization_id = str(_u.organization_id) if _u.organization_id else None
+        except Exception:
+            pass
+
+        # 统一错误码（防噪声：仅 4xx/5xx 分类，不逐业务错误升级告警）
+        error_code = None
+        _sc = response.status_code
+        if _sc >= 500:
+            error_code = "HTTP_5XX"
+        elif _sc >= 400:
+            error_code = "HTTP_4XX"
+
         logger.info(
             "request",
             method=request.method,
@@ -123,6 +142,9 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             status_code=response.status_code,
             duration_ms=duration_ms,
             request_id=request_id,
+            user_id=user_id,
+            organization_id=organization_id,
+            error_code=error_code,
         )
 
         return response

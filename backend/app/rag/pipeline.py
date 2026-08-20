@@ -6,6 +6,7 @@
 - chat_with_rag(): 安全增强的RAG聊天（输入消毒 + 拒答 + 置信度门控）
 - init_demo_index(): 初始化Demo模式的内存索引
 """
+import time
 import uuid
 from typing import AsyncGenerator
 
@@ -366,6 +367,7 @@ class RAGPipeline:
             (search_results, context_text)
         """
         retriever = await self._get_retriever()
+        _t0 = time.perf_counter()
 
         # 生产模式：生成查询向量（真实 embedding 才有语义检索；异常时退回纯 BM25）
         query_embedding = None
@@ -395,8 +397,18 @@ class RAGPipeline:
                 "rag_query_no_relevant_results",
                 question=question[:100],
                 top_score=results[0].score if results else 0,
+                retrieval_count=len(results),
+                latency_ms=round((time.perf_counter() - _t0) * 1000, 2),
             )
             return [], ""
+
+        # Task 39（M4）：检索结果可观察（retrieval_count / latency）
+        logger.info(
+            "rag_query_result",
+            question=question[:100],
+            retrieval_count=len(results),
+            latency_ms=round((time.perf_counter() - _t0) * 1000, 2),
+        )
 
         # 组装上下文
         context = _build_context(results)

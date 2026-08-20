@@ -69,7 +69,7 @@ async def _check_database() -> str:
             await conn.close()
         return "connected"
     except Exception as exc:
-        logger.warning("health.db_check", error=str(exc))
+        logger.warning("health.db_check", error=str(exc), error_code="DB_UNREACHABLE")
         return "unreachable"
 
 
@@ -97,7 +97,7 @@ async def _check_redis() -> str:
         await client.aclose()
         return "connected"
     except Exception as exc:
-        logger.warning("health.redis_check", error=str(exc))
+        logger.warning("health.redis_check", error=str(exc), error_code="REDIS_UNREACHABLE")
         return "unreachable"
 
 
@@ -172,9 +172,37 @@ async def readiness_check(request: Request) -> SuccessResponse:
 
     all_ok = _readiness_ok(checks)
 
+    if not all_ok:
+        # Task 39（M1）：依赖异常必须非 200，编排/探针可据此摘除流量；
+        # 仅改 data.status 会误导（HTTP 200 被误判为就绪）。
+        logger.warning(
+            "readiness_failed",
+            checks=checks,
+            request_id=request_id,
+            error_code="READINESS_FAILED",
+        )
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=503,
+            content={
+                "success": False,
+                "error": {
+                    "code": "READINESS_FAILED",
+                    "message": "服务未就绪：依赖检查失败",
+                },
+                "request_id": request_id,
+                "data": {
+                    "status": "not_ready",
+                    "checks": checks,
+                    "version": settings.APP_VERSION,
+                },
+            },
+        )
+
     return SuccessResponse(
         data={
-            "status": "ready" if all_ok else "not_ready",
+            "status": "ready",
             "checks": checks,
             "version": settings.APP_VERSION,
         },

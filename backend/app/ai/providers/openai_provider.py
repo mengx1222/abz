@@ -12,6 +12,24 @@ from app.core.config import settings
 logger = get_logger()
 
 
+
+def _ai_error_code(prefix: str, status: int | None) -> str:
+    """AI Provider 错误码（Task 39 M3）：机器可消费，区分 401/403/429/5xx/连接。
+
+    注意：不记录 HTTP body——AI 错误响应可能回显 prompt/敏感输入（阶段 7 redaction）。
+    """
+    if status is None:
+        return f"OPENAI_{prefix}_CONNECTION"
+    code = (
+        "AUTH" if status == 401 else
+        "FORBIDDEN" if status == 403 else
+        "RATE_LIMIT" if status == 429 else
+        "SERVER" if status >= 500 else
+        "ERROR"
+    )
+    return f"OPENAI_{prefix}_{code}"
+
+
 class OpenAIProvider:
     """OpenAI 兼容 API Provider（支持 DeepSeek、Qwen、OpenAI 等）。"""
 
@@ -83,12 +101,17 @@ class OpenAIProvider:
             logger.error(
                 "openai_chat_error",
                 status=e.response.status_code,
-                body=e.response.text[:500],
+                error_code=_ai_error_code("CHAT", e.response.status_code),
                 request_id=request_id,
             )
-            raise RuntimeError(f"AI API 错误 {e.response.status_code}: {e.response.text[:200]}") from e
+            raise RuntimeError(f"AI API 错误 {e.response.status_code}") from e
         except httpx.RequestError as e:
-            logger.error("openai_chat_connection_error", error=str(e), request_id=request_id)
+            logger.error(
+                "openai_chat_connection_error",
+                error=str(e),
+                error_code=_ai_error_code("CHAT", None),
+                request_id=request_id,
+            )
             raise RuntimeError(f"AI API 连接失败: {e}") from e
 
         latency_ms = int((time.perf_counter() - t0) * 1000)
@@ -147,12 +170,17 @@ class OpenAIProvider:
             logger.error(
                 "openai_stream_error",
                 status=e.response.status_code,
-                body=e.response.text[:500],
+                error_code=_ai_error_code("STREAM", e.response.status_code),
                 request_id=request_id,
             )
             raise RuntimeError(f"AI 流式 API 错误 {e.response.status_code}") from e
         except httpx.RequestError as e:
-            logger.error("openai_stream_connection_error", error=str(e), request_id=request_id)
+            logger.error(
+                "openai_stream_connection_error",
+                error=str(e),
+                error_code=_ai_error_code("STREAM", None),
+                request_id=request_id,
+            )
             raise RuntimeError(f"AI 流式连接失败: {e}") from e
 
     # ------------------------------------------------------------------
@@ -182,12 +210,17 @@ class OpenAIProvider:
             logger.error(
                 "openai_embed_error",
                 status=e.response.status_code,
-                body=e.response.text[:500],
+                error_code=_ai_error_code("EMBED", e.response.status_code),
                 request_id=request_id,
             )
             raise RuntimeError(f"Embedding API 错误 {e.response.status_code}") from e
         except httpx.RequestError as e:
-            logger.error("openai_embed_connection_error", error=str(e), request_id=request_id)
+            logger.error(
+                "openai_embed_connection_error",
+                error=str(e),
+                error_code=_ai_error_code("EMBED", None),
+                request_id=request_id,
+            )
             raise RuntimeError(f"Embedding API 连接失败: {e}") from e
 
         latency_ms = int((time.perf_counter() - t0) * 1000)
