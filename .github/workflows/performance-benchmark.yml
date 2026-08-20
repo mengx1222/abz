@@ -74,7 +74,7 @@ jobs:
       - name: Layer A — Deterministic benchmark (ASGI, AI=mock)
         env:
           AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
-          AZB_REDIS_URL: redis://localhost:6379/0
+          AZB_REDIS_URL: redis://localhost:6379/1  # 非默认 db：/ready 判定为 connected（默认值被 health 视为 not_configured）
           AZB_DEMO_MODE: "false"
           AZB_AI_PROVIDER: mock
           AZB_AI_API_KEY: ""
@@ -83,7 +83,7 @@ jobs:
       - name: Start backend (uvicorn, production-like)
         env:
           AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
-          AZB_REDIS_URL: redis://localhost:6379/0
+          AZB_REDIS_URL: redis://localhost:6379/1  # 非默认 db：/ready 判定为 connected（默认值被 health 视为 not_configured）
           AZB_DEMO_MODE: "false"
           AZB_AI_PROVIDER: mock
         run: |
@@ -105,7 +105,7 @@ jobs:
       - name: Layer B — Production-like HTTP + SSE + capacity
         env:
           AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
-          AZB_REDIS_URL: redis://localhost:6379/0
+          AZB_REDIS_URL: redis://localhost:6379/1  # 非默认 db：/ready 判定为 connected（默认值被 health 视为 not_configured）
           AZB_AI_PROVIDER: mock
         run: python ../scripts/benchmark_run.py --mode http --base-url http://127.0.0.1:8001 --out /tmp/benchmark_http.json
 
@@ -116,7 +116,7 @@ jobs:
         env:
           RUN_AI: ${{ inputs.run_ai }}
           AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
-          AZB_REDIS_URL: redis://localhost:6379/0
+          AZB_REDIS_URL: redis://localhost:6379/1  # 非默认 db：/ready 判定为 connected（默认值被 health 视为 not_configured）
           AZB_AI_API_KEY: ${{ secrets.AZB_AI_API_KEY }}
         run: |
           if [ "$RUN_AI" != "true" ]; then
