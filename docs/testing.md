@@ -456,3 +456,21 @@ Task 37b 增补 5 用例（`TestAuditLogPermission`）：角色越权 AGENT→40
 
 > 说明：P0-2/P0-1/P0-5 的 PG 集成用例在 `backend-pg` job（真实 PG16+pgvector）运行；
 > unit job 中因无 AZB_TEST_DATABASE_URL 自动跳过（计入 skipped）。
+
+
+---
+
+## 24. Internal Pilot Golden Flow Validation（ULTIMATE Pilot）
+
+### 24.1 云端验证（pilot-golden-flow workflow @ 6ff1146，真实 AI = qwen + text-embedding-v3，27/27 PASS）
+
+- `scripts/pilot_golden_flow.py`（服务级）：seed 完整性 / 权限（P0-1 同源）/ RAG+Citation+REFUSE（product_type 边界）/
+  AI Sales Agent（真实 8 事件，latency 27.6s，compliance=GREEN）/ Training（评分）/ Growth 连续性（total_exp=10, ability_scores=4）
+- `frontend/e2e/pilot/internal-pilot.spec.ts`（增量，+2）：Pilot-1 黄金链（seed 客户陈女士）+ Pilot-2 权限安全（200/404）
+- 既有 27 个 E2E 无回归；CI/PG/Frontend/Prod 全绿
+
+### 24.2 修复的真实问题
+
+- **DataPermissionChecker._is_demo 语义**（P1 级）：仅 `user.demo_mode` → 改为 `settings.DEMO_MODE and user.demo_mode`；
+  production 环境（DEMO_MODE=false）下 seed 演示用户不再走 demo 宽松分支（不绕过 P0-1 assigned 隔离）；
+  回归测试 `test_production_env_demo_user_still_scoped` + 对齐 2 个既有用例语义。

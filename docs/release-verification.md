@@ -30,6 +30,7 @@
 
 | Release Baseline Content | `9befe4b`（Task 15，Historical Baseline） |
 | 最新全量验证（ULTIMATE Phase 1） | **Backend 330 passed / 81 skipped · PG 59 · Vitest 107 · tsc 0 · Prod ✅**（CI @ 9dec25d） |
+| Internal Pilot Golden Flow（ULTIMATE Pilot） | **27/27 PASS（真实 AI qwen + text-embedding-v3）**：seed/权限/RAG/Citation/REFUSE/Agent/Compliance/Training/Growth 全链；Pilot E2E +2（既有 27 无回归）（@ 6ff1146，见 [internal-pilot-validation.md](internal-pilot-validation.md)） |
 
 | GitHub main HEAD | 与 HEAD 一致（default branch = main；无 force push） |
 

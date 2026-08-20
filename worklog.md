@@ -3130,3 +3130,30 @@ Stage Summary:
 
 - 文档最终同步：Current/Release/Snapshot 与代码 + 最新 CI 证据一致；Release Decision 全仓库统一 PRODUCTION CANDIDATE；
   文档基线冻结；历史保留；main == origin/main
+
+
+---
+
+Task ID: 67
+
+Agent: main
+
+Task: Internal Pilot Golden Flow Validation（ULTIMATE Pilot，100% Cloud-only）
+
+Work Log:
+
+- 基线 main@d21839b → 最终 HEAD（待）；备份分支 backup/pilot-golden-flow-20260820-2220
+- 交付：scripts/pilot_golden_flow.py（服务级真实链路验证，27 检查）+ pilot-golden-flow.yml（opt-in workflow，真实 AI 注入）
+  + frontend/e2e/pilot/internal-pilot.spec.ts（Pilot-1 黄金链 + Pilot-2 权限安全）
+- 云端验证（6ff1146 全矩阵）：**Pilot GF 27/27 PASS（真实 AI qwen + text-embedding-v3，Agent latency 27.6s，compliance=GREEN）**；
+  E2E Pilot-1/2 ✅ + 既有 27 无回归；CI（Backend 330+/PG 59/Vitest 107）✅；Prod ✅
+- **发现并修复（真实 P1 级权限问题）**：DataPermissionChecker._is_demo 仅看 user.demo_mode —— production 环境（DEMO_MODE=false）下
+  seed 演示用户登录被误判为 demo → 同组织全客户可见，**绕过 P0-1 assigned 隔离** → 改为 `settings.DEMO_MODE and user.demo_mode`；
+  回归测试 test_production_env_demo_user_still_scoped + 对齐 2 个既有用例；REFUSE 验证改为 product_type 边界（Task 17B 真实机制，
+  KB 6 chunks 时语义阈值无法触发）；Pilot-2 改页面路径（避免并行数据依赖）
+- 文档：internal-pilot-validation.md 新增（验证对象/Golden Flow/证据/问题/风险）+ testing.md §24 + release-verification 行 + 本 worklog
+
+Stage Summary:
+
+- 内部试点前真实业务闭环验证通过（真实 AI）：seed 数据完整、权限边界正确（无绕过）、RAG/Citation/REFUSE 真实、
+  Agent/Compliance/Training/Growth 数据连续；发现并修复 1 个 P1 权限语义问题；main == origin/main
