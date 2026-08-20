@@ -9,8 +9,12 @@ from datetime import datetime, timezone, timedelta
 from fastapi import APIRouter, Depends, HTTPException, Query
 from structlog import get_logger
 
-from app.core.deps import get_current_user, require_role
+from app.core.config import settings
+from app.core.deps import get_current_user, get_db, require_role
 from app.models.user import User
+from app.repositories.audit_log_repository import AuditLogRepository
+from sqlalchemy import select as sa_select
+from sqlalchemy.ext.asyncio import AsyncSession
 from app.schemas.admin import (
     AdminUserCreate,
     AdminUserUpdate,
@@ -752,8 +756,46 @@ async def list_audit_logs(
     current_user: User = Depends(require_role([
         "SYSTEM_ADMIN", "HQ_ADMIN", "BRANCH_ADMIN", "COMPLIANCE"
     ])),
+    db: AsyncSession = Depends(get_db),
 ):
-    """查询审计日志。"""
+    """查询审计日志。
+
+    Production 模式：从 audit_logs 表读取真实审计数据（Task 37，P1 B2）。
+    Demo 模式：内存演示数据（兼容）。
+    """
+    if not settings.DEMO_MODE:
+        repo = AuditLogRepository(db)
+        rows, total = await repo.list_logs(
+            user_id=user_id or None,
+            action=action or None,
+            resource_type=resource_type or None,
+            start_time=start_time or None,
+            end_time=end_time or None,
+            page=page,
+            page_size=page_size,
+        )
+        user_ids = {r.user_id for r in rows if r.user_id}
+        users: dict = {}
+        if user_ids:
+            result = await db.execute(sa_select(User).where(User.id.in_(user_ids)))
+            users = {u.id: u for u in result.scalars().all()}
+        items = []
+        for r in rows:
+            u = users.get(r.user_id)
+            items.append(AuditLogItem(
+                id=str(r.id),
+                user_id=str(r.user_id) if r.user_id else "",
+                user_name=u.name if u else "未知用户",
+                user_role=getattr(u, "role_code", "") or "" if u else "",
+                action=r.action,
+                resource_type=r.resource_type,
+                resource_id=str(r.resource_id) if r.resource_id else "",
+                description=r.description,
+                ip_address=r.ip_address or "",
+                created_at=r.created_at,
+            ))
+        return PaginatedResponse.create(items, total, page, page_size)
+
     items = list(_DEMO_AUDIT_LOGS)
     if user_id:
         items = [i for i in items if i["user_id"] == user_id]

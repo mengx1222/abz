@@ -14,6 +14,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from pydantic import BaseModel, Field
 from structlog import get_logger
 
+from app.core.audit import record_audit_log
 from app.core.config import settings
 from app.core.deps import get_current_user, get_db
 from app.models.user import User
@@ -317,6 +318,10 @@ async def create_knowledge_base(
         )
         await db.commit()
         logger.info("knowledge_base_created", kb_id=str(kb.id), name=kb.name, org=str(org_uuid))
+        await record_audit_log(
+            user_id=current_user.id, action="create", resource_type="knowledge_base",
+            resource_id=kb.id, description=f"创建知识库: {kb.name}", request_id=request_id,
+        )
         return SuccessResponse(data=_kb_to_dict(kb), request_id=request_id)
 
     await _ensure_demo_data()
@@ -432,6 +437,10 @@ async def update_knowledge_base(
             updated_by=current_user.id,
         )
         await db.commit()
+        await record_audit_log(
+            user_id=current_user.id, action="update", resource_type="knowledge_base",
+            resource_id=kb.id, description=f"更新知识库: {updated.name}", request_id=request_id,
+        )
         return SuccessResponse(data=_kb_to_dict(updated), request_id=request_id)
 
     await _ensure_demo_data()
@@ -492,6 +501,10 @@ async def delete_knowledge_base(
         await repo.delete_knowledge_base(kb.id)
         await db.commit()
         logger.info("knowledge_base_deleted", kb_id=str(kb.id))
+        await record_audit_log(
+            user_id=current_user.id, action="delete", resource_type="knowledge_base",
+            resource_id=kb.id, description=f"删除知识库: {kb.name}", request_id=request_id,
+        )
         return SuccessResponse(data={"message": "知识库已删除"}, request_id=request_id)
 
     await _ensure_demo_data()
@@ -639,6 +652,11 @@ async def upload_document(
             title=doc_title,
             chunks=result["chunks_count"],
         )
+        await record_audit_log(
+            user_id=current_user.id, action="document.upload", resource_type="document",
+            resource_id=result["document_id"], description=f"上传文档: {doc_title}",
+            request_id=request_id,
+        )
         return SuccessResponse(data={
             "document_id": result["document_id"],
             "title": result["title"],
@@ -756,6 +774,10 @@ async def publish_document(
             )
         updated = await repo.publish_document(doc.id, published_by=current_user.id)
         await db.commit()
+        await record_audit_log(
+            user_id=current_user.id, action="document.publish", resource_type="document",
+            resource_id=doc.id, description=f"发布文档: {doc.title}", request_id=request_id,
+        )
         return SuccessResponse(data=_doc_to_dict(updated), request_id=request_id)
 
     await _ensure_demo_data()
@@ -822,6 +844,10 @@ async def delete_document(
             kb_row.total_chunks = max(0, (kb_row.total_chunks or 0) - (doc.chunk_count or 0))
         await db.commit()
         logger.info("document_deleted", doc_id=str(doc.id), kb_id=kb_id, deleted=deleted)
+        await record_audit_log(
+            user_id=current_user.id, action="document.delete", resource_type="document",
+            resource_id=doc.id, description=f"删除文档: {doc.title}", request_id=request_id,
+        )
         return SuccessResponse(data={"message": "文档已删除"}, request_id=request_id)
 
     await _ensure_demo_data()
@@ -919,6 +945,10 @@ async def unpublish_document(
             )
         updated = await repo.unpublish_document(doc.id, updated_by=current_user.id)
         await db.commit()
+        await record_audit_log(
+            user_id=current_user.id, action="document.unpublish", resource_type="document",
+            resource_id=doc.id, description=f"下架文档: {doc.title}", request_id=request_id,
+        )
         return SuccessResponse(data=_doc_to_dict(updated), request_id=request_id)
 
     await _ensure_demo_data()

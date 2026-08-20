@@ -3,8 +3,10 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from structlog import get_logger
 
+from app.core.audit import record_audit_log
 from app.core.config import settings
 from app.core.deps import get_db, get_current_user
+from app.core.security import decode_token
 from app.models.user import User
 from app.schemas.common import SuccessResponse, ErrorResponse, ErrorDetail
 from app.schemas.user import UserLogin, TokenResponse, UserOut, RefreshRequest
@@ -41,6 +43,10 @@ async def login(
         token_resp = await auth_service.login(body.phone, credential)
     except ValueError as e:
         logger.warning("login_failed", phone=body.phone, reason=str(e))
+        await record_audit_log(
+            action="login", resource_type="auth",
+            description=f"登录失败: {body.phone} ({e})", status="failure", request_id=request_id,
+        )
         return JSONResponse(
             status_code=status.HTTP_401_UNAUTHORIZED,
             content=ErrorResponse(
@@ -50,6 +56,15 @@ async def login(
         )
 
     logger.info("login_success", phone=body.phone)
+    try:
+        _payload = decode_token(token_resp.access_token)
+        _user_id = _payload.get("sub")
+    except Exception:
+        _user_id = None
+    await record_audit_log(
+        user_id=_user_id, action="login", resource_type="auth",
+        description=f"用户登录: {body.phone}", status="success", request_id=request_id,
+    )
     return SuccessResponse(data=token_resp, request_id=request_id)
 
 
