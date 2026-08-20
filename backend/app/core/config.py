@@ -67,6 +67,12 @@ class Settings(BaseSettings):
     RAG_MIN_RELEVANCE: float = 0.3
     RAG_MAX_CONTEXT_CHARS: int = 4000
 
+    # --- Demo/Pilot Credentials (RDY 阶段2) ---
+    # 演示/试点用户密码（seed.py 注入）。默认 888888 仅为 CI/Demo 环境测试凭据；
+    # 正式 Internal Pilot / 生产环境必须通过 AZB_DEMO_PASSWORD（GitHub Secret / 外部
+    # secret store / workflow env）注入强密码并完成轮换，禁止沿用默认值上线。
+    DEMO_PASSWORD: str = "888888"
+
     # --- Upload ---
     MAX_UPLOAD_SIZE_MB: int = 10  # 知识库文档上传大小上限（MB），超出返回 413（Task 34）
 

@@ -146,34 +146,37 @@ ORGANIZATIONS = [
 ]
 
 # ============================================================
-#  演示用户
+#  演示用户（RDY 阶段2：密码从 settings.DEMO_PASSWORD 注入，不硬编码）
+#  - E2E Test Credential（CI-only）：默认 888888（frontend/e2e/global-setup.ts 使用，
+#    仅用于 GitHub Actions 云端测试，代码内标注 CI-only）
+#  - Demo Credential（开发/演示环境）：默认 888888，可 AZB_DEMO_PASSWORD 覆盖
+#  - Pilot Credential（正式 Internal Pilot）：13800138000 + 部署时注入的强密码
+#    （AZB_DEMO_PASSWORD = GitHub Secret / 外部 secret store / workflow env），
+#    禁止沿用默认值作为正式试点登录凭据
+#  - Production Secret：AI_API_KEY / DATABASE_URL / JWT_SECRET_KEY 等走 Secrets store
 # ============================================================
 DEMO_USERS = [
     {
         "phone": "13800138000",
         "name": "林思远",
-        "password": "888888",
         "role_code": "AGENT",
         "org_name": "上海分公司-浦东团队",
     },
     {
         "phone": "13800138001",
         "name": "张伟",
-        "password": "888888",
         "role_code": "TEAM_LEADER",
         "org_name": "上海分公司-浦东团队",
     },
     {
         "phone": "13800138002",
         "name": "李芳",
-        "password": "888888",
         "role_code": "BRANCH_ADMIN",
         "org_name": "上海分公司",
     },
     {
         "phone": "13800138003",
         "name": "王强",
-        "password": "888888",
         "role_code": "SYSTEM_ADMIN",
         "org_name": "华安保险总部",
     },
@@ -414,7 +417,9 @@ async def seed_database():
                 id=uuid.uuid4(),
                 phone=u["phone"],
                 name=u["name"],
-                password_hash=hash_password(u["password"]),
+                # RDY 阶段2：密码统一从 settings.DEMO_PASSWORD 注入（默认 888888 仅 CI/Demo；
+                # 正式 Pilot/生产由 AZB_DEMO_PASSWORD env 提供强密码）
+                password_hash=hash_password(settings.DEMO_PASSWORD),
                 role_id=role_map[u["role_code"]],
                 organization_id=org_map[u["org_name"]],
                 status="active",

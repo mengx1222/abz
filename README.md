@@ -259,9 +259,16 @@ make build      # 前端构建
 
 ---
 
-## 👤 Demo 账号（DEMO ONLY / NON-PRODUCTION）
+## 👤 账号与凭据（RDY 阶段2：凭据分类与轮换）
 
-Demo 模式预置测试账号，验证码统一为 `888888`：
+| 凭据类别 | 用途 | 账号 | 密码来源 |
+|----------|------|------|----------|
+| **E2E Test Credential（CI-only）** | GitHub Actions 云端 E2E（frontend/e2e/global-setup.ts） | `13800138000` | 默认 `888888`，可 `E2E_TEST_PASSWORD` 覆盖 |
+| **Demo Credential** | 开发/演示环境（seed.py，DEMO ONLY） | 见下表 | 默认 `888888`，可 `AZB_DEMO_PASSWORD` 覆盖 |
+| **Pilot Credential（正式 Internal Pilot）** | 真实试点登录 | `13800138000`（AGENT） | 部署时 **AZB_DEMO_PASSWORD 注入强密码**（GitHub Secret / 外部 secret store / workflow env），**禁止沿用 888888** |
+| **Production Secret** | AI/DB/JWT/Redis | - | GitHub Secrets / 外部 secret store（`AZB_AI_API_KEY`、`AZB_DATABASE_URL`、`AZB_JWT_SECRET_KEY` 等） |
+
+Demo 模式预置测试账号（默认密码 `888888`，DEMO ONLY / NON-PRODUCTION）：
 
 | 姓名 | 手机号 | 角色 |
 |------|--------|------|
@@ -271,6 +278,7 @@ Demo 模式预置测试账号，验证码统一为 `888888`：
 | 王强 | `13800138003` | 系统管理员 (SYSTEM_ADMIN) |
 
 > ⚠️ 以上均为演示数据，**禁止**在生产环境使用。
+> 🔑 正式 Internal Pilot：seed 前设置 `AZB_DEMO_PASSWORD=<强密码>`（Secret 注入），seed 后立即轮换/停用未使用的演示账号。
 
 ---
 

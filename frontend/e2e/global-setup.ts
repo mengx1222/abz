@@ -16,7 +16,9 @@ const __dirname = path.dirname(fileURLToPath(import.meta.url));
  */
 const API_BASE = process.env.E2E_API_BASE || 'http://localhost:8000/api/v1';
 const PHONE = '13800138000';
-const CODE = '888888';
+// RDY 阶段2：E2E Test Credential（CI-only）——密码由 workflow env 注入，
+// 默认 888888 仅为云端 CI 测试用，与正式 Pilot 凭据（AZB_DEMO_PASSWORD 注入）分离。
+const CODE = process.env.E2E_TEST_PASSWORD || '888888';
 const CUSTOMER_NAME = 'E2E-张先生';
 const CUSTOMER_PHONE = '13900001111';
 const AUTH_FILE = path.join(__dirname, '.auth', 'user.json');

@@ -299,20 +299,29 @@ docker compose exec backend python -m app.scripts.init_demo
 | 步骤 | 操作 | 说明 |
 |------|------|------|
 | 1 | `alembic upgrade head` | 应用 10 个 Alembic 迁移（head=0010_audit_log_org_scope），建表/索引/约束 |
-| 2 | `python -m scripts.seed` | 幂等 seed：7 角色 / 21 权限 / 6 组织 / 4 演示用户 / 23 陪练场景 / 3 试点客户（AGENT 演示用户名下，含互动+跟进）/ 1 产品知识库（复用 e2e_seed_knowledge；embedding 失败仅告警不阻塞，可稍后单独运行）（重复执行安全） |
+| 2 | `python -m scripts.seed` | 幂等 seed：7 角色 / 21 权限 / 6 组织 / 4 演示用户（密码 `AZB_DEMO_PASSWORD` 注入，默认仅 CI/Demo 用 888888）/ 23 陪练场景 / **5 试点客户**（AGENT 演示用户名下，含互动+跟进，tags 标识 PILOT/COMPLIANCE_RISK/OBJECTION）/ 1 产品知识库（3 文档 9 chunks，复用 e2e_seed_knowledge；embedding 失败仅告警不阻塞，可稍后单独运行）（重复执行安全） |
 | 3 | `uvicorn app.main:app` | 启动后端（多 worker） |
 
 > 手动初始化：`cd backend && AZB_DATABASE_URL=... alembic upgrade head && python -m scripts.seed`
 > 注：历史版本曾描述 `make init` 10 步初始化与 demo 产品/知识文档导入——**与当前 seed.py 实现不符，已废弃**（真实 seed 见 backend/scripts/seed.py）。
 
-### 4.3 Demo 账号清单（seed.py，仅 DEMO 模式；生产禁止）
+### 4.3 账号与凭据分类（RDY 阶段2：凭据轮换）
+
+| 凭据类别 | 用途 | 账号 | 密码来源 |
+|----------|------|------|----------|
+| **E2E Test Credential（CI-only）** | 云端 E2E（frontend/e2e/global-setup.ts） | `13800138000` | 默认 `888888`，可 `E2E_TEST_PASSWORD` 覆盖 |
+| **Demo Credential** | 开发/演示环境（seed.py，DEMO ONLY） | 见下表 | `AZB_DEMO_PASSWORD`（默认 `888888` 仅 CI/Demo） |
+| **Pilot Credential（正式 Internal Pilot）** | 真实试点登录 | `13800138000`（AGENT） | **AZB_DEMO_PASSWORD 注入强密码**（Secret/workflow env），禁止沿用 888888；seed 后轮换 |
+| **Production Secret** | AI/DB/JWT/Redis | - | GitHub Secrets / 外部 secret store |
+
+Demo 账号清单（seed.py，默认密码 `888888`，仅 DEMO 模式；生产禁止）：
 
 | 姓名 | 手机号 | 角色 | 密码 |
 |------|--------|------|------|
-| 林思远 | `13800138000` | AGENT | 888888 |
-| 张伟 | `13800138001` | TEAM_LEADER | 888888 |
-| 李芳 | `13800138002` | BRANCH_ADMIN | 888888 |
-| 王强 | `13800138003` | SYSTEM_ADMIN | 888888 |
+| 林思远 | `13800138000` | AGENT | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
+| 张伟 | `13800138001` | TEAM_LEADER | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
+| 李芳 | `13800138002` | BRANCH_ADMIN | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
+| 王强 | `13800138003` | SYSTEM_ADMIN | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
 
 ### 4.4 重新初始化
 
@@ -902,7 +911,7 @@ LOG_LEVEL=WARNING
 
 ### 11.4 部署须知（记录，不改变行为）
 
-- **demo 用户默认凭据**：`scripts/seed.py` 无条件创建 4 个演示用户（密码 `888888`、`demo_mode=True`），与 DEMO_MODE 无关。内部试点可接受；**正式生产执行 seed 后必须轮换/停用这些账号**（PRODUCTION READY 前置项，与 B1/B2 并列）。
+- **demo 用户默认凭据**：`scripts/seed.py` 创建 4 个演示用户（`demo_mode=True`），密码由 `AZB_DEMO_PASSWORD` 注入（默认 `888888` 仅 CI/Demo）。**正式 Internal Pilot / 生产执行 seed 前必须通过 Secret 注入强密码并轮换**（PRODUCTION READY 前置项，与 B1/B2 并列）；E2E 测试账号与 Pilot 账号已分离（前者 CI-only）。
 - **`.env.production` 路径**：compose.prod `env_file: .env.production` 指向**仓库根目录**（未提交，部署时创建）；模板位于 `backend/.env.production`（CHANGE_ME 占位），部署时复制到根目录并填真实值；CI（production-validation）内联生成根 `.env.production`。
 - seed 幂等 ✅（exists-check-skip，重复执行安全）；`alembic upgrade head && python -m scripts.seed` 由 compose.prod 启动命令自动执行。
 
