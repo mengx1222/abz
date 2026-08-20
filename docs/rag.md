@@ -1131,7 +1131,7 @@ User → Auth(JWT) → RBAC → Org Scope(DataPermissionChecker) → KB Scope(ro
 
 - 已实现/已验证：新文档经真实 ingestion 后可被 Retriever 在 PG/pgvector 检索命中，
   权限边界（AGENT@A 可见 / HQ_ADMIN 角色拒绝 / AGENT@B 组织拒绝）由集成测试固化。
-- 未实现：知识库 CRUD（list/create/update）仍为 Demo 内存实现（N1）；上传需知识库
+- 已实现（后续 Task 收敛，历史记录见对应 audit）：知识库 CRUD 已生产化（Task 21，DB backed + 权限继承）；文档管理已生产化（Task 22）；上传大小限制 10MB（Task 34）；上传仍需要知识库上下文（真实）
   已存在于 DB（seed/生产创建）；"管理员上传链路"与"已有 seed 知识可检索"是两件事，
   前者为本次闭环（接口 + 持久化 + 检索 + 测试），后者为 Task 12/13 既有能力。
 

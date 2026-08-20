@@ -2069,13 +2069,13 @@
 
 |------|------|------|
 
-| Growth E2E | Playwright 阶段三（Growth 黄金链） | Planned（Training 已由 Task 17A 完成） |
+| 成长课程体系 | growth course_detail 落库（P1-3） | Planned（真实未完成） |
 
-| 前端 TS 清理 | 恢复 tsc 硬门禁（P1-6） | Planned |
+| Growth E2E | Playwright 阶段三（Growth 黄金链） | Planned |
 
-| AI Sales Agent | 多步推理销售策略 Agent | Planned |
+| Accepted Risks 收敛 | 外部告警平台接入 / 云托管备份+多地域灾备+Redis HA / 滚动发布 / 正式渗透测试 / 演示凭据轮换 / 真实硬件与真实 AI 性能基准 | Planned（Task 42 记录，升级 PRODUCTION READY 前置） |
 
-| 成长课程体系 | growth course_detail 落库（P1-3） | Planned |
+> 已收敛（移出）：~~前端 TS 清理（Task 19，tsc -b 0）~~、~~AI Sales Agent（Task 27/28 已实现并验证）~~。
 
 
 

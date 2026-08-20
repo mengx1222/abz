@@ -1,6 +1,6 @@
 # AI Agent 架构文档 — 安诊保 AI 副驾
 
-> **文档状态**：当前有效 · AI Sales Agent 等未实现能力已标注 Planned
+> **文档状态**：当前有效 · AI Sales Agent 已实现（Task 27/28）并验证；长期记忆/自动对外销售等仍未做（Planned）
 > 最后校准：2026-08-17
 
 
@@ -490,9 +490,11 @@ LLM 生成（System Prompt + Context + User Query）
 
 ### 3.3 AI 销售 Agent
 
-> **状态：PLANNED（未实现）** — 当前 Dashboard「今日建议」由 dashboard_service 返回规则化统计（非独立 AI Agent 编排）；多步推理销售 Agent 尚未实现。本节点为设计草案。
+> **状态：IMPLEMENTED / VALIDATED（Task 27/28）** — `app/agent/orchestrator.py::SalesAgentService`（工具链编排 + RAG/话术/合规工具 + 会话管理），
+> `POST /api/v1/ai/sales-agent/chat` SSE 流式接口 + 前端页面（Task 28）；安全边界：工具 allowlist、MAX_TOOL_CALLS=8/MAX_TOOL_LOOP=3/超时 90s、携带用户二次 RBAC。
+> 长期记忆与自动对外销售动作未做（Planned）。
 
-**所在页面**：仪表盘「今日建议」
+**所在页面**：AI Sales Agent 对话页（非 Dashboard 规则化统计）
 
 **处理流程**（多步推理编排）：
 
