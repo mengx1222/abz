@@ -19,7 +19,7 @@ import json
 import time
 import uuid
 from collections.abc import AsyncGenerator
-from dataclasses import dataclass, field
+from dataclasses import asdict, dataclass, field
 from typing import Any
 
 from structlog import get_logger
@@ -27,6 +27,7 @@ from structlog import get_logger
 from app.agent.registry import ERROR_TOOL_TIMEOUT, ToolRegistry
 from app.agent.tools import build_default_registry
 from app.core.config import settings
+from app.core.redis_store import RedisSessionStore
 from app.rag.safety import SeverityLevel, sanitize_user_input
 
 logger = get_logger()
@@ -35,7 +36,8 @@ logger = get_logger()
 MAX_TOOL_CALLS = 8          # 单次 Agent 请求最大工具调用数（黄金链固定 4-5，余量防循环）
 MAX_TOOL_LOOP = 3           # 连续相同工具调用上限（循环检测）
 AGENT_REQUEST_TIMEOUT = 90  # 单次 Agent 请求整体超时（秒）
-MAX_SESSION_HISTORY = 8     # 内存 session 保留最近消息条数
+MAX_SESSION_HISTORY = 8     # session 保留最近消息条数
+AGENT_SESSION_TTL = 3600    # Redis session TTL（秒）；超时自动过期，无无限 key
 MAX_SUMMARY_CHARS = 6000    # 发送给模型的工具结果摘要上限
 
 _REFUSE_INJECTION_TEXT = "抱歉，我无法处理这个请求。请描述您的真实客户沟通需求。"
@@ -70,23 +72,57 @@ class SalesAgentService:
         self.db = db
         self.registry = registry or build_default_registry()
         self._sessions: dict[str, AgentSession] = {}
+        # Task 40：production 模式 session 落 Redis（跨实例共享）；demo 模式内存 dict（兼容）。
+        self._session_store: RedisSessionStore | None = None
+        if not settings.DEMO_MODE:
+            self._session_store = RedisSessionStore(
+                namespace="agent:session", ttl_seconds=AGENT_SESSION_TTL,
+            )
 
     # ------------------------------------------------------------------
     # Session（最小上下文）
     # ------------------------------------------------------------------
 
-    def _get_or_create_session(
+    async def _get_or_create_session(
         self, session_id: str | None, customer_id: str | None,
         product_type: str | None, sales_stage: str | None,
     ) -> AgentSession:
-        if session_id and session_id in self._sessions:
-            session = self._sessions[session_id]
+        sid = session_id or str(uuid.uuid4())
+        # Production：Redis 共享 session（实例 A 写入 → 实例 B 读取一致）
+        if self._session_store is not None:
+            data = await self._session_store.get(sid)
+            if data:
+                session = AgentSession(**data)
+                session.customer_id = customer_id or session.customer_id
+                session.product_type = product_type or session.product_type
+                session.sales_stage = sales_stage or session.sales_stage
+            else:
+                # 新会话或 Redis 读取失败（无数据）→ 建新；写入失败仅记录（非关键状态，明确日志）
+                session = AgentSession(
+                    session_id=sid,
+                    customer_id=customer_id,
+                    product_type=product_type,
+                    sales_stage=sales_stage,
+                )
+            session.updated_at = time.time()
+            ok = await self._session_store.set(sid, asdict(session))
+            if not ok:
+                logger.warning(
+                    "agent_session_persist_failed",
+                    session_id=sid,
+                    error_code="AGENT_SESSION_UNAVAILABLE",
+                )
+            return session
+
+        # Demo：内存 dict（兼容）
+        if sid in self._sessions:
+            session = self._sessions[sid]
             session.customer_id = customer_id or session.customer_id
             session.product_type = product_type or session.product_type
             session.sales_stage = sales_stage or session.sales_stage
         else:
             session = AgentSession(
-                session_id=session_id or str(uuid.uuid4()),
+                session_id=sid,
                 customer_id=customer_id,
                 product_type=product_type,
                 sales_stage=sales_stage,
@@ -96,10 +132,12 @@ class SalesAgentService:
             self._sessions[session.session_id] = session
         return session
 
-    def _remember(self, session: AgentSession, role: str, summary: str) -> None:
+    async def _remember(self, session: AgentSession, role: str, summary: str) -> None:
         session.history.append({"role": role, "summary": summary[:300]})
         if len(session.history) > MAX_SESSION_HISTORY:
             session.history = session.history[-MAX_SESSION_HISTORY:]
+        if self._session_store is not None:
+            await self._session_store.set(session.session_id, asdict(session))
 
     # ------------------------------------------------------------------
     # 预算/循环防护（Step 12）
@@ -139,7 +177,7 @@ class SalesAgentService:
         """
         request_id = request_id or str(uuid.uuid4())
         t0 = time.perf_counter()
-        session = self._get_or_create_session(session_id, customer_id, product_type, sales_stage)
+        session = await self._get_or_create_session(session_id, customer_id, product_type, sales_stage)
         tool_sequence: list[str] = []
         tool_results: dict[str, Any] = {}
         status = "completed"
@@ -164,8 +202,8 @@ class SalesAgentService:
                     "tool_sequence": tool_sequence,
                     "reason": "prompt_injection_high",
                 })
-                self._remember(session, "user", message)
-                self._remember(session, "assistant", final_message)
+                await self._remember(session, "user", message)
+                await self._remember(session, "assistant", final_message)
                 return
 
             yield _event("agent_start", {
@@ -198,8 +236,8 @@ class SalesAgentService:
                     "status": "error", "message": final_message,
                     "tool_sequence": tool_sequence, "reason": res.error_type,
                 })
-                self._remember(session, "user", message)
-                self._remember(session, "assistant", final_message)
+                await self._remember(session, "user", message)
+                await self._remember(session, "assistant", final_message)
                 return
             customer_ctx = res.data.get("customer") or {}
             tool_results["get_customer_context"] = res.data
@@ -389,8 +427,8 @@ class SalesAgentService:
         })
 
         # 会话记忆（仅摘要，不含敏感/推理内容）
-        self._remember(session, "user", message)
-        self._remember(session, "assistant", final_message)
+        await self._remember(session, "user", message)
+        await self._remember(session, "assistant", final_message)
         logger.info(
             "sales_agent_completed",
             request_id=request_id, user_id=str(user.id),
