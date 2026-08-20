@@ -15,6 +15,7 @@ on:
       - "scripts/backup_database.sh"
       - "scripts/restore_database.sh"
       - "scripts/verify_restored_db.py"
+      - "scripts/seed_backup_fixture.py"
       - "docs/database-backup-audit.md"
   workflow_dispatch:
 
@@ -68,6 +69,11 @@ jobs:
         env:
           AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bk
         run: python -m scripts.seed
+
+      - name: Seed synthetic business fixture (KB/Document/Chunk/AuditLog)
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bk
+        run: python ../scripts/seed_backup_fixture.py
 
       - name: Baseline snapshot (before backup)
         env:
