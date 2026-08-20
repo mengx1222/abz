@@ -154,6 +154,11 @@ Refresh Token 采用服务端存储方案，后端数据库中记录每个有效
 
 权限验证**不仅依赖前端菜单隐藏**，更关键的是在后端 API 层进行严格的权限校验：
 
+> **审计日志访问隔离（Task 37b 实现）**：`GET /api/v1/admin/audit-logs` 生产分支按组织范围过滤——
+> SYSTEM_ADMIN/COMPLIANCE 全库可见；HQ_ADMIN/BRANCH_ADMIN 仅见本机构+子机构（复用 `DataPermissionChecker.filter_accessible_org_ids`）；
+> AGENT/TEAM_LEADER 403。审计行固化 `organization_id`（alembic 0010），组织越权采用过滤式查询（不泄露被拒资源存在性）。
+> 中间件/显式记录均不落 body/密码/JWT/API Key 等敏感字段（见 §5.3），写入失败仅告警不影响主业务事务。
+
 - **前端控制**：前端根据用户角色动态渲染菜单和按钮，仅展示用户有权限访问的功能入口。但前端控制仅作为用户体验优化，**不作为安全边界**。
 
 - **后端校验**：每个 API 端点均配置所需权限标识。请求到达后端后，API 鉴权中间件从 JWT Token 中提取用户角色和权限信息，与端点所需的权限进行比对。权限不足时直接返回 HTTP 403 Forbidden，不泄露任何接口存在的信息。

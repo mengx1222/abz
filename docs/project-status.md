@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 37（Production Audit Log Persistence — P1 B2）
+> 上一轮 Task: Task 37（Audit Log Productionization — P1 B2 + org scope 补强）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-20 · HEAD Task 37）
+## Current Snapshot（2026-08-20 · HEAD Task 37（6fc74db））
 
 
 
@@ -74,11 +74,11 @@
 
 | Release Status | **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md) + [release-verification.md](release-verification.md)） |
 
-| Backend Tests | **300 passed, 54 skipped**（Task 37 后全量云端验证：+4 audit demo 回归；audit PG 6 无 PG 环境 skip） |
+| Backend Tests | **300 passed, 59 skipped**（Task 37/37b 后全量云端验证：+4 audit demo 回归；audit PG 11 无 PG 环境 skip） |
 
 | **RAG 权限加固（Task 17B）** | **Role Filtering + Organization Filtering + Citation/SSE 防泄漏 + 拒答不降级 全部 Implemented + Tested**（tests/rag/ 35 用例 + PG 集成 5 用例；详见 [rag-permission-audit.md](rag-permission-audit.md)） |
 
-| PG 集成测试（真实 PG16+pgvector） | **54 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34；+seed 幂等 3 Task 35；+audit log 6 Task 37） |
+| PG 集成测试（真实 PG16+pgvector） | **59 passed**（+Agent RAG 权限/黄金链/IDOR 5 Task 27；+上传大小限制 Task 34；+seed 幂等 3 Task 35；+audit log 6 Task 37；+org/role 权限隔离与敏感字段 5 Task 37b） |
 
 | Frontend Tests / Build | **107 passed（16 files）**（+Admin 22 Task 32；+ErrorBoundary 4 Task 33） + `tsc -b` 0 errors + `vite build` ✓ |
 

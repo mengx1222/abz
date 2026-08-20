@@ -2879,3 +2879,30 @@ Stage Summary:
 
 - 生产级审计日志落库完成：Repository + 中间件/关键路径写入 + 读端点真实数据 + 全矩阵验证；
   P1 B2 RESOLVED，剩余唯一正式生产阻塞为 B1 数据库备份
+---
+
+Task ID: 58
+
+Agent: main
+
+Task: Task 37b — Audit Log Productionization 补强（P1 B2 org scope 收口，100% Cloud-only）
+
+Work Log:
+
+- 基线 main@67de760（上一轮 Task 37 主体：Repository+落库+读端点已绿）→ 对照正式验收清单复核发现 3 缺口：
+  ① AuditLog 无 organization_id 列（无 org 隔离能力，且"无新增迁移"不满足 Alembic migration 验收）
+  ② list_audit_logs 生产分支只有角色门槛（BRANCH_ADMIN 可见全库，无组织范围隔离）
+  ③ 无权限隔离/sensitive 测试
+- 实现（5 提交，无 squash/force push）：
+  - 9c40cd7 feat：AuditLog.organization_id 列 + 0010_audit_log_org_scope 迁移（down=0009_kb_metadata，无 FK 不阻塞组织删除）
+  - 97e9f26 feat：Repository create_log organization_id / list_logs organization_ids 过滤；audit.py record_audit_log+中间件透传 org；knowledge.py 7 处 + auth.py login 成功（token→user 查 org）/失败（None）
+  - fc0dbdf security：admin.py list_audit_logs 生产分支 org scope（SYSTEM_ADMIN/COMPLIANCE 全库；HQ/BRANCH_ADMIN 按 DataPermissionChecker.filter_accessible_org_ids；AGENT 403 由 require_role 保证）
+  - e389fee/6fc74db test：新增 TestAuditLogPermission 5 用例（AGENT 403/组织越权/同组织/管理员全库/敏感字段不落库）；CI 驱动修复：中间件行 resource_type=admin（路径首段）非 knowledge_base
+- 验证（6fc74db 全矩阵全绿）：Backend **300 passed / 59 skipped**；backend-pg **59 passed**（audit 11 全过，0010 upgrade 成功）；Vitest **107（107）**；Prod ✅；无 frontend/src 变更 E2E 不触发
+- 文档：新建 docs/audit-log-production-audit.md（Current State/Gap/Target/Security-Privacy Boundary/Retention 运维项/Migration Plan/Test Matrix）；同步 project-status/security/database/testing/release-verification/release-readiness
+- B2：RESOLVED（验收全满足）；Release Decision 维持 READY FOR INTERNAL PILOT ONLY（B1 仍 OPEN，另有监控/多实例/凭据轮换差距）
+
+Stage Summary:
+
+- 补强后 Audit Log 达到生产验收：PostgreSQL 持久化 + Alembic 0010 + Repository 架构 + 关键 mutation 真实记录
+  + 组织/角色权限隔离 + sensitive 不落库 + 云端全矩阵全绿；B1 数据库备份保持 OPEN 不擅自处理

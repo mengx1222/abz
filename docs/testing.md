@@ -308,7 +308,9 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 
 ## 17. Audit Log 持久化测试（Task 37）
 
-### 17.1 backend-pg（`tests/knowledge/test_audit_log_pg.py`，6 用例）
+### 17.1 backend-pg（`tests/knowledge/test_audit_log_pg.py`，11 用例）
+
+Task 37b 增补 5 用例（`TestAuditLogPermission`）：角色越权 AGENT→403 / 组织越权 BRANCH_ADMIN 不见他组织行 / 同组织可见 / SYSTEM_ADMIN 全库可见 / 敏感字段不落库（中间件行 detail 仅 status_code，description 无 password/jwt/token/secret）。
 
 - Repository：create_log + list_logs 字段正确（user_id/resource_id/detail JSONB）/ 过滤分页 / query_by_user / query_by_resource
 - API：KB create（生产）→ audit 落库（user_id/resource_id/description 正确）/ 删除 KB 后 audit 仍存在 / `GET /admin/audit-logs` 生产分支返回真实审计行（同 schema，含 user_name）
@@ -322,6 +324,6 @@ pytest tests/unit/test_pg_integration.py  # 需 AZB_TEST_DATABASE_URL
 - 误建 0010 迁移（request_id 已由 0007 提供）→ `DuplicateColumnError` 暴露 → 删除迁移，head 保持 0009
 - `get_current_user` 加 `Request` 参数：先遇 FastAPI 不支持 `Request | None`（FastAPIError），后遇「无默认值参数跟在默认参数后」（SyntaxError）→ 改为 `request: Request` 置于默认参数之前
 
-### 17.4 验证（f3c9c1a 全矩阵）
+### 17.4 验证（6fc74db 全矩阵）
 
-- Backend pytest **300 passed / 54 skipped**；backend-pg **54 passed**；Vitest **107（16 files）**、tsc 0、build ✓；Prod ✅。
+- Backend pytest **300 passed / 59 skipped**；backend-pg **59 passed**（audit 11 全过）；Vitest **107（107）**、tsc 0、build ✓；Prod ✅。

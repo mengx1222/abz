@@ -1959,6 +1959,7 @@ SELECT * FROM pg_extension WHERE extname = 'vector';
 - Repository：`backend/app/repositories/knowledge_repository.py`（create/get/list/update/delete + name_exists + 可见性过滤）
 - `knowledge_bases.allowed_roles` 列：`JSONB(none_as_null=True)` —— Python None 存 SQL NULL（全员语义，Task 17B）
 - `knowledge_bases.metadata` 列：新增（alembic 0009_kb_metadata），创建/更新时携带扩展元数据
+- `audit_logs.organization_id` 列：新增（alembic **0010_audit_log_org_scope**，Task 37b），审计行固化操作人组织归属，支撑组织范围隔离查询；索引 `ix_audit_logs_organization_id`；无 FK（审计行不因组织删除失效）
 - 删除：物理删除（FK `ondelete=CASCADE` → documents → document_chunks）
 
 
