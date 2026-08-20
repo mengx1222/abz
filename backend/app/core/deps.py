@@ -2,7 +2,7 @@ import uuid
 from datetime import datetime, timezone
 from typing import AsyncGenerator, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException, Request, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from redis.asyncio import Redis
 from sqlalchemy import select
@@ -97,6 +97,7 @@ security_scheme = HTTPBearer(auto_error=False)
 async def get_current_user(
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
+    request: Request | None = None,
 ) -> User:
     """FastAPI 依赖：从 JWT token 中解析当前用户。"""
     if credentials is None:
@@ -168,6 +169,10 @@ async def get_current_user(
             status_code=status.HTTP_403_FORBIDDEN,
             detail={"code": "USER_DISABLED", "message": "用户已被禁用"},
         )
+
+    # Task 37：写回 request.state，供 AuditMiddleware 捕获操作人（user_id 归属）。
+    if request is not None:
+        request.state.user = user
 
     return user
 

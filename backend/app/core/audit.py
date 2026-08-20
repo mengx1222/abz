@@ -1,9 +1,14 @@
 """审计日志中间件 —— 自动记录关键操作。"""
 import re
+import uuid
 
 from fastapi import Request, Response
 from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
 from structlog import get_logger
+
+from app.core.config import settings
+from app.core.deps import async_session_factory
+from app.repositories.audit_log_repository import AuditLogRepository
 
 logger = get_logger()
 
@@ -78,14 +83,88 @@ def _should_audit(method: str, path: str) -> bool:
     return False
 
 
-async def write_audit_to_db(audit_data: dict) -> None:
-    """将审计数据写入数据库（Phase 5 通过 Repository 实现持久化）。
+async def record_audit_log(
+    *,
+    user_id=None,
+    action: str,
+    resource_type: str,
+    resource_id=None,
+    description: str = "",
+    detail: dict | None = None,
+    status: str = "success",
+    ip_address: str | None = None,
+    user_agent: str | None = None,
+    request_id: str | None = None,
+) -> None:
+    """写审计日志（Task 37，P1 B2 落库实现）。
 
-    当前仅通过 structlog 记录，真正的 DB 持久化在 Phase 5 实现。
+    - 生产模式：独立 session 持久化到 audit_logs 表；失败仅告警，**不影响主业务**。
+    - Demo 模式：仅 structlog（与历史行为一致，不触碰 DB）。
+    - 异步优先；调用方 await 后不抛异常。
     """
-    logger.info(
-        "audit_log_db_pending",
-        **audit_data,
+    if settings.DEMO_MODE:
+        logger.info(
+            "audit_log",
+            action=action,
+            resource_type=resource_type,
+            resource_id=str(resource_id) if resource_id else None,
+            user_id=str(user_id) if user_id else None,
+            status=status,
+        )
+        return
+
+    async with async_session_factory() as session:
+        repo = AuditLogRepository(session)
+        try:
+            await repo.create_log(
+                user_id=user_id,
+                action=action,
+                resource_type=resource_type,
+                resource_id=resource_id,
+                description=description,
+                detail=detail,
+                ip_address=ip_address,
+                user_agent=user_agent,
+                request_id=request_id,
+                status=status,
+            )
+            await session.commit()
+        except Exception as exc:
+            await session.rollback()
+            logger.warning("audit_log_error", action=action, resource_type=resource_type, error=str(exc))
+
+
+async def write_audit_to_db(audit_data: dict) -> None:
+    """中间件钩子：将请求级审计数据持久化（Task 37 实现，替代原 structlog stub）。
+
+    action 规范化：`api.POST./api/v1/...` 超出 String(50) 列长 → 转为 `{method}.{resource_type}`。
+    status 按 status_code 判定 success/failure。
+    """
+    if settings.DEMO_MODE:
+        logger.info("audit_log_db_pending", **audit_data)
+        return
+
+    raw_action = audit_data.get("action", "api.unknown")
+    action = raw_action
+    if action.startswith("api."):
+        parts = action.split(".")
+        method = parts[1].lower() if len(parts) > 1 else "unknown"
+        resource_type = audit_data.get("resource_type") or "unknown"
+        action = f"{method}.{resource_type}"
+
+    status_code = audit_data.get("status_code", 0)
+    detail = {"status_code": status_code}
+    await record_audit_log(
+        user_id=audit_data.get("user_id"),
+        action=action,
+        resource_type=audit_data.get("resource_type") or "unknown",
+        resource_id=audit_data.get("resource_id"),
+        description=audit_data.get("detail") or f"{action}",
+        detail=detail,
+        ip_address=audit_data.get("ip_address"),
+        user_agent=audit_data.get("user_agent"),
+        request_id=audit_data.get("request_id"),
+        status="success" if int(status_code) < 400 else "failure",
     )
 
 
