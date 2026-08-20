@@ -205,7 +205,7 @@
 > 注意：**PRODUCTION CANDIDATE** ≠ PRODUCTION READY。升级生产前须收敛 Accepted Risks：外部告警平台接入、云托管数据库备份/多地域灾备/Redis HA、滚动发布、正式渗透测试、演示凭据轮换。
 
 
-| Real AI Sales Agent Smoke | **opt-in / workflow_dispatch**（phase10 黄金链，需 Secrets；无 key 时 NOT RUN） | CI `real-ai-smoke` |
+| Real AI Sales Agent Smoke | **opt-in**（`REAL_AI_SMOKE_TEST` 开关 + Secrets）；最近 PASS @ 94ce52f（2026-08-15），其后 runs 因开关未开启 skipped | CI `real-ai-smoke` |
 
 | Real AI Golden Flow Smoke | **phase11 新增（opt-in）**：登录→客户→Agent(RAG/Citation/Compliance)→Training(评分)→Growth(数据连续)；真实 Provider；需手动 workflow_dispatch | CI `real-ai-smoke` @ Task 29 |
 

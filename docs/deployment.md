@@ -292,33 +292,27 @@ make init
 docker compose exec backend python -m app.scripts.init_demo
 ```
 
-### 4.2 初始化步骤详解
+### 4.2 初始化步骤（真实启动链）
 
-`make init` 执行以下 10 步初始化流程：
+生产/部署初始化 = `alembic upgrade head && python -m scripts.seed`（docker-compose.prod.yml backend command）：
 
 | 步骤 | 操作 | 说明 |
 |------|------|------|
-| 1 | 创建数据库扩展 | 启用 `pgvector`、`uuid-ossp` 扩展 |
-| 2 | 运行 Alembic 迁移 | 创建所有数据库表、索引、约束 |
-| 3 | 创建默认管理员 | 账号 `admin` / 密码 `admin123`，角色：系统管理员 |
-| 4 | 创建 Demo 用户 | 10 名代理人 + 2 名主管 + 1 名分公司管理员 + 1 名总部管理员，分布在 2 个机构、3 个团队 |
-| 5 | 导入 Demo 产品 | 2 款产品（如：安诊保·尊享版、安诊保·基础版），含完整保障明细 |
-| 6 | 导入 Demo 知识文档 | 30 篇文档（产品条款、理赔案例、健康知识、销售技巧等），自动切分 Chunk 并生成 Embedding |
-| 7 | 导入陪练场景 | 20+ 个陪练场景（产品介绍、异议处理、需求挖掘、促成签单等），每个含多轮对话模板 |
-| 8 | 导入话术库 | 30 条预置话术（覆盖不同产品、不同客户场景、不同风格） |
-| 9 | 导入社区内容 | 30 条社区帖子（优秀话术分享、理赔案例、销售心得等） |
-| 10 | 导入 Demo 客户 | 20 名客户（含基本信息、健康状况、购买记录、互动历史） |
+| 1 | `alembic upgrade head` | 应用 10 个 Alembic 迁移（head=0010_audit_log_org_scope），建表/索引/约束 |
+| 2 | `python -m scripts.seed` | 幂等 seed：7 角色 / 20 权限 / 6 组织 / 4 演示用户 / 23 陪练场景（重复执行安全） |
+| 3 | `uvicorn app.main:app` | 启动后端（多 worker） |
 
-### 4.3 Demo 账号清单
+> 手动初始化：`cd backend && AZB_DATABASE_URL=... alembic upgrade head && python -m scripts.seed`
+> 注：历史版本曾描述 `make init` 10 步初始化与 demo 产品/知识文档导入——**与当前 seed.py 实现不符，已废弃**（真实 seed 见 backend/scripts/seed.py）。
 
-| 角色 | 账号 | 密码 | 所属机构 | 所属团队 |
-|------|------|------|---------|---------|
-| 系统管理员 | admin | admin123 | 总部 | — |
-| 总部管理员 | hq_admin | demo123 | 总部 | — |
-| 分公司管理员 | branch_admin | demo123 | 华东分公司 | — |
-| 团队主管 | supervisor_1 | demo123 | 华东分公司 | 销售一组 |
-| 团队主管 | supervisor_2 | demo123 | 华东分公司 | 销售二组 |
-| 代理人 | agent_01 ~ agent_10 | demo123 | 华东分公司 | 销售一/二组 |
+### 4.3 Demo 账号清单（seed.py，仅 DEMO 模式；生产禁止）
+
+| 姓名 | 手机号 | 角色 | 密码 |
+|------|--------|------|------|
+| 林思远 | `13800138000` | AGENT | 888888 |
+| 张伟 | `13800138001` | TEAM_LEADER | 888888 |
+| 李芳 | `13800138002` | BRANCH_ADMIN | 888888 |
+| 王强 | `13800138003` | SYSTEM_ADMIN | 888888 |
 
 ### 4.4 重新初始化
 

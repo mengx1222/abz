@@ -8,23 +8,25 @@
 | 产品名称 | 安诊保 AI 副驾（Anzhenbao AI Copilot） |
 | 所属公司 | 华安保险（Sinosafe Insurance） |
 | 项目版本 | `v0.1.0`（`backend/pyproject.toml` / `frontend/package.json` 一致） |
-| 发布就绪状态 | **Internal Pilot Candidate** — ⚠️ **非正式 Production Release**（详见 [docs/release-readiness.md](docs/release-readiness.md)） |
+| 发布就绪状态 | **PRODUCTION CANDIDATE**（Task 42 Security Final Review；Accepted Risks 见 [docs/security-final-review.md](docs/security-final-review.md)） |
 | 仓库语言 | Python（后端）+ TypeScript/React（前端） |
 
 ---
 
-## ⚠️ Known Limitations（当前已知限制）
+## ⚠️ Known Limitations / Accepted Risks（当前）
 
 | 项 | 说明 |
 |----|------|
-| Frontend TypeScript hard gate（P1-6） | 仓库存在既有 TS 类型错误，CI 暂用 `vite build` 绕过 tsc 门禁；TS 清理为独立任务 |
-| Growth course_detail（P1-3） | 课程表未落库，生产路径返回 None（不强建 LMS） |
-| Training / Growth E2E | **未完成（Planned）** — 当前 Playwright 覆盖 Stage 1 + Stage 2 |
-| AI Sales Agent | **未实现（Planned）** — Dashboard「今日建议」为规则化统计，非多步推理 Agent |
-| 前端组件级测试（P2-3） | 仅 utils 有 Vitest 覆盖 |
-| CSRF 显式防护（P2-1） | 未实现（JWT Bearer 下风险较低） |
+| 演示凭据 `888888` | demo 账号密码未轮换（生产上线前置，Accepted Risk） |
+| token localStorage | 前端 token 存 localStorage（XSS 面；Task 42 记录为 Accepted Risk，不贸然重构） |
+| 外部告警平台 | Prometheus/Alertmanager、云日志/Sentry 未接入（Integration Required） |
+| 云托管备份 / Redis HA | 生产自动备份、多地域灾备、Redis 高可用为外部依赖（Task 38/40 记录） |
+| 滚动发布 / 渗透测试 | 未配置 / 未执行（Accepted Risk） |
+| 真实性能基准 | Cloud CI Capacity Baseline（非 SLA）；真实硬件/真实 AI 未测（Task 41 记录） |
+| 上传病毒扫描 | 上传 10MB 限制已实现；病毒扫描未实现 |
+| 环境 badge | 生产环境无环境标识 badge（P2） |
 
-> 完整 P0/P1/P2 清单见 [docs/project-status.md](docs/project-status.md)。
+> 完整 P1/P2 / Accepted Risks 见 [docs/security-final-review.md](docs/security-final-review.md)。
 
 ---
 
@@ -34,11 +36,11 @@
 |----|------|
 | 真实 PostgreSQL 16 + pgvector | ✅ Production Validation 通过 |
 | 真实 Redis | ✅ Production Validation 通过 |
-| 真实 AI Provider（阿里云百炼 DashScope / Qwen） | ✅ Real AI Smoke Test **8/8 PASS** |
+| 真实 AI Provider（OpenAI 兼容端点） | ✅ Real AI Smoke 最近 PASS @ 94ce52f（opt-in workflow，`REAL_AI_SMOKE_TEST` 开关；缺 Key 时明确跳过） |
 | Docker Production Validation | ✅ 4 容器（postgres/redis/backend/frontend）全栈通过 |
 | Backend 测试 | ✅ CI 全绿（后端单元 + API 集成 + PostgreSQL 集成） |
-| Frontend 测试 / 构建 | ✅ Vitest + Vite build 通过（tsc 硬门禁待恢复，见 [docs/project-status.md](docs/project-status.md) P1-6） |
-| Playwright E2E | ✅ **11/11 PASS**：Stage 1（Login/Dashboard/Customer List/Detail）+ Stage 2（Product QA / Script / Citation / Compliance / 产品边界） |
+| Frontend 测试 / 构建 | ✅ Vitest **107 passed** + Vite build ✓ + **tsc -b 0 errors（hard gate 已恢复，Task 19）** |
+| Playwright E2E | ✅ **27 passed**：Stage 1/2 + Golden Flow（Task 29） |
 
 > 详细测试数字以 [docs/project-status.md](docs/project-status.md)（唯一事实来源）与最新 CI 为准。
 
@@ -282,15 +284,15 @@ Demo 模式预置测试账号，验证码统一为 `888888`：
 | [仓库清理审计](docs/repository-cleanup-audit.md) | 本次清理决策记录 |
 | [发布验证快照](docs/release-verification.md) | 本次 Release Baseline 真实验证快照 |
 | [系统架构](docs/architecture.md) | 分层架构 / 数据流 |
-| [API 文档](docs/api.md) | 端点清单（实际 90 端点）与设计参考 |
-| [数据库设计](docs/database.md) | 30 张表 / 7 迁移 |
+| [API 文档](docs/api.md) | 端点清单（实际 92 端点）与设计参考 |
+| [数据库设计](docs/database.md) | 30 张表 / 10 迁移（head=0010_audit_log_org_scope） |
 | [RAG 设计](docs/rag.md) | 向量+BM25+RRF / 置信度门控 / 产品边界（Implemented/Validated/Planned 标注） |
 | [AI Agent 设计](docs/ai-agents.md) | Gateway / Product QA / Script / Training / Community（含 Planned 标注） |
 | [合规设计](docs/compliance.md) | GREEN/YELLOW/RED / 规则引擎 |
 | [安全设计](docs/security.md) | JWT / RBAC / 限流 / Prompt Injection / Secret 管理 |
 | [测试体系](docs/testing.md) | 当前实际测试（Mock vs Real AI 区分） |
 | [部署方案](docs/deployment.md) | Docker Compose / 生产部署 |
-| [信息架构](docs/information-architecture.md) | 21 条前端路由 |
+| [信息架构](docs/information-architecture.md) | 22 条前端路由 |
 | [用户流程](docs/user-flows.md) | 已实现 vs 未来流程 |
 | [产品需求](docs/product-requirements.md) | 需求对齐（Implemented/Partial/Planned） |
 | [技术决策](docs/decisions.md) | ADR |
