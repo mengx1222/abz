@@ -1,0 +1,132 @@
+name: Performance Benchmark (Task 41)
+
+# Task 41：云端性能基准（层 A deterministic + 层 B production-like + 层 C real AI opt-in）。
+# 触发：workflow_dispatch（推荐，带 profile/run_ai 参数）；push 仅限 benchmark 相关文件。
+# 默认不消耗真实 AI 额度（run_ai=false 且需 AZB_AI_API_KEY secret）。
+on:
+  workflow_dispatch:
+    inputs:
+      profile:
+        description: "benchmark profile (quick=短时 / standard=完整)"
+        required: false
+        default: "quick"
+        type: choice
+        options: [quick, standard]
+      run_ai:
+        description: "运行真实 AI smoke（需 AZB_AI_API_KEY secret）"
+        required: false
+        default: false
+        type: boolean
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/performance-benchmark.yml"
+      - "scripts/benchmark_run.py"
+      - "docs/performance-baseline-audit.md"
+      - "docs/performance-baseline.md"
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Benchmark (PG16+pgvector+Redis+backend)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install backend dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Start PostgreSQL (pgvector) + Redis containers
+        run: |
+          docker run -d --name pg-bench -p 5432:5432 \
+            -e POSTGRES_USER=postgres -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=anzhenbao_bench pgvector/pgvector:pg16
+          docker run -d --name redis-bench -p 6379:6379 redis:7-alpine
+          for i in $(seq 1 40); do
+            pgok=$(docker exec pg-bench pg_isready -U postgres 2>/dev/null || echo no)
+            rlok=$(docker exec redis-bench redis-cli ping 2>/dev/null || echo no)
+            if [ "$pgok" != "no" ] && [ "$rlok" = "PONG" ]; then echo "DEPS_READY after ${i}x2s"; break; fi
+            sleep 2
+          done
+          docker exec pg-bench pg_isready -U postgres
+          docker exec redis-bench redis-cli ping
+
+      - name: Alembic migrations + seed + synthetic fixture
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
+          AZB_DEMO_MODE: "false"
+          AZB_AI_PROVIDER: mock
+        run: |
+          python -m alembic upgrade head
+          python -m scripts.seed
+          python ../scripts/seed_backup_fixture.py
+
+      - name: Layer A — Deterministic benchmark (ASGI, AI=mock)
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
+          AZB_REDIS_URL: redis://localhost:6379/0
+          AZB_DEMO_MODE: "false"
+          AZB_AI_PROVIDER: mock
+          AZB_AI_API_KEY: ""
+        run: python ../scripts/benchmark_run.py --mode deterministic --out /tmp/benchmark_deterministic.json
+
+      - name: Start backend (uvicorn, production-like)
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
+          AZB_REDIS_URL: redis://localhost:6379/0
+          AZB_DEMO_MODE: "false"
+          AZB_AI_PROVIDER: mock
+        run: |
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 > /tmp/bench-app.log 2>&1 &
+          for i in $(seq 1 40); do
+            if curl -sf http://127.0.0.1:8001/api/v1/ready >/dev/null 2>&1; then
+              echo "APP_READY after ${i}x2s"; break
+            fi
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8001/api/v1/ready
+
+      - name: Layer B — Production-like HTTP + SSE + capacity
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
+          AZB_REDIS_URL: redis://localhost:6379/0
+          AZB_AI_PROVIDER: mock
+        run: python ../scripts/benchmark_run.py --mode http --base-url http://127.0.0.1:8001 --out /tmp/benchmark_http.json
+
+      - name: Layer C — Real AI smoke (opt-in)
+        if: ${{ inputs.run_ai == true && secrets.AZB_AI_API_KEY != '' }}
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bench
+          AZB_REDIS_URL: redis://localhost:6379/0
+          AZB_AI_API_KEY: ${{ secrets.AZB_AI_API_KEY }}
+        run: python ../scripts/benchmark_run.py --mode ai --base-url http://127.0.0.1:8001 --api-key "$AZB_AI_API_KEY" --out /tmp/benchmark_ai.json
+
+      - name: Layer C — skip notice (no AI secret)
+        if: ${{ inputs.run_ai != true || secrets.AZB_AI_API_KEY == '' }}
+        run: echo "AI_SMOKE=NOT_RUN (run_ai=${{ inputs.run_ai }}, secret configured=${{ secrets.AZB_AI_API_KEY != '' }})"
+
+      - name: Upload benchmark artifacts (latency numbers only, no sensitive data)
+        uses: actions/upload-artifact@v4
+        with:
+          name: benchmark-results
+          path: |
+            /tmp/benchmark_deterministic.json
+            /tmp/benchmark_http.json
+            /tmp/benchmark_ai.json
+          if-no-files-found: ignore
+
+      - name: Summary
+        run: |
+          echo "=== DETERMINISTIC ==="; cat /tmp/benchmark_deterministic.json 2>/dev/null | python -m json.tool || true
+          echo "=== HTTP ==="; cat /tmp/benchmark_http.json 2>/dev/null | python -m json.tool || true
+          echo "=== AI ==="; cat /tmp/benchmark_ai.json 2>/dev/null | python -m json.tool || true
