@@ -1,0 +1,143 @@
+name: Database Backup & Restore Verification (Task 38)
+
+# P1 B1 验证工作流：真实 PG16+pgvector 环境完成
+#   migration -> seed -> baseline snapshot -> pg_dump backup -> 干净目标库 pg_restore
+#   -> verify（表/关键数据/org/KB/Document/AuditLog/pgvector 与基线一致）
+#   -> 应用连接恢复库健康检查 -> 错误凭据非 0 退出 -> 无备份文件进入 Git
+# 仅手动触发（workflow_dispatch），不进入普通 PR/commit CI（避免成本上升）。
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup-restore:
+    name: Backup -> Restore -> Verify (PG16 + pgvector)
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install backend dependencies
+        run: pip install -e ".[dev]"
+
+      - name: Start PostgreSQL (pgvector) container
+        run: |
+          docker run -d --name pgvector-bk -p 5432:5432 \
+            -e POSTGRES_USER=postgres \
+            -e POSTGRES_PASSWORD=postgres \
+            -e POSTGRES_DB=anzhenbao_bk \
+            pgvector/pgvector:pg16
+          for i in $(seq 1 30); do
+            if docker exec pgvector-bk pg_isready -U postgres >/dev/null 2>&1; then
+              echo "POSTGRES_READY after ${i}x2s"
+              break
+            fi
+            sleep 2
+          done
+          docker exec pgvector-bk pg_isready -U postgres
+
+      - name: Install postgresql-client (pg_dump/pg_restore/psql)
+        run: |
+          sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Run alembic migrations (source DB)
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bk
+        run: python -m alembic upgrade head
+
+      - name: Seed database (source DB)
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bk
+        run: python -m scripts.seed
+
+      - name: Baseline snapshot (before backup)
+        env:
+          SRC_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bk
+        run: |
+          python ../scripts/verify_restored_db.py --db-url "$SRC_URL" --out /tmp/baseline.json
+          cat /tmp/baseline.json
+
+      - name: Backup (pg_dump custom format)
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_bk
+          AZB_BACKUP_DIR: /tmp/backups
+        run: bash ../scripts/backup_database.sh | tee /tmp/backup.log
+
+      - name: Backup integrity (file/size/checksum/exit)
+        run: |
+          grep -q "BACKUP_OK" /tmp/backup.log || { echo "NO BACKUP_OK"; exit 1; }
+          DUMP=$(ls -1 /tmp/backups/*.dump | head -1)
+          test -s "$DUMP" || { echo "EMPTY DUMP"; exit 1; }
+          SIZE=$(stat -c %s "$DUMP")
+          SHA=$(sha256sum "$DUMP" | awk '{print $1}')
+          echo "INTEGRITY_OK file=$DUMP size=$SIZE sha256=$SHA"
+          echo "DUMP_NAME=$DUMP" >> "$GITHUB_ENV"
+
+      - name: Create clean restore target database
+        run: |
+          docker exec pgvector-bk createdb -U postgres anzhenbao_restore
+          echo "clean target anzhenbao_restore created"
+
+      - name: Restore (pg_restore into clean target)
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_restore
+        run: bash ../scripts/restore_database.sh "$DUMP_NAME" | tee /tmp/restore.log
+
+      - name: Verify restored database vs baseline
+        env:
+          RESTORED_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_restore
+        run: |
+          python ../scripts/verify_restored_db.py --db-url "$RESTORED_URL" --baseline /tmp/baseline.json
+
+      - name: Application health against restored DB
+        env:
+          AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_restore
+          AZB_DEMO_MODE: "false"
+        run: |
+          nohup python -m uvicorn app.main:app --host 127.0.0.1 --port 8001 > /tmp/app.log 2>&1 &
+          for i in $(seq 1 30); do
+            if curl -sf http://127.0.0.1:8001/api/v1/ready >/dev/null 2>&1; then
+              echo "APP_READY after ${i}x2s"
+              break
+            fi
+            sleep 2
+          done
+          curl -sf http://127.0.0.1:8001/api/v1/ready || { echo "APP_NOT_READY"; tail -30 /tmp/app.log; exit 1; }
+
+      - name: Invalid DB credentials must fail non-zero
+        run: |
+          set +e
+          AZB_DATABASE_URL=postgresql+asyncpg://baduser:badpass@localhost:5432/does_not_exist \
+            AZB_BACKUP_DIR=/tmp/backups_fail \
+            bash ../scripts/backup_database.sh > /tmp/fail.log 2>&1
+          RC=$?
+          set -e
+          echo "FAILURE_TEST exit=$RC"
+          if [ "$RC" -eq 0 ]; then
+            echo "EXPECTED_NONZERO but got 0"; cat /tmp/fail.log; exit 1
+          fi
+          echo "NONZERO_OK"
+
+      - name: No backup artifacts in Git tree
+        run: |
+          cd ..
+          echo "--- git status ---"
+          git status --porcelain || true
+          FOUND=$(find . -path ./node_modules -prune -o -name "*.dump" -print -o -name "*.backup" -print 2>/dev/null | grep -v "^./node_modules" | head -20)
+          if [ -n "$FOUND" ]; then echo "DUMP_FILES_IN_REPO: $FOUND"; exit 1; fi
+          echo "NO_BACKUP_IN_GIT_OK"
+
+      - name: Summary
+        run: |
+          echo "=== BACKUP_LOG ==="; cat /tmp/backup.log
+          echo "=== RESTORE_LOG ==="; cat /tmp/restore.log
+          echo "=== BASELINE ==="; cat /tmp/baseline.json
