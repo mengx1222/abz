@@ -20,7 +20,9 @@ from app.models.role import Role
 from app.models.permission import Permission, role_permissions
 from app.models.organization import Organization, OrgType
 from app.models.user import User
+from app.models.customer import Customer, CustomerFollowup, CustomerInteraction
 from app.services.training_service import seed_training_scenarios
+from scripts.e2e_seed_knowledge import seed_e2e_knowledge
 
 
 # ============================================================
@@ -177,6 +179,93 @@ DEMO_USERS = [
     },
 ]
 
+# ============================================================
+#  Pilot 演示客户（ULTIMATE Pilot Prep）
+#  生产模式（DEMO_MODE=false）下 AGENT 仅可见 assigned_to=本人 的客户（P0-1 语义），
+#  因此演示客户必须挂到 AGENT 演示用户（13800138000 林思远）名下，试点演示才有数据。
+#  合成数据，无真实客户信息；phone 唯一用于幂等。
+# ============================================================
+PILOT_CUSTOMERS = [
+    {
+        "name": "陈女士", "age": 42, "gender": "female", "phone": "13900000001",
+        "customer_type": "active", "current_stage": "needs_analysis",
+        "intention_level": 3, "insurance_type": "医疗险", "source_channel": "转介绍",
+        "notes": "关注百万医疗险，为家人咨询",
+    },
+    {
+        "name": "刘先生", "age": 35, "gender": "male", "phone": "13900000002",
+        "customer_type": "active", "current_stage": "proposal",
+        "intention_level": 4, "insurance_type": "重疾险", "source_channel": "门店",
+        "notes": "预算约 8000 元/年，方案待定",
+    },
+    {
+        "name": "周女士", "age": 50, "gender": "female", "phone": "13900000003",
+        "customer_type": "follow_up", "current_stage": "initial_contact",
+        "intention_level": 2, "insurance_type": "医疗险", "source_channel": "电话",
+        "notes": "初次咨询，需回访",
+    },
+]
+
+
+async def seed_pilot_customers(session: AsyncSession, agent_phone: str = "13800138000") -> int:
+    """幂等创建试点演示客户（含互动 + 跟进），返回本次新增数。
+
+    生产 AGENT 仅可访问本人 assigned 客户，故全部挂到 AGENT 演示用户名下。
+    """
+    agent = (
+        await session.execute(select(User).where(User.phone == agent_phone))
+    ).scalar_one_or_none()
+    if agent is None:
+        print(f"   ⏭️  AGENT 演示用户 {agent_phone} 不存在，跳过试点客户 seed")
+        return 0
+
+    created = 0
+    now = datetime.now(timezone.utc)
+    for c in PILOT_CUSTOMERS:
+        existing = await session.execute(select(Customer).where(Customer.phone == c["phone"]))
+        if existing.scalar_one_or_none():
+            continue
+        customer = Customer(
+            name=c["name"],
+            age=c["age"],
+            gender=c["gender"],
+            phone=c["phone"],
+            customer_type=c["customer_type"],
+            current_stage=c["current_stage"],
+            intention_level=c["intention_level"],
+            insurance_type=c["insurance_type"],
+            source_channel=c["source_channel"],
+            notes=c["notes"],
+            assigned_to=agent.id,
+            organization_id=agent.organization_id,
+            created_at=now,
+            updated_at=now,
+        )
+        session.add(customer)
+        await session.flush()
+        session.add(CustomerInteraction(
+            customer_id=customer.id,
+            type="phone",
+            direction="inbound",
+            content="初次电话沟通，介绍产品保障范围。",
+            outcome="客户有兴趣，约定跟进",
+            created_at=now,
+            updated_at=now,
+        ))
+        session.add(CustomerFollowup(
+            customer_id=customer.id,
+            scheduled_date=now,
+            status="pending",
+            content="跟进客户意向，发送产品资料",
+            created_at=now,
+            updated_at=now,
+        ))
+        created += 1
+        print(f"   ✅ 试点客户 {c['name']} ({c['phone']}) → {agent.name}")
+    if created:
+        await session.flush()
+    return created
+
 
 async def seed_database():
     """填充种子数据到数据库。如果数据已存在则跳过。"""
@@ -326,6 +415,21 @@ async def seed_database():
             print("   ⏭️  训练场景已存在，跳过")
         await session.flush()
 
+        # ---- 7. Pilot 演示客户（ULTIMATE Pilot Prep，幂等）----
+        print("\n📦 创建试点演示客户...")
+        customers_created = await seed_pilot_customers(session)
+        print(f"   试点客户: {customers_created} 个 (本次新增)")
+
+        # ---- 8. 产品知识库/文档（幂等，复用 e2e_seed_knowledge）----
+        print("\n📦 创建产品知识库...")
+        try:
+            kb_created = await seed_e2e_knowledge(session)
+            print(f"   知识库: {'本次新建' if kb_created else '已存在，跳过'}")
+        except Exception as e:
+            # 知识库 seed 失败（如 AI/embedding 不可用）不阻塞整体 seed，明确告警
+            print(f"   ⚠️  知识库 seed 失败（可稍后单独运行 scripts/e2e_seed_knowledge.py）: {e}")
+        await session.flush()
+
         await session.commit()
         print(f"\n🎉 种子数据填充完成！")
         print(f"   角色: {len(ROLES)} 个")
@@ -333,6 +437,7 @@ async def seed_database():
         print(f"   组织: {len(ORGANIZATIONS)} 个")
         print(f"   用户: {len(DEMO_USERS)} 个 (全部为演示模式)")
         print(f"   训练场景: {training_created} 个 (本次新增)")
+        print(f"   试点客户: {customers_created} 个 (本次新增)")
 
     await engine.dispose()
 

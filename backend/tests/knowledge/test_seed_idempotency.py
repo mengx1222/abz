@@ -19,11 +19,15 @@ from sqlalchemy.pool import NullPool
 
 from app.core.config import settings
 from app.models import Base, Organization, Role, User
+from app.models.customer import Customer
+from app.models.knowledge import KnowledgeBase
 from app.models.permission import Permission, role_permissions
+from scripts.e2e_seed_knowledge import KB_NAME
 from scripts.seed import (
     DEMO_USERS,
     ORGANIZATIONS,
     PERMISSIONS,
+    PILOT_CUSTOMERS,
     ROLES,
     ROLE_PERMISSIONS,
     seed_database,
@@ -78,6 +82,10 @@ class TestSeedIdempotency:
             assert await _count(session, Organization, Organization.name, o["name"]) == 1, f"org {o['name']}"
         for u in DEMO_USERS:
             assert await _count(session, User, User.phone, u["phone"]) == 1, f"user {u['phone']}"
+        # ULTIMATE Pilot Prep：试点客户 + 产品知识库（幂等创建）
+        for c in PILOT_CUSTOMERS:
+            assert await _count(session, Customer, Customer.phone, c["phone"]) == 1, f"customer {c['phone']}"
+        assert await _count(session, KnowledgeBase, KnowledgeBase.name, KB_NAME) == 1, "pilot KB"
 
     async def test_seed_second_run_idempotent_no_duplicates(self, session: AsyncSession):
         """第二次运行：成功且不产生重复数据（数量仍为 1）。"""
@@ -91,6 +99,10 @@ class TestSeedIdempotency:
             assert await _count(session, Organization, Organization.name, o["name"]) == 1, f"org {o['name']} duplicated"
         for u in DEMO_USERS:
             assert await _count(session, User, User.phone, u["phone"]) == 1, f"user {u['phone']} duplicated"
+        # ULTIMATE Pilot Prep：重跑不产生重复试点数据
+        for c in PILOT_CUSTOMERS:
+            assert await _count(session, Customer, Customer.phone, c["phone"]) == 1, f"customer {c['phone']} duplicated"
+        assert await _count(session, KnowledgeBase, KnowledgeBase.name, KB_NAME) == 1, "pilot KB duplicated"
 
     async def test_seed_permission_relationships_correct(self, session: AsyncSession):
         """权限关系：角色-权限绑定与 ROLE_PERMISSIONS 一致；用户角色/组织映射正确。"""
