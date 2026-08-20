@@ -24,6 +24,12 @@ class AuditLog(Base):
         index=True,
         comment="操作人ID",
     )
+    organization_id: Mapped[uuid.UUID | None] = mapped_column(
+        UUID(as_uuid=True),
+        nullable=True,
+        index=True,
+        comment="操作人所属组织ID（审计时固化，防用户转岗后归属漂移；无 FK，审计行不因组织删除失效）",
+    )
     action: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
