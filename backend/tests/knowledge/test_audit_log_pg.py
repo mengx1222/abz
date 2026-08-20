@@ -69,9 +69,14 @@ async def _seed_user(session: AsyncSession, role_code: str = "AGENT") -> User:
     org = Organization(name=f"审计组织-{suffix}", type=OrgType.BRANCH)
     session.add(org)
     await session.flush()
-    role = Role(code=role_code, name=role_code, level=1)
-    session.add(role)
-    await session.flush()
+    # get-or-create：CI seed 步骤已创建标准角色（code 唯一），复用避免冲突
+    role = (
+        await session.execute(select(Role).where(Role.code == role_code))
+    ).scalar_one_or_none()
+    if role is None:
+        role = Role(code=role_code, name=role_code, level=1)
+        session.add(role)
+        await session.flush()
     user = User(
         id=uuid.uuid4(),
         phone="17" + str(uuid.uuid4().int)[:11],
@@ -241,9 +246,9 @@ class TestAuditLogApi:
         resp = await api.get("/api/v1/admin/audit-logs?action=custom.event")
         assert resp.status_code == 200, resp.text
         body = resp.json()
-        data = body.get("data", {})
-        items = data.get("items", [])
-        assert len(items) >= 1, "audit-logs 生产分支应返回 DB 审计行"
+        assert "pagination" in body, "PaginatedResponse 应含 pagination"
+        items = body["data"]
+        assert isinstance(items, list) and len(items) >= 1, "audit-logs 生产分支应返回 DB 审计行"
         first = items[0]
         assert first["action"] == "custom.event"
         assert first["user_name"] == "审计测试员"

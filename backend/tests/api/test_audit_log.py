@@ -36,7 +36,9 @@ class TestAuditDemoRegression:
             headers={"Authorization": f"Bearer {token}"},
         )
         assert resp.status_code == 200
-        assert "items" in resp.json()["data"]
+        body = resp.json()
+        assert "pagination" in body
+        assert isinstance(body["data"], list) and len(body["data"]) > 0
 
     async def test_logout_with_bearer_ok(self, client: AsyncClient):
         """POST 写路径（logout）经中间件审计后照常 200（demo 分支不触碰 DB）。"""
