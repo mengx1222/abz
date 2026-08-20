@@ -24,11 +24,12 @@
 
 | Release Version | **v0.1.0**（backend/pyproject.toml = 0.1.0，frontend/package.json = 0.1.0，README = v0.1.0） |
 
-| Release Status | **Internal Pilot Candidate** |
+| Release Status | **PRODUCTION CANDIDATE**（Task 42 Security Final Review；Accepted Risks 见 [security-final-review.md](security-final-review.md)） |
 
-| Git HEAD（验证时 Current main） | **`46ec5137f078ad51f9d70f2d261a5b42f7d1dc1b7`（ULTIMATE Phase 1 代码生产收尾）** |
+| Git HEAD（验证时 Current main） | **`54a812bc7a256e11123177f60bdd8be7c9e25018`（ULTIMATE 文档基线冻结；Verification Commit 9dec25d 全矩阵全绿）** |
 
-| Release Baseline Content | `9befe4b`（Task 15） |
+| Release Baseline Content | `9befe4b`（Task 15，Historical Baseline） |
+| 最新全量验证（ULTIMATE Phase 1） | **Backend 330 passed / 81 skipped · PG 59 · Vitest 107 · tsc 0 · Prod ✅**（CI @ 9dec25d） |
 
 | GitHub main HEAD | 与 HEAD 一致（default branch = main；无 force push） |
 
@@ -144,9 +145,9 @@
 
 | ~~P2-4~~ | ~~Seed 未集成到迁移~~ | ✅ **RESOLVED（Task 24）**：e2e seed 确定性加固 + 幂等测试 3 |
 
-| — | Training E2E / Growth E2E | **Planned / Remaining**（非本次范围） |
+| — | Training E2E / Growth E2E | **移出 Current**（非上线阻塞；ULTIMATE Phase 2 清理，保留于业务侧 Planned） |
 
-| — | AI Sales Agent | **Planned**（未实现） |
+| — | AI Sales Agent | ✅ **已实现并验证（Task 27/28）** |
 
 
 

@@ -10,7 +10,7 @@
 
 
 
-> Git HEAD（Current main）: `46ec5137f078ad51f9d70f2d261a5b42f7d1dc1b7`（ULTIMATE Phase 1 代码生产收尾）
+> Git HEAD（Current main）: `54a812bc7a256e11123177f60bdd8be7c9e25018`（ULTIMATE 文档基线冻结；Verification Commit：9dec25d 全矩阵全绿）
 
 
 
@@ -62,7 +62,12 @@
 
 
 
-## Current Snapshot（2026-08-20 · HEAD `46ec5137f078ad51f9d70f2d261a5b42f7d1dc1b7`（ULTIMATE Phase 1））
+> **Documentation Freeze（ULTIMATE Phase 1/2 对账后）：当前文档基线已冻结。**
+> 本仓库文档体系已与代码 + 最新 CI 证据完全对齐（Release Decision = PRODUCTION CANDIDATE；
+> 测试数字 = 330/81 @ 9dec25d 等）。**以后新 Task 只更新受影响文档，不再整仓库重写**。
+> 历史记录保留在 Historical Log / Task audit 语境，不参与 Current 状态判定。
+
+## Current Snapshot（2026-08-20 · HEAD `54a812bc7a256e11123177f60bdd8be7c9e25018`）
 
 
 
@@ -74,7 +79,7 @@
 
 | Release Status | **PRODUCTION CANDIDATE**（Task 42 Security Final Review 判定；Accepted Risks：外部告警平台/云备份/多地域灾备/滚动发布/渗透测试，详见 [security-final-review.md](security-final-review.md)） |
 
-| Backend Tests | **307 passed, 68 skipped**（Task 40 后全量云端验证：+9 redis multi-instance 由专用 workflow 真实 Redis 全跑） |
+| Backend Tests | **330 passed, 81 skipped**（ULTIMATE Phase 1 后全量云端验证 @ 9dec25d：+23 = P0-1 customer access 7 / P0-3 ip_source 4 / P0-4 jwt hard gate 4 / P1 hardening 8；PG 集成用例由 backend-pg 覆盖） |
 
 | **RAG 权限加固（Task 17B）** | **Role Filtering + Organization Filtering + Citation/SSE 防泄漏 + 拒答不降级 全部 Implemented + Tested**（tests/rag/ 35 用例 + PG 集成 5 用例；详见 [rag-permission-audit.md](rag-permission-audit.md)） |
 
@@ -105,7 +110,7 @@
 
 | P0 | 无 |
 
-| P1 | **B2 Audit Log 已 RESOLVED（Task 37）**：落库 + Repository + 关键路径接入 + 读端点生产分支；P1-3（growth course_detail Demo Only）；剩余 **B1 数据库备份 NOT IMPLEMENTED（正式生产阻塞）** |
+| P1 | **B2 Audit Log 已 RESOLVED（Task 37/37b）**：落库 + Repository + 关键路径接入 + 读端点生产分支（PG 集成 11 用例）；**B1 数据库备份 IMPLEMENTED + CLOUD VERIFIED（Task 38，Pilot 级）**：backup+restore 云端演练全绿（restored==baseline，pgvector 1536 维）；正式生产自动调度/独立对象存储/加密/WAL-PITR/多地域灾备为外部依赖；P1-3（growth course_detail Demo Only，业务侧 Planned） |
 
 | P2 | P2-1~P2-4 已收敛；Task 33/34/35/36 收敛；B1/B2（Task 37/38）收敛；Observability（39）/Redis 多实例（40）/性能基线（41）收敛；Task 42 安全终审：无 P0、无关键越权，升级 **PRODUCTION CANDIDATE**；剩余 Accepted Risks：告警平台接入、云托管备份/多地域灾备/Redis HA、滚动发布、渗透测试、localStorage token、上传病毒扫描、演示凭据轮换 |
 
@@ -153,7 +158,7 @@
 
 
 
-**当前: Phase 7 — 生产收尾与上线门禁（ULTIMATE：Phase 1 代码生产收尾已完成并云端验证；Phase 2 文档真相冻结进行中）**
+**当前: Phase 7 — Production Candidate / Pre-Production Delivery（ULTIMATE：Phase 1 代码生产收尾 + Phase 2 文档基线冻结均已完成）**
 
 
 

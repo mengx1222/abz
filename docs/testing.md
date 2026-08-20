@@ -434,3 +434,25 @@ Task 37b 增补 5 用例（`TestAuditLogPermission`）：角色越权 AGENT→40
   backup-restore 演练（Task 38）。
 - Task 42 复核未发现真正缺失的安全回归项，不造无谓测试；仓库卫生扫描 0 真实 secret。
 - 判定：**PRODUCTION CANDIDATE**（Accepted Risks 见 security-final-review.md）。
+
+
+---
+
+## 23. ULTIMATE Production Close（Task 43-Hotfix / PRODUCTION-CLOSE）
+
+### 23.1 云端验证（9dec25d 全矩阵，ULTIMATE Phase 1）
+
+- CI `backend-tests` @ 9dec25d：**Backend 330 passed / 81 skipped**；Vitest **107**；tsc 0；build ✓；Prod ✅。
+
+### 23.2 新增生产路径测试（+23 passed）
+
+| 测试文件 | 覆盖 |
+|----------|------|
+| `tests/unit/test_customer_access_production.py`（7 单元 + PG 集成 8） | P0-1 生产 AGENT assigned_to 归属：本人可见/他人拒绝/列表详情同源/HQ-TEAM 不回归/demo 不回归；P0-5 AI 分析越权"客户不存在" |
+| `tests/unit/test_conversation_persistence_production.py`（PG 集成 5） | P0-2 会话持久化：消息落库 finish_reason/sources、历史注入、user 隔离、KB 拒答 refused 落库、message_count 递增 |
+| `tests/unit/test_ip_source.py`（4） | P0-3 TRUST_PROXY：伪造 XFF/X-Real-IP 不生效、可信头生效、unknown 兜底 |
+| `tests/unit/test_jwt_secret_hard_gate.py`（4） | P0-4 production 默认/空密钥启动 RuntimeError、强密钥 OK、development 不拦截 |
+| `tests/unit/test_security_hardening.py`（8） | P1-1 uuid→401；P1-2 路由模板聚合；P1-3 rerank 401/403 不回退（5xx 回退）；P1-5 DEBUG 不泄露；P1-6 认证统一提示 |
+
+> 说明：P0-2/P0-1/P0-5 的 PG 集成用例在 `backend-pg` job（真实 PG16+pgvector）运行；
+> unit job 中因无 AZB_TEST_DATABASE_URL 自动跳过（计入 skipped）。
