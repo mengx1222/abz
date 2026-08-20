@@ -267,3 +267,29 @@ class TestCustomerServiceProductionAgent:
         svc = CustomerService(session)
         ok = await svc.delete_customer(self.c_other.id, current_user=self.agent_a)
         assert ok is False
+
+    async def test_ai_analysis_other_denied(self, session: AsyncSession):
+        """ULTIMATE P0-5：他人客户触发 AI 分析 → “客户不存在”（无权限 404 语义）。"""
+        from app.services.customer_service import CustomerService
+        svc = CustomerService(session)
+        events = []
+        async for ev in svc.ai_analysis_stream(
+            self.c_other.id, current_user=self.agent_a,
+        ):
+            events.append(ev)
+        joined = "\n".join(events)
+        assert "客户不存在" in joined
+        assert "analysis_start" not in joined  # 未进入分析流程
+
+    async def test_ai_analysis_own_allowed(self, session: AsyncSession):
+        """ULTIMATE P0-5：本人客户可进入分析流程（analysis_start 事件）。"""
+        from app.services.customer_service import CustomerService
+        svc = CustomerService(session)
+        seen_start = False
+        async for ev in svc.ai_analysis_stream(
+            self.c_own.id, current_user=self.agent_a,
+        ):
+            if "analysis_start" in ev:
+                seen_start = True
+                break  # 在 gateway 调用前停止（避免真实 AI 依赖）
+        assert seen_start is True

@@ -600,15 +600,28 @@ class CustomerService:
     # ------------------------------------------------------------------
 
     async def ai_analysis_stream(
-        self, customer_id: uuid.UUID
+        self, customer_id: uuid.UUID, current_user: User | None = None
     ) -> AsyncGenerator[str, None]:
-        """对指定客户进行 AI 分析，返回 SSE 事件流。"""
+        """对指定客户进行 AI 分析，返回 SSE 事件流。
+
+        ULTIMATE P0-5：生产分支先做权限校验（can_access_customer，与详情判定同源），
+        无权限/不存在统一返回“客户不存在”（不泄露存在性，避免跨租户 PII 泄露）。
+        """
         # 获取客户上下文
         customer: dict | None = None
         if settings.DEMO_MODE:
             customer = self._demo_get_detail(str(customer_id))
         else:
             c_obj = await self.customer_repo.get_by_id_active(customer_id)
+            if c_obj is not None:
+                # ULTIMATE P0-5：权限校验（生产 AGENT 校验 assigned_to 归属）
+                if current_user is not None:
+                    checker = DataPermissionChecker(current_user)
+                    if not checker.can_access_customer(
+                        str(c_obj.organization_id),
+                        str(c_obj.assigned_to) if c_obj.assigned_to else None,
+                    ):
+                        c_obj = None
             if c_obj:
                 customer = self._customer_detail_to_dict(c_obj)
 

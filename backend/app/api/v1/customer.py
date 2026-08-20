@@ -323,7 +323,9 @@ async def ai_analysis(
     async def event_stream() -> AsyncGenerator[str, None]:
         yield f"event: connected\ndata: {{\"request_id\": \"{request_id}\"}}\n\n"
         try:
-            async for event in service.ai_analysis_stream(customer_id):
+            async for event in service.ai_analysis_stream(
+                customer_id, current_user=current_user,
+            ):
                 yield event
         except Exception as e:
             logger.error(
