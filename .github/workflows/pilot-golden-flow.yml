@@ -1,0 +1,94 @@
+name: Pilot Golden Flow (Internal Pilot)
+
+# ULTIMATE Pilot Validation — 服务级真实业务闭环验证。
+# 环境：PG16+pgvector + Redis + backend（DEMO_MODE=false）+ 当前 Pilot seed + 真实 AI（opt-in secret）。
+# 运行 scripts/pilot_golden_flow.py：Seed 完整性 / 权限 / RAG+Citation+REFUSE / Agent / Training / Growth 连续性。
+# workflow_dispatch 手动触发（含真实 AI Key 时走真实 DashScope/Qwen）；push 到脚本路径也触发（幂等）。
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "backend/scripts/pilot_golden_flow.py"
+      - ".github/workflows/pilot-golden-flow.yml"
+  workflow_dispatch:
+
+jobs:
+  pilot-golden-flow:
+    runs-on: ubuntu-latest
+    timeout-minutes: 40
+    services:
+      postgres:
+        image: pgvector/pgvector:pg16
+        env:
+          POSTGRES_USER: abz_user
+          POSTGRES_PASSWORD: abz_dev_2026
+          POSTGRES_DB: anzhenbao
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U abz_user -d anzhenbao"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+      redis:
+        image: redis:7-alpine
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 20
+
+    env:
+      AZB_APP_ENV: production
+      AZB_DEBUG: "false"
+      AZB_DEMO_MODE: "false"
+      AZB_DATABASE_URL: postgresql+asyncpg://abz_user:abz_dev_2026@localhost:5432/anzhenbao
+      AZB_REDIS_URL: redis://localhost:6379/1
+      AZB_JWT_SECRET_KEY: pilot-golden-flow-secret
+      AZB_AI_PROVIDER: ${{ secrets.AZB_AI_PROVIDER || 'qwen' }}
+      AZB_AI_API_KEY: ${{ secrets.AZB_AI_API_KEY || '' }}
+      AZB_AI_BASE_URL: ${{ secrets.AZB_AI_BASE_URL || 'https://dashscope.aliyuncs.com/compatible-mode/v1' }}
+      AZB_AI_MODEL: ${{ secrets.AZB_AI_MODEL || 'qwen-plus' }}
+      AZB_AI_EMBEDDING_MODEL: ${{ secrets.AZB_AI_EMBEDDING_MODEL || 'text-embedding-v3' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install backend deps
+        run: |
+          cd backend
+          pip install -e ".[dev]"
+          pip install psycopg2-binary redis requests
+
+      - name: Migrate + seed (Pilot data)
+        run: |
+          cd backend
+          alembic upgrade head
+          python -m scripts.seed
+          python scripts/e2e_seed_knowledge.py
+
+      - name: Run Pilot Golden Flow validation
+        run: |
+          cd backend
+          if [ -z "$AZB_AI_API_KEY" ]; then
+            export AZB_AI_PROVIDER=mock
+            echo "PILOT_AI=NOT_RUN (no AZB_AI_API_KEY secret) — using mock for RAG/Agent logic"
+          else
+            echo "PILOT_AI=REAL ($AZB_AI_PROVIDER / $AZB_AI_MODEL)"
+          fi
+          python -m scripts.pilot_golden_flow
+
+      - name: Upload validation results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: pilot-golden-flow
+          path: /tmp/pilot_golden_flow.json
+          retention-days: 7
