@@ -9,6 +9,14 @@ name: Real AI Performance Layer C
 # 触发：Actions → Real AI Performance Layer C → Run workflow
 
 on:
+  # opt-in 语义：默认仅 workflow_dispatch 手动触发；push 到 benchmark 自身路径才自动触发
+  # （修改 benchmark 脚本/本 workflow 后需重新验证，与 pilot-golden-flow 同模式），
+  # 普通 push（业务代码/文档）不会运行本 benchmark，避免消耗模型费用。
+  push:
+    branches: [main]
+    paths:
+      - "backend/scripts/real_ai_layer_c_benchmark.py"
+      - ".github/workflows/real-ai-layer-c.yml"
   workflow_dispatch:
     inputs:
       repeat:
