@@ -10,11 +10,11 @@
 
 
 
-> Git HEAD（Current main，Task 18 验证时）: 见 GitHub main（Task 17B-Hotfix 之后为 Task 18 Growth E2E 提交）
+> Git HEAD（Current main）: `9dec25d1f271aca56e8595914feaf249ba10230e`（ULTIMATE Phase 1 代码生产收尾）
 
 
 
-> Release Baseline Content（Task 15）: `9befe4b`（v0.1.0 Internal Pilot Candidate 基线）
+> Release Baseline Content（历史基线，Task 15）: `9befe4b`（v0.1.0 Internal Pilot Candidate 基线——历史概念；当前状态以 Current Snapshot 为准）
 
 
 
@@ -22,11 +22,11 @@
 
 
 
-> 发布就绪状态: **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md)）
+> 发布就绪状态: **PRODUCTION CANDIDATE**（Task 42 Security Final Review 判定；详见 [release-readiness.md](release-readiness.md)）
 
 
 
-> 上一轮 Task: Task 42（Security Final Review + Production Candidate Final Gate）
+> 上一轮 Task: ULTIMATE Phase 1 — PRODUCTION-CLOSE（P0×5 + P1-1~P1-6 全部实现并云端验证；P1-7 refresh 吊销记录为 Accepted Risk）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-20 · HEAD Task 42（58cca41））
+## Current Snapshot（2026-08-20 · HEAD `9dec25d1f271aca56e8595914feaf249ba10230e`（ULTIMATE Phase 1））
 
 
 
@@ -109,7 +109,7 @@
 
 | P2 | P2-1~P2-4 已收敛；Task 33/34/35/36 收敛；B1/B2（Task 37/38）收敛；Observability（39）/Redis 多实例（40）/性能基线（41）收敛；Task 42 安全终审：无 P0、无关键越权，升级 **PRODUCTION CANDIDATE**；剩余 Accepted Risks：告警平台接入、云托管备份/多地域灾备/Redis HA、滚动发布、渗透测试、localStorage token、上传病毒扫描、演示凭据轮换 |
 
-| Current Next Tasks | 见「Current Next Tasks」节（Training/Growth E2E、TS 清理、AI Sales Agent） |
+| Current Next Tasks | 见「Current Next Tasks」节（Accepted Risks 收敛 + 业务/低影响项） |
 
 
 
@@ -153,7 +153,7 @@
 
 
 
-**当前: Phase 6 — 内部试点发布准备（部分完成）**
+**当前: Phase 7 — 生产收尾与上线门禁（ULTIMATE：Phase 1 代码生产收尾已完成并云端验证；Phase 2 文档真相冻结进行中）**
 
 
 
@@ -2069,13 +2069,13 @@
 
 |------|------|------|
 
-| 成长课程体系 | growth course_detail 落库（P1-3） | Planned（真实未完成） |
+| 生产收尾 P0/P1 | ULTIMATE Phase 1 已完成：P0-1 AGENT 客户访问（assigned_to 同源）、P0-2 会话历史持久化（迁移 0011）、P0-3 限流来源可信化（TRUST_PROXY）、P0-4 JWT 弱密钥硬校验、P0-5 AI 分析权限校验、P1-1~P1-6 加固；P1-7 refresh 吊销评估为 Accepted Risk（随 localStorage 迁移评估） | ✅ 已修复（ULTIMATE Phase 1，云端验证） |
 
-| Growth E2E | Playwright 阶段三（Growth 黄金链） | Planned |
+| Accepted Risks 收敛 | 外部告警平台接入 / 云托管备份+多地域灾备+Redis HA / 滚动发布 / 正式渗透测试 / localStorage token 迁移（内存+refresh，含 refresh 吊销评估）/ 上传病毒扫描 / 演示凭据轮换 / 真实硬件与真实 AI 性能基准 | Planned（Task 42 + ULTIMATE P1-7 记录，升级 PRODUCTION READY 前置） |
 
-| Accepted Risks 收敛 | 外部告警平台接入 / 云托管备份+多地域灾备+Redis HA / 滚动发布 / 正式渗透测试 / 演示凭据轮换 / 真实硬件与真实 AI 性能基准 | Planned（Task 42 记录，升级 PRODUCTION READY 前置） |
+| 业务/低影响 | growth course_detail 落库（P1-3）；真实知识库文档/试点数据准备（业务侧） | Planned（真实未完成） |
 
-> 已收敛（移出）：~~前端 TS 清理（Task 19，tsc -b 0）~~、~~AI Sales Agent（Task 27/28 已实现并验证）~~。
+> 已收敛（移出）：~~前端 TS 清理（Task 19，tsc -b 0）~~、~~AI Sales Agent（Task 27/28 已实现并验证）~~、~~Growth E2E（阶段三非上线阻塞，移出 Current）~~。
 
 
 

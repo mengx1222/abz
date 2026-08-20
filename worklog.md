@@ -3067,3 +3067,35 @@ Stage Summary:
 
 - 文档现实同步：Current Snapshot 与代码/CI 一致；过时数字（Playwright/迁移/端点/路由）清零；虚构账号与废弃 make init 流程移除；
   历史记录保留；Release 判定全仓库统一为 PRODUCTION CANDIDATE
+
+---
+
+Task ID: 65
+
+Agent: main
+
+Task: Task 43-Hotfix — Final Documentation Truth Fix（ULTIMATE Phase 2，纯文档，100% Cloud-only）
+
+Work Log:
+
+- 基线 main@9dec25d（ULTIMATE Phase 1 代码生产收尾完成）；备份分支 backup/docs-final-truth-fix-20260820-2130
+- 修正（Commit 1「docs: finalize current status truth」）：
+  - project-status.md 顶部：Git HEAD（Current main）→ 9dec25d；Release Baseline Content 标注为历史基线（Task 15）；
+    发布就绪状态 Internal Pilot Candidate → **PRODUCTION CANDIDATE**；上一轮 Task → ULTIMATE Phase 1；
+    Current Snapshot 标题 HEAD → 9dec25d；Current Next Tasks 引用去掉已完成项；Current Phase →
+    Phase 7 生产收尾与上线门禁；Current Next Tasks 节重写（生产收尾 P0/P1 标注已修复 + Accepted Risks
+    收敛含 localStorage 迁移与 refresh 吊销评估 + 业务/低影响项；移除 Growth E2E）
+  - README.md：Alembic 7→10 迁移（head=0011）；alembic/versions 7→10；前端路由 21→22
+  - release-verification.md：Git HEAD（验证时 Current main）→ 9dec25d
+- Phase 1 事实（ULTIMATE PRODUCTION-CLOSE，7 commits bbe7853→9dec25d）：P0-1 AGENT 客户访问（assigned_to 同源，
+  列表/详情一致）；P0-2 会话历史持久化（ConversationRepository + 迁移 0011 finish_reason + 列表/详情 user 隔离 404）；
+  P0-3 TRUST_PROXY（默认忽略伪造 XFF，rate_limit/audit 同策略）；P0-4 production 默认 JWT 密钥启动 RuntimeError；
+  P0-5 AI 客户分析补权限校验（无权限 404 语义）；P1-1 uuid→401；P1-2 限流路由模板聚合；P1-3 rerank 401/403 不回退；
+  P1-4 话术失败不落库（现状已满足，验证记录）；P1-5 DEBUG 不泄露异常详情；P1-6 认证统一提示 + 不记录问题原文；
+  P1-7 refresh 吊销 → Accepted Risk（security-final-review §Accepted Risks #8）
+- 历史记录（worklog/Historical Log/Task audit 旧数字旧状态）保留不改写；未发现真实 secret；无业务代码修改
+
+Stage Summary:
+
+- 文档真相冻结：Current Snapshot/Release 判定/数字与代码+CI 证据一致；Release Decision 全仓库统一
+  PRODUCTION CANDIDATE；历史保留；main == origin/main

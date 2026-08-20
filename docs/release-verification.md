@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 42（Security Final Review + Production Candidate Gate，58cca41）** |
+| Git HEAD（验证时 Current main） | **`9dec25d1f271aca56e8595914feaf249ba10230e`（ULTIMATE Phase 1 代码生产收尾）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 

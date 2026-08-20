@@ -100,7 +100,7 @@
 | FastAPI | >=0.115 | Web 框架（SSE 流式） |
 | SQLAlchemy 2.0 | >=2.0.30 | ORM（异步） |
 | asyncpg | >=0.29 | PostgreSQL 异步驱动 |
-| Alembic | >=1.13 | 数据库迁移（7 个迁移，30 张表） |
+| Alembic | >=1.13 | 数据库迁移（10 个迁移，head=0011_message_finish_reason） |
 | pgvector | >=0.3 | 向量检索（1536 维） |
 | Redis | >=5.0（服务端 7） | 缓存 / 限流 |
 | Pydantic v2 | >=2.7 | 数据校验 |
@@ -134,14 +134,14 @@
 │   │   ├── ai/               # AI Gateway + Providers（mock/openai/deepseek/qwen）
 │   │   ├── rag/              # RAG：retriever（向量+BM25+RRF）/ pipeline / safety（拒答+置信度）
 │   │   └── utils/
-│   ├── alembic/versions/     # 7 个迁移
+│   ├── alembic/versions/     # 10 个迁移
 │   ├── scripts/              # seed.py / e2e_seed_knowledge.py / phase* 验证脚本
 │   ├── tests/                # pytest（单元 + API 集成 + PG 集成）
 │   ├── Dockerfile
 │   └── pyproject.toml        # hatchling 构建（无 requirements.txt/setup.py）
 ├── frontend/                 # React + Vite + TS 前端
 │   ├── src/
-│   │   ├── app/              # 路由（21 条）
+│   │   ├── app/              # 路由（22 条）
 │   │   ├── features/         # 页面（auth/dashboard/customers/product-qa/scripts/training/community/growth/...）
 │   │   ├── components/       # UI 组件
 │   │   ├── services/         # API 客户端（含 SSE 流式）
