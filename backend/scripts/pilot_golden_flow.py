@@ -194,24 +194,22 @@ async def verify_rag(session: AsyncSession, agent: User) -> None:
                bool(top.document_title) and bool(top.metadata.get("heading", "") or top.metadata.get("section", "")),
                f"citation: title={top.document_title!r}, section={top.metadata.get('section', '')!r}")
 
-    # 2) 无依据问题 → REFUSE（不编造产品条款）
-    # 注意：mock embedding 为确定性伪向量，无语义区分（无关 query 也恒返回相近分数），
-    # 语义拒答仅在真实 AI Provider 下可验证 → mock 下标记 NOT_RUN（不假装通过）。
-    if settings.AI_PROVIDER == "mock":
-        record("rag.refuse_no_hallucination", True,
-               "NOT_RUN（AI_PROVIDER=mock：伪向量无语义区分，REFUSE 需真实 AI 验证）")
-        return
+    # 2) 无依据产品 → REFUSE（product_type 边界，Task 17B 语义，不编造产品条款）。
+    # 注意：REFUSE 的真实机制是「检索按 product_type 精确过滤」——KB 仅 6 chunks 时
+    # top_k=8 恒返回全部（RRF 分数恒高于阈值 0.3），语义分数阈值在此规模下无法触发。
+    # 因此用「知识库中不存在的产品」验证 product_type 边界 REFUSE（mock/真实 AI 均可验证）。
     results_n, _ = await pipeline.query(
-        question="如何判断一颗行星上是否存在液态水？",
+        question="量子保险的保费和理赔流程是什么？",
         top_k=8,
+        product_type="量子保险",
         user_roles=roles,
         org_id=org_id,
         accessible_org_ids=checker.filter_accessible_org_ids(),
     )
-    refuse_n, top_score_n, _ = should_refuse_answer(results_n)
+    refuse_n, top_score_n, count_n = should_refuse_answer(results_n)
     record("rag.refuse_no_hallucination",
-           refuse_n or len(results_n) == 0,
-           f"results={len(results_n)}, refuse={refuse_n}, top_score={top_score_n:.3f}（无依据不编造）")
+           refuse_n or count_n == 0,
+           f"results={count_n}, refuse={refuse_n}, top_score={top_score_n:.3f}（product_type 边界 REFUSE，不编造产品条款）")
 
 
 # ------------------------------------------------------------------
