@@ -95,9 +95,9 @@ security_scheme = HTTPBearer(auto_error=False)
 
 
 async def get_current_user(
+    request: Request,
     credentials: HTTPAuthorizationCredentials = Depends(security_scheme),
     db: AsyncSession = Depends(get_db),
-    request: Request,
 ) -> User:
     """FastAPI 依赖：从 JWT token 中解析当前用户。"""
     if credentials is None:
