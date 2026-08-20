@@ -96,17 +96,24 @@ class TestProductionAgentCustomerAccess:
         assert checker.can_access_customer(str(OTHER_ORG_ID), str(agent.id)) is False
 
     def test_restrict_to_own_customers(self, monkeypatch):
-        """restrict_to_own_customers：prod AGENT True；demo AGENT / HQ prod False。"""
+        """restrict_to_own_customers：prod 环境 AGENT True；demo 环境 demo AGENT False；HQ prod False。"""
         monkeypatch.setattr(settings, "DEMO_MODE", False)
         prod_agent = _make_user(role_code="AGENT", demo_mode=False)
-        demo_agent = _make_user(role_code="AGENT", demo_mode=True)
         hq = _make_user(role_code="HQ_ADMIN", demo_mode=False)
         assert DataPermissionChecker(prod_agent).restrict_to_own_customers() is True
-        assert DataPermissionChecker(demo_agent).restrict_to_own_customers() is False
         assert DataPermissionChecker(hq).restrict_to_own_customers() is False
+        # demo 环境（DEMO_MODE=True）+ demo 用户 → 宽松（不 restrict）
+        monkeypatch.setattr(settings, "DEMO_MODE", True)
+        demo_agent = _make_user(role_code="AGENT", demo_mode=True)
+        assert DataPermissionChecker(demo_agent).restrict_to_own_customers() is False
+        # production 环境 + demo 用户标记 → 仍 restrict（ULTIMATE Pilot：不绕过）
+        monkeypatch.setattr(settings, "DEMO_MODE", False)
+        prod_env_demo_user = _make_user(role_code="AGENT", demo_mode=True)
+        assert DataPermissionChecker(prod_env_demo_user).restrict_to_own_customers() is True
 
-    def test_demo_agent_org_visible_no_regression(self):
-        """demo AGENT 同机构可见（不回归）。"""
+    def test_demo_agent_org_visible_no_regression(self, monkeypatch):
+        """demo 环境（DEMO_MODE=True）+ demo AGENT：同机构可见（demo 宽松不回归）。"""
+        monkeypatch.setattr(settings, "DEMO_MODE", True)
         agent = _make_user(role_code="AGENT", demo_mode=True, user_id=uuid.uuid4())
         checker = DataPermissionChecker(agent)
         assert checker.can_access_customer(str(ORG_ID)) is True

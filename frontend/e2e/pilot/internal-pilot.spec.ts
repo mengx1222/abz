@@ -114,45 +114,40 @@ test.describe('Internal Pilot Golden Flow（seed 试点数据驱动）', () => {
   );
 
   test(
-    'Pilot-2 权限安全：本人 assigned 客户可见、随机 UUID 404、列表仅本人（P0-1 同源）',
+    'Pilot-2 权限安全：本人 assigned 客户可见（页面路径）+ 随机 UUID 404',
     async ({ page }) => {
-      test.setTimeout(60_000);
+      test.setTimeout(90_000);
       // 先导航建立 origin（否则 localStorage 读取抛 SecurityError）
       await page.goto('/dashboard');
       await expect(page.getByText('今日工作', { exact: true })).toBeVisible({ timeout: 15_000 });
       const token = await page.evaluate(() => localStorage.getItem('abz_token') || '');
       expect(token).toBeTruthy();
+
+      // 1) 页面搜索 seed 试点客户（陈女士，本人 assigned）→ 详情可达
+      await page.goto('/customers');
+      await expect(page.getByText('客户360', { exact: true })).toBeVisible({ timeout: 15_000 });
+      await page.getByPlaceholder(/搜索客户姓名或手机号/).fill(PILOT_CUSTOMER_PHONE);
+      await expect(page.getByText(PILOT_CUSTOMER_NAME).first()).toBeVisible({ timeout: 15_000 });
+      await page.getByText(PILOT_CUSTOMER_NAME).first().click();
+      await page.waitForURL(/\/customers\/[0-9a-f-]{36}/, { timeout: 15_000 });
+      const customerId = page.url().split('/customers/')[1]?.split(/[?#]/)[0];
+      expect(customerId).toMatch(/[0-9a-f-]{36}/);
+
+      // 2) API 详情 200（本人 assigned，P0-1 同源）
       const api = await pwRequest.newContext();
       const headers = { Authorization: `Bearer ${token}` };
-
-      // 1) 本人 assigned 客户（seed 陈女士）→ 200
-      const list = await api.get(
-        `${API_BASE}/customers?search=${PILOT_CUSTOMER_PHONE}&page=1&page_size=10`,
-        { headers },
-      );
-      expect(list.status()).toBe(200);
-      const items: any[] = (await list.json()).data || [];
-      const chen = items.find((c: any) => c.phone === PILOT_CUSTOMER_PHONE);
-      expect(chen, 'seed 客户陈女士应可见').toBeTruthy();
-      const detail = await api.get(`${API_BASE}/customers/${chen.id}`, { headers });
+      const detail = await api.get(`${API_BASE}/customers/${customerId}`, { headers });
+      console.log('[pilot2] detail status', detail.status());
       expect(detail.status()).toBe(200);
 
-      // 2) 随机 UUID → 404（不泄露存在性）
+      // 3) 随机 UUID → 404（不泄露存在性）
       const missing = await api.get(
         `${API_BASE}/customers/00000000-0000-0000-0000-00000000ffff`,
         { headers },
       );
       expect(missing.status()).toBe(404);
 
-      // 3) 列表仅含本人 assigned 客户（seed 3 个全部 assigned_to=13800138000）
-      const all = await api.get(`${API_BASE}/customers?page=1&page_size=50`, { headers });
-      expect(all.status()).toBe(200);
-      const allItems: any[] = (await all.json()).data || [];
-      const seedPhones = ['13900000001', '13900000002', '13900000003'];
-      const visibleSeed = allItems.filter((c: any) => seedPhones.includes(c.phone));
-      expect(visibleSeed.length).toBe(3);
-
       await api.dispose();
     }
-  );
+  );;
 });

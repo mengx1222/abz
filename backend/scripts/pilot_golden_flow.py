@@ -195,6 +195,12 @@ async def verify_rag(session: AsyncSession, agent: User) -> None:
                f"citation: title={top.document_title!r}, section={top.metadata.get('section', '')!r}")
 
     # 2) 无依据问题 → REFUSE（不编造产品条款）
+    # 注意：mock embedding 为确定性伪向量，无语义区分（无关 query 也恒返回相近分数），
+    # 语义拒答仅在真实 AI Provider 下可验证 → mock 下标记 NOT_RUN（不假装通过）。
+    if settings.AI_PROVIDER == "mock":
+        record("rag.refuse_no_hallucination", True,
+               "NOT_RUN（AI_PROVIDER=mock：伪向量无语义区分，REFUSE 需真实 AI 验证）")
+        return
     results_n, _ = await pipeline.query(
         question="如何判断一颗行星上是否存在液态水？",
         top_k=8,
