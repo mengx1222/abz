@@ -424,3 +424,13 @@ Task 37b 增补 5 用例（`TestAuditLogPermission`）：角色越权 AGENT→40
 2. `/ready` 将默认 `redis://localhost:6379/0` 视为 not_configured → benchmark 用 `/1`。
 3. `/api/v1/ai/product-qa` 404 → 实际路由 `/api/v1/ai/product-qa/chat`。
 4. Sales Agent 422：`customer_id` 必填 → benchmark body 补齐。
+
+---
+
+## 22. Security Final Review Gate（Task 42）
+
+- 复用安全回归（全部云端全绿）：security posture 12 / RBAC / IDOR（Task 27）/ RAG permission（Task 17B，35+PG 5）/
+  citation leak / prompt injection / provider failure（test_ai_gateway）/ redaction 7（Task 39）/ audit scope 11（Task 37b）/
+  backup-restore 演练（Task 38）。
+- Task 42 复核未发现真正缺失的安全回归项，不造无谓测试；仓库卫生扫描 0 真实 secret。
+- 判定：**PRODUCTION CANDIDATE**（Accepted Risks 见 security-final-review.md）。

@@ -942,3 +942,10 @@ LOG_LEVEL=WARNING
   容量 1→10 并发 health 2.4→12.5ms（线性，0 err）；RAG 检索 0.36-0.80s；Sales Agent 28.8ms（mock）；Product QA SSE TTFE 19.5ms。
 - **结论**：基础链路毫秒级、无退化迹象；**CI Runner benchmark ≠ production capacity**；真实 AI/生产硬件性能待专项（配 secret 后手动跑层 C）。
 - 详见 [performance-baseline.md](performance-baseline.md)。
+
+## 15. Production Candidate Gate（Task 42）
+
+- 安全终审：**PRODUCTION CANDIDATE**（无 P0、无关键越权；B1/B2 云端验证；仓库无 secret）。
+- **升级 PRODUCTION READY 前 Accepted Risks**：外部告警平台接入（Prometheus/Alertmanager、云日志/Sentry）、
+  云厂商托管数据库备份/多地域灾备/Redis HA、滚动发布、正式渗透测试、演示凭据轮换。
+- 详见 [security-final-review.md](security-final-review.md)。

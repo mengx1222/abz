@@ -26,7 +26,7 @@
 
 | Release Status | **Internal Pilot Candidate** |
 
-| Git HEAD（验证时 Current main） | **Task 41（Performance Benchmark + Capacity Baseline，0d47da0）** |
+| Git HEAD（验证时 Current main） | **Task 42（Security Final Review + Production Candidate Gate，58cca41）** |
 
 | Release Baseline Content | `9befe4b`（Task 15） |
 
@@ -198,11 +198,11 @@
 
 
 
-**Internal Pilot: YES** → 判定 **READY FOR INTERNAL PILOT**（详细判定见 [release-readiness.md](release-readiness.md)）。
+**Internal Pilot: YES；Production Candidate: YES**（Task 42 Security Final Review）→ 判定 **PRODUCTION CANDIDATE**（Accepted Risks：外部告警平台、云托管备份/多地域灾备/Redis HA、滚动发布、渗透测试；详见 [security-final-review.md](security-final-review.md)）。
 
 
 
-> 注意：**READY FOR INTERNAL PILOT** ≠ PRODUCTION READY。进入生产前须：恢复前端 tsc 门禁、收敛 P1/P2、生产部署演练、安全复审。
+> 注意：**PRODUCTION CANDIDATE** ≠ PRODUCTION READY。升级生产前须收敛 Accepted Risks：外部告警平台接入、云托管数据库备份/多地域灾备/Redis HA、滚动发布、正式渗透测试、演示凭据轮换。
 
 
 | Real AI Sales Agent Smoke | **opt-in / workflow_dispatch**（phase10 黄金链，需 Secrets；无 key 时 NOT RUN） | CI `real-ai-smoke` |

@@ -8,7 +8,7 @@
 
 > 项目版本：`0.1.0`（pyproject）
 
-> 判定：**READY FOR INTERNAL PILOT**（尚未生产部署）
+> 判定：**PRODUCTION CANDIDATE**（Task 42 Security Final Review；Accepted Risks 见 §5）
 
 
 
@@ -126,7 +126,7 @@ Playwright:                 27/27 PASS（Task 29，含 GF-1 Golden Business Flow
 
 Production Validation:      PASS（Task 29 最终代码 2f183e3）
 
-Known:                      无 P0；~~P1 B1~~ IMPLEMENTED/CLOUD VERIFIED（Task 38）；~~P2 B2~~ RESOLVED（Task 37/37b）；Observability **Signals Ready**（Task 39）；~~多实例 Redis~~ IMPLEMENTED/CLOUD VERIFIED（Task 40）；~~性能基准~~ **Cloud CI Capacity Baseline 已建立（Task 41，非 SLA）**；仍差：告警平台接入、Redis 高可用、真实硬件/真实 AI 性能基准、凭据轮换、安全复审、滚动发布
+Known:                      无 P0；B1/B2 已收敛（Task 37/38 云端验证）；Observability Signals Ready（39）；Redis 多实例共享（40）；Cloud CI 性能基线（41）；Task 42 安全终审升级 **PRODUCTION CANDIDATE**；Accepted Risks：外部告警平台、云托管备份/多地域灾备/Redis HA、滚动发布、渗透测试、localStorage token、上传病毒扫描、演示凭据轮换、真实硬件/真实 AI 性能基准
 
 ```
 
@@ -144,7 +144,7 @@ Known:                      无 P0；~~P1 B1~~ IMPLEMENTED/CLOUD VERIFIED（Task
 
 | READY FOR INTERNAL DEMO | 可演示 | — |
 
-| **READY FOR INTERNAL PILOT** | 内部试点：真实环境核心链路全验证，剩余项为低风险改进 | ✅ **当前状态（Task 30 复核 + Task 36 RC Final Audit 再确认）** |
+| **PRODUCTION CANDIDATE** | 核心安全与灾备通过（无 P0/无关键越权/B1-B2 云端验证/仓库无 secret）；缺外部监控、云托管备份、多地域灾备、滚动发布、正式渗透测试 = Accepted Risks | ✅ **当前状态（Task 42 Security Final Review）** |
 
 | PRODUCTION READY | 生产上线：需完成 P1/P2 收敛、生产 Secret 管理、安全加固复审 | 未达到 |
 

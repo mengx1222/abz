@@ -725,3 +725,9 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 ---
 
 > **Task 37 — Audit Log 持久化（P1 B2 RESOLVED）**：AuditMiddleware 的 `write_audit_to_db` 由 structlog stub 升级为真实落库（独立 session + 失败不影响主业务）；新增 `repositories/audit_log_repository.py`（create/list/query_by_user/query_by_resource）；`get_current_user` 回写 `request.state.user` 供中间件归属操作人；KB/Document/Auth 关键路径显式审计；`GET /admin/audit-logs` 生产分支读取真实审计数据（demo 分支保留）。表结构由 0006+0007 迁移提供（含 request_id），无需新迁移。
+
+---
+
+> **Task 42 — Security Final Review（PRODUCTION CANDIDATE 判定）**：25 项安全域全量复核（源码+测试+云端证据）。
+> 无 P0、无关键权限越权；B1 Backup/Restore 与 B2 Audit Log 真实云端验证通过；仓库 secret 全量扫描 0 真实命中；
+> 前端 localStorage token / 上传病毒扫描 / 演示凭据为 Accepted Risks。详见 [security-final-review.md](security-final-review.md)。

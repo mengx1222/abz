@@ -26,7 +26,7 @@
 
 
 
-> 上一轮 Task: Task 41（Performance Benchmark + Capacity Baseline）
+> 上一轮 Task: Task 42（Security Final Review + Production Candidate Final Gate）
 
 
 
@@ -62,7 +62,7 @@
 
 
 
-## Current Snapshot（2026-08-20 · HEAD Task 41（0d47da0））
+## Current Snapshot（2026-08-20 · HEAD Task 42（58cca41））
 
 
 
@@ -72,7 +72,7 @@
 
 | Release Version | **v0.1.0**（pyproject / package.json / README 一致） |
 
-| Release Status | **Internal Pilot Candidate**（详见 [release-readiness.md](release-readiness.md) + [release-verification.md](release-verification.md)） |
+| Release Status | **PRODUCTION CANDIDATE**（Task 42 Security Final Review 判定；Accepted Risks：外部告警平台/云备份/多地域灾备/滚动发布/渗透测试，详见 [security-final-review.md](security-final-review.md)） |
 
 | Backend Tests | **307 passed, 68 skipped**（Task 40 后全量云端验证：+9 redis multi-instance 由专用 workflow 真实 Redis 全跑） |
 
@@ -107,7 +107,7 @@
 
 | P1 | **B2 Audit Log 已 RESOLVED（Task 37）**：落库 + Repository + 关键路径接入 + 读端点生产分支；P1-3（growth course_detail Demo Only）；剩余 **B1 数据库备份 NOT IMPLEMENTED（正式生产阻塞）** |
 
-| P2 | P2-1~P2-4 已收敛（Task 24/32）；ErrorBoundary（Task 33）/上传大小限制（Task 34）/版本-构建-种子一致性（Task 35）已收敛；Task 36 RC 审计复核无新增（维持 READY FOR INTERNAL PILOT）；剩余：token localStorage、环境 badge、Redis no-op |
+| P2 | P2-1~P2-4 已收敛；Task 33/34/35/36 收敛；B1/B2（Task 37/38）收敛；Observability（39）/Redis 多实例（40）/性能基线（41）收敛；Task 42 安全终审：无 P0、无关键越权，升级 **PRODUCTION CANDIDATE**；剩余 Accepted Risks：告警平台接入、云托管备份/多地域灾备/Redis HA、滚动发布、渗透测试、localStorage token、上传病毒扫描、演示凭据轮换 |
 
 | Current Next Tasks | 见「Current Next Tasks」节（Training/Growth E2E、TS 清理、AI Sales Agent） |
 
