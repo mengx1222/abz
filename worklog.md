@@ -3157,3 +3157,38 @@ Stage Summary:
 
 - 内部试点前真实业务闭环验证通过（真实 AI）：seed 数据完整、权限边界正确（无绕过）、RAG/Citation/REFUSE 真实、
   Agent/Compliance/Training/Growth 数据连续；发现并修复 1 个 P1 权限语义问题；main == origin/main
+
+
+---
+
+Task ID: 68
+
+Agent: main
+
+Task: Internal Pilot Readiness Final Prep（RDY，100% Cloud-only）
+
+Work Log:
+
+- 基线 main@770e840 → 最终 HEAD（待提交后确认）；备份分支 backup/internal-pilot-readiness-20260820-2355
+- 阶段1 Pilot Dataset：seed.py PILOT_CUSTOMERS 3→5（新增赵先生=COMPLIANCE_RISK 合规高风险、孙女士=OBJECTION 异议案例，
+  tags 稳定标识）；e2e_seed_knowledge 2→3 文档 6→9 chunks（新增《销售合规与常见异议指南》product_type=通用销售话术）；
+  KB/chunk metadata dataset_tag=E2E_TEST/PILOT；test_seed_idempotency + test_e2e_seed_idempotency 幂等断言扩展
+- 阶段2 凭据轮换：config.DEMO_PASSWORD（AZB_DEMO_PASSWORD env 注入）；seed.py 不硬编码密码；global-setup.ts E2E 密码 env 覆盖；
+  E2E Test / Demo / Pilot / Production Secret 四类凭据分离；README/deployment 凭据矩阵更新；secret scan CLEAN
+- 阶段3 Real AI Layer C：backend/scripts/real_ai_layer_c_benchmark.py + .github/workflows/real-ai-layer-c.yml（opt-in，
+  workflow_dispatch + push-触发-自身路径）；实测 @ 43977ae（真实 qwen + text-embedding-v3，3 次/类）：
+  Product QA TTFB p50=542ms/total 546ms；Script Gen total p50=6,324ms；Sales Agent total p50=28.8s——
+  **27.6s 分解：话术生成(LLM) ~79%（22.7s）、RAG ~3%（883ms）、customer/activity/compliance <1%**；0/3 error
+- 阶段4 环境一致性：.env.example / backend/.env.production 补 AZB_TRUST_PROXY / AZB_DEMO_PASSWORD / AZB_AI_RERANK_MODEL；
+  docker-compose.prod（migration+seed+health）、Production Validation（DEMO_MODE=false 无 Mock fallback）、
+  tsc build gate、Redis/Backup/Audit/Observability 确认；"Internal Pilot Candidate" 仅存历史语境
+- 阶段5 docs/internal-pilot-readiness.md（检查表 READY/BLOCKED/EXTERNAL DEPENDENCY）+ docs/performance-real-ai.md（Layer C 基线）
+- **修复的真实问题**：① test_e2e_seed_idempotency 旧断言 2 docs/6 chunks → 3 docs/9 chunks；
+  ② **CustomerDetailPage.InfoField ReactNode 渲染在 <p> 内 → hydration error**（Pilot E2E console.error 监控发现，
+  P0/P1 前端结构 bug）→ 元素值改 <div> 包裹；③ benchmark 漏传 customer（TypeError）
+- CI 全绿：dafef61/5d26aec/565bb87/43977ae/b6d9a86（CI + Prod + Typecheck + E2E + Pilot GF + Layer C 各自独立验证）
+
+Stage Summary:
+
+- 正式试点前四项准备完成：Pilot Dataset 可重复脱敏权限正确、凭据四类分离无新 secret 入库、
+  Real AI Layer C 三类真实测量 + 27.6s 延迟分解、环境配置一致；Release 保持 PRODUCTION CANDIDATE

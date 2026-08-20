@@ -474,3 +474,26 @@ Task 37b 增补 5 用例（`TestAuditLogPermission`）：角色越权 AGENT→40
 - **DataPermissionChecker._is_demo 语义**（P1 级）：仅 `user.demo_mode` → 改为 `settings.DEMO_MODE and user.demo_mode`；
   production 环境（DEMO_MODE=false）下 seed 演示用户不再走 demo 宽松分支（不绕过 P0-1 assigned 隔离）；
   回归测试 `test_production_env_demo_user_still_scoped` + 对齐 2 个既有用例语义。
+
+
+---
+
+## 25. Internal Pilot Readiness Final Prep（RDY，100% Cloud-only）
+
+### 25.1 本轮验证（GitHub Actions 全绿）
+
+- **Pilot Dataset 强化**：seed.py 试点客户 3→5（新增赵先生=合规高风险 COMPLIANCE_RISK、孙女士=异议 OBJECTION，tags 标识），
+  e2e_seed_knowledge 3 文档 9 chunks（新增《安诊保销售合规与常见异议指南》product_type=通用销售话术），
+  KB/chunk metadata `dataset_tag=E2E_TEST/PILOT`；幂等（test_seed_idempotency / test_e2e_seed_idempotency 首次 1 条二次不重复）
+- **凭据轮换**：config.DEMO_PASSWORD（AZB_DEMO_PASSWORD env 注入）；seed.py 不硬编码密码；
+  global-setup.ts E2E 密码 env 覆盖（E2E Test / Demo / Pilot / Production Secret 四类分离）；secret scan CLEAN
+- **Real AI Layer C**（opt-in workflow `real-ai-layer-c`，真实 qwen + text-embedding-v3，@ 43977ae）：
+  Product QA TTFB p50=542ms；Script Gen total p50=6,324ms；Sales Agent total p50=28.8s——
+  **27.6s 分解：话术生成(LLM) ~79%（22.7s）、RAG ~3%（883ms）、工具链/合规 <1%**；0/3 error
+- **环境一致性**：.env.example / backend/.env.production 补 TRUST_PROXY / DEMO_PASSWORD / RERANK；
+  docker-compose.prod migration+seed+health、tsc build gate、Redis/Backup/Audit/Observability 全通过
+- **修复（真实问题）**：
+  1. `test_e2e_seed_idempotency` 旧断言 2 docs/6 chunks → 3 docs/9 chunks（Pilot KB 扩容）
+  2. **CustomerDetailPage.InfoField**：ReactNode（tags Badge/StarRating）渲染在 `<p>` 内 → HTML 非法嵌套
+     → hydration error（Pilot E2E console.error 监控发现）→ 元素值改 `<div>` 包裹（P0/P1 级前端结构 bug）
+- 交付文档：`docs/internal-pilot-readiness.md`（检查表）、`docs/performance-real-ai.md`（Layer C 基线）
