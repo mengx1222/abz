@@ -85,8 +85,9 @@ class TestE2eSeedIdempotency:
             await session.execute(select(KnowledgeBase).where(KnowledgeBase.name == KB_NAME))
         ).scalars().all()
         assert len(kbs) == 1
-        assert kbs[0].document_count == 2
-        assert kbs[0].total_chunks == 6
+        # RDY 阶段1：新增「销售合规与常见异议指南」文档（3 docs / 9 chunks）
+        assert kbs[0].document_count == 3
+        assert kbs[0].total_chunks == 9
 
         await _cleanup_e2e_kb(session)
 
