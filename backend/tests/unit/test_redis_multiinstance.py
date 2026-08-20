@@ -53,7 +53,10 @@ class TestAtomicIncr:
         """20 并发 INCR → 精确 20（原子性，无竞态）；key 有 TTL（无无限 key）。"""
         key = "rl:test:1.2.3.4:/api/v1/auth/login"
         results = await asyncio.gather(*[redis_incr_with_ttl(key, 3) for _ in range(20)])
-        assert [r for r in results if r is not None] == list(range(1, 21))
+        # gather 返回顺序不保证 → 集合断言（20 个唯一计数 1..20 = 原子无竞态）
+        vals = [r for r in results if r is not None]
+        assert len(vals) == 20
+        assert set(vals) == set(range(1, 21))
         ttl = await redis_ttl(key)
         assert ttl is not None and 0 < ttl <= 3
 

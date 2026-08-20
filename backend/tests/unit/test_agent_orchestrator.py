@@ -457,7 +457,8 @@ async def test_session_continuity(seed, session, monkeypatch):
         service, user=seed["user"], customer_id=str(seed["customer"].id),
         message="第一次咨询医疗险", product_type="医疗险", session_id=sid,
     )
-    s1 = service._sessions[sid]
+    # Task 40：production 分支 session 存 Redis（不在内存 dict）→ 经 _get_or_create_session 取回
+    s1 = await service._get_or_create_session(sid, None, None, None)
     assert s1.customer_id == str(seed["customer"].id)
     assert s1.product_type == "医疗险"
 
@@ -465,7 +466,7 @@ async def test_session_continuity(seed, session, monkeypatch):
         service, user=seed["user"], customer_id=str(seed["customer"].id),
         message="客户后续追问保费", session_id=sid,
     )
-    s2 = service._sessions[sid]
+    s2 = await service._get_or_create_session(sid, None, None, None)
     assert s2.product_type == "医疗险"  # 保留首次 product_type
     assert len(s2.history) >= 2  # user + assistant × 2 轮
     assert len(s2.history) <= 8  # 上限

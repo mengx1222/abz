@@ -21,6 +21,18 @@ jobs:
           cache: "pip"
       - name: Install backend dependencies
         run: pip install -e ".[dev]"
+      # Task 40：production 语义测试需要真实 Redis（rate-limit/session 共享）
+      - name: Start Redis container
+        run: |
+          docker run -d --name redis-ci -p 6379:6379 redis:7-alpine
+          for i in $(seq 1 30); do
+            if docker exec redis-ci redis-cli ping >/dev/null 2>&1; then
+              echo "REDIS_READY after ${i}x2s"
+              break
+            fi
+            sleep 2
+          done
+          docker exec redis-ci redis-cli ping
       - name: Run pytest
         run: pytest
 
@@ -79,6 +91,18 @@ jobs:
           docker exec pgvector-test pg_isready -U postgres
       - name: Install backend dependencies
         run: pip install -e ".[dev]"
+      # Task 40：production 限流/session 测试需要真实 Redis（无 Redis 时 fail-closed 503 会破坏断言）
+      - name: Start Redis container
+        run: |
+          docker run -d --name redis-pg -p 6379:6379 redis:7-alpine
+          for i in $(seq 1 30); do
+            if docker exec redis-pg redis-cli ping >/dev/null 2>&1; then
+              echo "REDIS_READY after ${i}x2s"
+              break
+            fi
+            sleep 2
+          done
+          docker exec redis-pg redis-cli ping
       - name: Run alembic migrations on PostgreSQL
         env:
           AZB_DATABASE_URL: postgresql+asyncpg://postgres:postgres@localhost:5432/anzhenbao_test
