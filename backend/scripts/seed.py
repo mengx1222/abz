@@ -229,6 +229,26 @@ PILOT_CUSTOMERS = [
 ]
 
 
+# 模板占位密码（.env.production 未修改时）：seed 必须 fail-fast，不得 fallback 默认值
+_PLACEHOLDER_PASSWORDS = ("CHANGE_ME_PILOT_STRONG_PASSWORD",)
+
+
+def validate_pilot_password() -> None:
+    """PCRED 阶段3：正式 Pilot/生产 seed 前校验 AZB_DEMO_PASSWORD 不是模板占位。
+
+    - 默认值 888888：仅 CI/Demo 环境测试凭据（E2E/CI-only），不在此处阻断；
+    - .env.production 模板占位值（CHANGE_ME_*）：真实 Pilot/生产复制模板未改密码时
+      fail-fast 报错，明确 BLOCKED —— 绝不静默使用默认/占位密码创建 Pilot 用户。
+    """
+    if settings.DEMO_PASSWORD in _PLACEHOLDER_PASSWORDS:
+        raise RuntimeError(
+            "AZB_DEMO_PASSWORD 仍为模板占位值（CHANGE_ME_PILOT_STRONG_PASSWORD）。"
+            "正式 Internal Pilot / 生产执行 seed 前必须通过 Secret/env 注入强密码"
+            "（生成: python -c 'import secrets;print(secrets.token_urlsafe(24))'）。"
+            "当前状态: BLOCKED — HUMAN SECRET ROTATION REQUIRED"
+        )
+
+
 async def seed_pilot_customers(session: AsyncSession, agent_phone: str = "13800138000") -> int:
     """幂等创建试点演示客户（含互动 + 跟进），返回本次新增数。
 
@@ -292,6 +312,8 @@ async def seed_pilot_customers(session: AsyncSession, agent_phone: str = "138001
 
 async def seed_database():
     """填充种子数据到数据库。如果数据已存在则跳过。"""
+    # PCRED 阶段3：正式 Pilot/生产环境密码占位时 fail-fast（不静默 fallback）
+    validate_pilot_password()
     engine = create_async_engine(
         settings.DATABASE_URL,
         echo=False,
