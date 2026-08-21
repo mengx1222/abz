@@ -46,8 +46,9 @@
 |------|------|------|
 | E2E Test Credential（CI-only） | READY | global-setup.ts 默认 888888 + `E2E_TEST_PASSWORD` env 覆盖（仅云端测试） |
 | Demo Credential | READY | seed.py `AZB_DEMO_PASSWORD` 注入（默认 888888 仅 CI/Demo） |
-| **Pilot Credential（正式试点）** | **BLOCKED 前置** | 试点部署时必须 `AZB_DEMO_PASSWORD` 注入强密码（Secret/env），**禁止沿用 888888**；seed 后轮换 |
+| **Pilot Credential（正式试点）** | **BLOCKED — HUMAN SECRET ROTATION REQUIRED** | 代码层已支持 Secret 注入（`AZB_DEMO_PASSWORD`）；seed fail-fast（模板占位密码 → RuntimeError，PCRED）；**人工操作**：在试点部署环境注入强密码（GitHub Secrets / 部署 secret store）后才能 READY；未注入前不得用默认/占位密码登录 |
 | Production Secrets | READY | AZB_AI_API_KEY / AZB_AI_BASE_URL / AZB_AI_MODEL / AZB_AI_EMBEDDING_MODEL 从 GitHub Secrets 注入（pilot-golden-flow / real-ai-layer-c） |
+| Secret 缺失行为 | READY（fail-fast） | seed 检测 `AZB_DEMO_PASSWORD` 模板占位（CHANGE_ME_*）→ RuntimeError（BLOCKED）；不静默 fallback（PCRED）；CI/Demo 默认 888888 仅为测试凭据 |
 | 无 secret 入库 | READY | secret scan CLEAN（无真实密码/API key/PAT/JWT/DB 密码进 Git） |
 
 ## 5. Real AI

@@ -731,3 +731,20 @@ AI 模型的输出在返回给用户之前，需要经过多层安全检查和�
 > **Task 42 — Security Final Review（PRODUCTION CANDIDATE 判定）**：25 项安全域全量复核（源码+测试+云端证据）。
 > 无 P0、无关键权限越权；B1 Backup/Restore 与 B2 Audit Log 真实云端验证通过；仓库 secret 全量扫描 0 真实命中；
 > 前端 localStorage token / 上传病毒扫描 / 演示凭据为 Accepted Risks。详见 [security-final-review.md](security-final-review.md)。
+
+
+---
+
+## PCRED 增量：Pilot Credential 分离与轮换机制（2026-08-21）
+
+- **四类凭据隔离**：E2E Test（`E2E_TEST_PASSWORD`，CI-only，默认 888888 可覆盖）/
+  Demo（`AZB_DEMO_PASSWORD` 注入，默认仅 CI/Demo）/ Pilot（正式试点 = `AZB_DEMO_PASSWORD` 注入强密码，
+  **禁止 888888**）/ Production Secret（AI/DB/JWT/Redis 走 GitHub Secrets / 外部 secret store）。
+- **代码不硬编码明文**：auth_service.DEMO_PASSWORD 改从 `settings.DEMO_PASSWORD` 读取（AZB_DEMO_PASSWORD env），
+  模块级 `"888888"` 字面量已移除；seed.py 用 settings.DEMO_PASSWORD 建号。
+- **fail-fast（缺 Secret 不静默 fallback）**：seed 检测 `AZB_DEMO_PASSWORD` 模板占位
+  （`CHANGE_ME_PILOT_STRONG_PASSWORD`）→ `RuntimeError`（BLOCKED — HUMAN SECRET ROTATION REQUIRED）。
+- **回归测试**：`backend/tests/unit/test_pilot_credential_separation.py`（默认 CI-only / 占位 fail-fast /
+  强密码通过 / auth 同源）。
+- **Secret 轮换属人工操作**：Agent 不读取、不输出、不写入真实密码；GitHub Secrets 名称/值无法通过当前
+  PAT 读取（403）——由人工在试点部署环境完成注入与轮换。

@@ -299,7 +299,7 @@ docker compose exec backend python -m app.scripts.init_demo
 | 步骤 | 操作 | 说明 |
 |------|------|------|
 | 1 | `alembic upgrade head` | 应用 10 个 Alembic 迁移（head=0010_audit_log_org_scope），建表/索引/约束 |
-| 2 | `python -m scripts.seed` | 幂等 seed：7 角色 / 21 权限 / 6 组织 / 4 演示用户（密码 `AZB_DEMO_PASSWORD` 注入，默认仅 CI/Demo 用 888888）/ 23 陪练场景 / **5 试点客户**（AGENT 演示用户名下，含互动+跟进，tags 标识 PILOT/COMPLIANCE_RISK/OBJECTION）/ 1 产品知识库（3 文档 9 chunks，复用 e2e_seed_knowledge；embedding 失败仅告警不阻塞，可稍后单独运行）（重复执行安全） |
+| 2 | `python -m scripts.seed` | 幂等 seed：7 角色 / 21 权限 / 6 组织 / 4 演示用户（密码 `AZB_DEMO_PASSWORD` 注入，默认仅 CI/Demo 用 888888）/ 23 陪练场景 / **5 试点客户**（AGENT 演示用户名下，含互动+跟进，tags 标识 PILOT/COMPLIANCE_RISK/OBJECTION）/ 1 产品知识库（3 文档 9 chunks，复用 e2e_seed_knowledge；embedding 失败仅告警不阻塞，可稍后单独运行）（重复执行安全）。**PCRED fail-fast**：`AZB_DEMO_PASSWORD` 为模板占位（CHANGE_ME_*）时 seed 直接 RuntimeError（BLOCKED），不静默 fallback |
 | 3 | `uvicorn app.main:app` | 启动后端（多 worker） |
 
 > 手动初始化：`cd backend && AZB_DATABASE_URL=... alembic upgrade head && python -m scripts.seed`

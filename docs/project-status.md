@@ -26,7 +26,9 @@
 
 
 
-> 上一轮 Task: RDY — Internal Pilot Readiness Final Prep（Pilot Dataset 强化 + 凭据轮换 + Real AI Layer C 实测 + 环境一致性；详见 [internal-pilot-readiness.md](internal-pilot-readiness.md) / [performance-real-ai.md](performance-real-ai.md)）
+> 上一轮 Task: PCRED — Pilot Credential Rotation + Environment Final Check（凭据四类分离 + seed fail-fast + 环境收口；详见 [internal-pilot-readiness.md](internal-pilot-readiness.md) / [security.md](security.md)）
+
+> 上上轮 Task: RDY — Internal Pilot Readiness Final Prep（Pilot Dataset 强化 + Real AI Layer C 实测 + 环境一致性）
 
 > 上上轮 Task: ULTIMATE Phase 1 — PRODUCTION-CLOSE（P0×5 + P1-1~P1-6 全部实现并云端验证；P1-7 refresh 吊销记录为 Accepted Risk）
 

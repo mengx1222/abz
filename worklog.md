@@ -3192,3 +3192,37 @@ Stage Summary:
 
 - 正式试点前四项准备完成：Pilot Dataset 可重复脱敏权限正确、凭据四类分离无新 secret 入库、
   Real AI Layer C 三类真实测量 + 27.6s 延迟分解、环境配置一致；Release 保持 PRODUCTION CANDIDATE
+
+
+---
+
+Task ID: 69
+
+Agent: main
+
+Task: Pilot Credential Rotation + Pilot Environment Final Check（PCRED，100% Cloud-only）
+
+Work Log:
+
+- 基线 main@eded194 → 最终 HEAD（提交后确认）；备份分支 backup/pilot-credential-final-20260821-1105
+- 阶段1-2 凭据审计：四类凭据确认——E2E Test（E2E_TEST_PASSWORD，CI-only）/ Demo（AZB_DEMO_PASSWORD 默认 CI/Demo）/
+  Pilot（正式试点 AZB_DEMO_PASSWORD 强密码）/ Production Secret（AI/DB/JWT/Redis Secrets）；**发现 auth_service.py
+  模块级硬编码 DEMO_PASSWORD="888888"** → 改为 settings.DEMO_PASSWORD（代码不含明文）
+- 阶段3-5 分离机制：seed.py 新增 validate_pilot_password() fail-fast——AZB_DEMO_PASSWORD 为模板占位
+  （CHANGE_ME_PILOT_STRONG_PASSWORD）→ RuntimeError（BLOCKED — HUMAN SECRET ROTATION REQUIRED），不静默 fallback；
+  默认 888888（CI/Demo）与强密码均通过；新增回归测试 test_pilot_credential_separation.py（4 用例）
+- 阶段4 Secret 轮换：GitHub Secrets 名称/值无法通过当前 PAT 读取（403，符合 Agent 不读 Secret 边界）→
+  标记 NEEDS HUMAN SECRET ROTATION，不假装 READY
+- 阶段6 环境检查：DEMO_MODE=false 无 Mock fallback / JWT 非默认（P0-4）/ TRUST_PROXY=false / migration+seed 幂等 /
+  Redis multi-instance / health / tsc build gate / Backup/Audit/Observability 全通过（复用前轮验证，无新增配置问题）
+- 阶段7 安全复扫：secret scan CLEAN；888888 仅存 CI/Demo 默认路径（config 默认值 + global-setup E2E 默认 + 注释），
+  无 Pilot/Production 默认路径
+- 阶段8 文档：readiness Pilot Credential → **BLOCKED — HUMAN SECRET ROTATION REQUIRED**；deployment seed 行 fail-fast；
+  security.md 凭据分离机制；project-status 顶部；本 worklog
+- 阶段9 云端验证：aedc703 CI/Prod ✅（auth 同源）；864dd54 CI 修复（测试 import app.scripts→scripts.seed）→ 1ec9dbe 复验
+
+Stage Summary:
+
+- Pilot Credential 状态：**BLOCKED — HUMAN SECRET ROTATION REQUIRED**（代码能力就绪，Secret 注入待人工）；
+  E2E/Demo/Pilot/Production 四类凭据分离完成；fail-fast 生效；secret scan CLEAN；
+  Release 保持 PRODUCTION CANDIDATE；main == origin/main
