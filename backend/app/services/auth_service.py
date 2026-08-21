@@ -22,7 +22,10 @@ from app.schemas.user import TokenResponse, UserOut
 logger = get_logger()
 
 # 演示账号配置 — 支持多个演示用户
-DEMO_PASSWORD = "888888"
+# PCRED 阶段3：密码统一从 settings.DEMO_PASSWORD 注入（AZB_DEMO_PASSWORD env / Secret），
+# 代码不硬编码明文；默认 888888 仅为 CI/Demo 环境测试凭据（E2E/CI-only），
+# 正式 Internal Pilot / 生产必须通过 Secret 注入强密码（seed fail-fast 见 validate_pilot_password）。
+DEMO_PASSWORD = settings.DEMO_PASSWORD
 
 DEMO_USERS_CONFIG = {
     "13800138000": {"name": "林思远", "role_code": "AGENT",         "role_name": "代理人"},
