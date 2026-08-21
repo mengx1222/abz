@@ -8,8 +8,8 @@
 import pytest
 
 from app.core.config import settings
-from app.scripts import seed as seed_mod
 from app.services.auth_service import DEMO_PASSWORD as AUTH_DEMO_PASSWORD
+from scripts.seed import validate_pilot_password
 
 
 class TestDemoPasswordDefaults:
@@ -28,14 +28,14 @@ class TestPilotPasswordFailFast:
         """模板占位密码（CHANGE_ME_*）→ RuntimeError（BLOCKED，不 fallback 默认值）。"""
         monkeypatch.setattr(settings, "DEMO_PASSWORD", "CHANGE_ME_PILOT_STRONG_PASSWORD")
         with pytest.raises(RuntimeError, match="BLOCKED"):
-            seed_mod.validate_pilot_password()
+            validate_pilot_password()
 
     def test_default_password_allowed_for_ci_demo(self, monkeypatch):
         """默认 888888（CI/Demo）不阻断 seed —— 仅为测试凭据，非 Pilot 登录密码。"""
         monkeypatch.setattr(settings, "DEMO_PASSWORD", "888888")
-        seed_mod.validate_pilot_password()  # 不抛异常
+        validate_pilot_password()  # 不抛异常
 
     def test_strong_password_allowed(self, monkeypatch):
         """注入强密码（Secret 轮换后）→ 通过校验。"""
         monkeypatch.setattr(settings, "DEMO_PASSWORD", "s3cr3t-pilot-strong-pass-2026")
-        seed_mod.validate_pilot_password()  # 不抛异常
+        validate_pilot_password()  # 不抛异常
