@@ -203,7 +203,7 @@ export function SettingsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-text">系统设置</h1>
-          <Badge className="bg-amber-100 text-amber-700">演示模式</Badge>
+          <Badge variant="warning">演示模式</Badge>
         </div>
         <LoadingSpinner size="lg" text="正在加载设置..." />
       </div>
@@ -215,7 +215,7 @@ export function SettingsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-text">系统设置</h1>
-          <Badge className="bg-amber-100 text-amber-700">演示模式</Badge>
+          <Badge variant="warning">演示模式</Badge>
         </div>
         <Card>
           <div className="text-center py-8 text-muted">{error}</div>
@@ -232,7 +232,7 @@ export function SettingsPage() {
           <h1 className="text-2xl font-bold text-text">系统设置</h1>
           <p className="text-sm text-muted mt-1">查看和配置系统参数（演示模式下为只读）</p>
         </div>
-        <Badge className="bg-amber-100 text-amber-700 w-fit">演示模式</Badge>
+        <Badge variant="warning" className="w-fit">演示模式</Badge>
       </div>
 
       {/* Setting Sections */}

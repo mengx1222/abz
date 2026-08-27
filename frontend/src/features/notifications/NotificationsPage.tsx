@@ -4,6 +4,8 @@ import { Card, CardTitle, CardDescription } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { Tabs } from '../../components/ui/Tabs';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../hooks/useToast';
 import {
@@ -275,30 +277,15 @@ export function NotificationsPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        <button
-          type="button"
-          onClick={() => setActiveTab('list')}
-          className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer border-b-2 -mb-px ${
-            activeTab === 'list'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-muted hover:text-text'
-          }`}
-        >
-          通知列表
-        </button>
-        <button
-          type="button"
-          onClick={() => setActiveTab('settings')}
-          className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer border-b-2 -mb-px ${
-            activeTab === 'settings'
-              ? 'border-accent text-accent'
-              : 'border-transparent text-muted hover:text-text'
-          }`}
-        >
-          通知设置
-        </button>
-      </div>
+      <Tabs
+        variant="underline"
+        items={[
+          { key: 'list', label: '通知列表' },
+          { key: 'settings', label: '通知设置' },
+        ]}
+        active={activeTab}
+        onChange={(key) => setActiveTab(key as 'list' | 'settings')}
+      />
 
       {/* ===== Notification List Tab ===== */}
       {activeTab === 'list' && (
@@ -312,20 +299,20 @@ export function NotificationsPage() {
                 onChange={(e) => setSearchQuery(e.target.value)}
               />
             </div>
-            <select
+            <Select
               value={typeFilter}
               onChange={(e) => {
                 setTypeFilter(e.target.value as NotificationType | 'all');
                 setPage(1);
               }}
-              className="h-10 rounded-lg border border-border bg-white px-3 text-sm text-text transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent cursor-pointer"
+              className="w-auto cursor-pointer"
             >
               {TYPE_FILTER_OPTIONS.map((opt) => (
                 <option key={opt.key} value={opt.key}>
                   {opt.label}
                 </option>
               ))}
-            </select>
+            </Select>
             <Button
               variant="secondary"
               size="sm"

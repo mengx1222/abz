@@ -117,6 +117,8 @@ describe('CustomersPage（客户360）', () => {
 
     await waitFor(() => screen.getByText('张先生'));
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
+    // 删除走统一 ConfirmDialog：需在弹窗中点击「确认」
+    fireEvent.click(await screen.findByRole('button', { name: '确认' }));
 
     await waitFor(() => {
       expect(mockedDeleteCustomer).toHaveBeenCalledWith('c-1');

@@ -4,7 +4,10 @@ import { useAuthStore } from '../../stores/authStore';
 import { Card, CardTitle, CardDescription, CardHeader } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Tabs } from '../../components/ui/Tabs';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ClipboardList, Target } from 'lucide-react';
 import {
   getScenarios,
   getSessions,
@@ -84,28 +87,15 @@ export function TrainingPage() {
             {user?.name || '用户'}，AI模拟真实客户，练习销售话术并获取专业评分
           </p>
         </div>
-        <div className="flex gap-1 bg-card rounded-lg p-0.5 border border-border">
-          <button
-            onClick={() => setActiveTab('scenarios')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
-              activeTab === 'scenarios'
-                ? 'bg-accent text-white shadow-sm'
-                : 'text-muted hover:text-text'
-            }`}
-          >
-            训练场景
-          </button>
-          <button
-            onClick={() => setActiveTab('history')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
-              activeTab === 'history'
-                ? 'bg-accent text-white shadow-sm'
-                : 'text-muted hover:text-text'
-            }`}
-          >
-            历史记录
-          </button>
-        </div>
+        <Tabs
+          variant="pill"
+          active={activeTab}
+          onChange={(key) => setActiveTab(key as TabView)}
+          items={[
+            { key: 'scenarios', label: '训练场景' },
+            { key: 'history', label: '历史记录' },
+          ]}
+        />
       </div>
 
       {/* Tab: Scenarios */}
@@ -135,7 +125,7 @@ export function TrainingPage() {
                   onClick={() => setActiveDifficulty(activeDifficulty === key ? null : key)}
                   className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors cursor-pointer border ${
                     activeDifficulty === key
-                      ? `border-current ${cfg.variant === 'success' ? 'bg-emerald-50 text-emerald-600' : cfg.variant === 'warning' ? 'bg-amber-50 text-amber-600' : 'bg-red-50 text-red-600'}`
+                      ? `border-current ${cfg.variant === 'success' ? 'bg-success/10 text-success' : cfg.variant === 'warning' ? 'bg-warning/10 text-warning' : 'bg-error/10 text-error'}`
                       : 'border-border text-muted hover:text-text'
                   }`}
                 >
@@ -151,10 +141,10 @@ export function TrainingPage() {
               <LoadingSpinner size="lg" />
             </div>
           ) : scenarios.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-4xl mb-4 opacity-20">🎯</div>
-              <p className="text-muted text-sm">暂无匹配的训练场景</p>
-            </div>
+            <EmptyState
+              icon={<Target aria-hidden="true" className="h-5 w-5 text-muted" />}
+              title="暂无匹配的训练场景"
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {scenarios.map((scenario) => {
@@ -172,7 +162,7 @@ export function TrainingPage() {
                       </CardDescription>
                       {/* Customer Info */}
                       <div className="flex items-center gap-2 text-xs text-muted mb-2">
-                        <span className="px-1.5 py-0.5 rounded bg-rose-50 text-rose-500">
+                        <span className="px-1.5 py-0.5 rounded bg-warning/10 text-warning">
                           {persona?.name || '客户'}
                         </span>
                         <span>{persona?.age}岁</span>
@@ -217,16 +207,19 @@ export function TrainingPage() {
               <LoadingSpinner size="lg" />
             </div>
           ) : sessions.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-4xl mb-4 opacity-20">📋</div>
-              <p className="text-muted text-sm">暂无训练记录</p>
-              <button
-                onClick={() => setActiveTab('scenarios')}
-                className="mt-2 text-sm text-accent hover:underline cursor-pointer"
-              >
-                去开始第一次训练
-              </button>
-            </div>
+            <EmptyState
+              icon={<ClipboardList aria-hidden="true" className="h-5 w-5 text-muted" />}
+              title="暂无训练记录"
+              action={
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('scenarios')}
+                  className="text-sm text-accent hover:underline cursor-pointer"
+                >
+                  去开始第一次训练
+                </button>
+              }
+            />
           ) : (
             <div className="space-y-2">
               {sessions.map((sess) => (
@@ -255,8 +248,8 @@ export function TrainingPage() {
                     {sess.total_score !== null && (
                       <div className="text-right ml-4">
                         <div className={`text-2xl font-bold ${
-                          sess.total_score >= 85 ? 'text-emerald-500' :
-                          sess.total_score >= 70 ? 'text-amber-500' : 'text-red-500'
+                          sess.total_score >= 85 ? 'text-success' :
+                          sess.total_score >= 70 ? 'text-warning' : 'text-error'
                         }`}>
                           {sess.total_score}
                         </div>

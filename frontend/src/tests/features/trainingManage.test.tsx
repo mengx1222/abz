@@ -123,6 +123,8 @@ describe('TrainingManagePage（陪练场景管理）', () => {
     render(<TrainingManagePage />);
     await waitFor(() => screen.getByText('"太贵了" — 重疾险价格犹豫'));
     fireEvent.click(screen.getByRole('button', { name: '删除' }));
+    // 删除走统一 ConfirmDialog：需在弹窗中点击「确认」
+    fireEvent.click(await screen.findByRole('button', { name: '确认' }));
     await waitFor(() => {
       expect(mockedDelete).toHaveBeenCalledWith('scn-1');
       const toast = useToastStore.getState().toasts.find((t) => t.title === '已删除');

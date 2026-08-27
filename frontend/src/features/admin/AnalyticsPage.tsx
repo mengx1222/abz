@@ -74,7 +74,7 @@ export function AnalyticsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-text">数据看板</h1>
-          <Badge className="bg-amber-100 text-amber-700">演示模式</Badge>
+          <Badge variant="warning">演示模式</Badge>
         </div>
         <LoadingSpinner size="lg" text="正在加载数据..." />
       </div>
@@ -86,7 +86,7 @@ export function AnalyticsPage() {
       <div className="space-y-6">
         <div className="flex items-center justify-between">
           <h1 className="text-2xl font-bold text-text">数据看板</h1>
-          <Badge className="bg-amber-100 text-amber-700">演示模式</Badge>
+          <Badge variant="warning">演示模式</Badge>
         </div>
         <Card>
           <div className="text-center py-8 text-muted">{error}</div>
@@ -135,7 +135,7 @@ export function AnalyticsPage() {
       ),
       trend: `满意度 ${(aiStats?.satisfaction_rate ?? 0) * 100}%`,
       trendUp: true,
-      color: 'text-purple-600 bg-purple-100',
+      color: 'text-accent bg-accent/10',
     },
     {
       label: '培训场次',
@@ -147,7 +147,7 @@ export function AnalyticsPage() {
       ),
       trend: `完成率 ${((trainStats?.completion_rate ?? 0) * 100).toFixed(1)}%`,
       trendUp: true,
-      color: 'text-cyan-600 bg-cyan-100',
+      color: 'text-accent bg-accent/10',
     },
     {
       label: '社区帖子',
@@ -159,7 +159,7 @@ export function AnalyticsPage() {
       ),
       trend: `${commStats?.total_comments ?? 0} 条评论`,
       trendUp: true,
-      color: 'text-pink-600 bg-pink-100',
+      color: 'text-accent bg-accent/10',
     },
   ];
 
@@ -173,7 +173,7 @@ export function AnalyticsPage() {
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
         <h1 className="text-2xl font-bold text-text">数据看板</h1>
-        <Badge className="bg-amber-100 text-amber-700 w-fit">演示模式</Badge>
+        <Badge variant="warning" className="w-fit">演示模式</Badge>
       </div>
 
       {/* Period Selector */}
@@ -250,7 +250,7 @@ export function AnalyticsPage() {
                     <div className="flex items-center gap-2">
                       <span className={cn(
                         'flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold',
-                        idx === 0 ? 'bg-amber-100 text-amber-700' : idx === 1 ? 'bg-gray-100 text-gray-600' : 'bg-orange-50 text-orange-600'
+                        idx === 0 ? 'bg-warning/10 text-warning' : idx === 1 ? 'bg-bg text-muted' : 'bg-accent/10 text-accent'
                       )}>
                         {idx + 1}
                       </span>
@@ -322,7 +322,7 @@ export function AnalyticsPage() {
                   <div key={idx} className="flex items-start gap-3">
                     <span className={cn(
                       'flex items-center justify-center w-5 h-5 rounded-full text-xs font-bold shrink-0 mt-0.5',
-                      idx === 0 ? 'bg-amber-100 text-amber-700' : idx === 1 ? 'bg-gray-100 text-gray-600' : 'bg-orange-50 text-orange-600'
+                      idx === 0 ? 'bg-warning/10 text-warning' : idx === 1 ? 'bg-bg text-muted' : 'bg-accent/10 text-accent'
                     )}>
                       {idx + 1}
                     </span>

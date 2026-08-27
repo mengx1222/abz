@@ -3,6 +3,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardTitle, CardDescription } from '../../components/ui/Card';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../hooks/useToast';
 import { adminScenarioApi, type AdminScenario } from '../../services/adminService';
 
@@ -56,6 +57,9 @@ const STATUS_LABEL_MAP: Record<string, string> = {
 
 export function TrainingManagePage() {
   const { toast } = useToast();
+
+  // Delete confirm
+  const [deleteTarget, setDeleteTarget] = useState<AdminScenario | null>(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -119,7 +123,6 @@ export function TrainingManagePage() {
   };
 
   const handleDelete = async (scenario: AdminScenario) => {
-    if (!window.confirm(`确定要删除场景「${scenario.title}」吗？此操作不可恢复。`)) return;
     setActionLoading(scenario.id);
     try {
       await adminScenarioApi.delete(scenario.id);
@@ -129,6 +132,7 @@ export function TrainingManagePage() {
       toast({ title: '删除失败，请重试', variant: 'error' });
     } finally {
       setActionLoading(null);
+      setDeleteTarget(null);
     }
   };
 
@@ -294,7 +298,7 @@ export function TrainingManagePage() {
                     variant="ghost"
                     size="sm"
                     loading={actionLoading === scenario.id}
-                    onClick={() => handleDelete(scenario)}
+                    onClick={() => setDeleteTarget(scenario)}
                     className="text-error hover:text-error"
                   >
                     删除
@@ -330,6 +334,21 @@ export function TrainingManagePage() {
           )}
         </>
       )}
+
+      {/* Delete Confirm */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
+        title="删除场景"
+        message={
+          deleteTarget
+            ? `确定要删除场景「${deleteTarget.title}」吗？此操作不可恢复。`
+            : undefined
+        }
+        confirmText="确认"
+        loading={actionLoading !== null && actionLoading === deleteTarget?.id}
+      />
     </div>
   );
 }

@@ -239,6 +239,8 @@ describe('KnowledgePage（知识库管理）', () => {
     await waitFor(() => screen.getByText('医疗险手册'));
 
     fireEvent.click(screen.getByText('取消发布'));
+    // ConfirmDialog 确认
+    fireEvent.click(await screen.findByRole('button', { name: '确认' }));
 
     await waitFor(() => {
       expect(mockedUnpublish).toHaveBeenCalledWith('kb-1', 'doc-1');
@@ -258,6 +260,8 @@ describe('KnowledgePage（知识库管理）', () => {
     await waitFor(() => screen.getByText('医疗险手册'));
 
     fireEvent.click(screen.getByText('删除'));
+    // ConfirmDialog 确认
+    fireEvent.click(await screen.findByRole('button', { name: '确认' }));
 
     await waitFor(() => {
       expect(mockedDeleteDoc).toHaveBeenCalledWith('kb-1', 'doc-1');
@@ -277,6 +281,8 @@ describe('KnowledgePage（知识库管理）', () => {
     fireEvent.click(screen.getByText('产品知识库'));
     await waitFor(() => screen.getByText('医疗险手册'));
     fireEvent.click(screen.getByText('删除'));
+    // ConfirmDialog 确认
+    fireEvent.click(await screen.findByRole('button', { name: '确认' }));
 
     await waitFor(() => {
       const toast = useToastStore.getState().toasts.find((t) => t.title === '无权限删除该文档');
@@ -291,6 +297,8 @@ describe('KnowledgePage（知识库管理）', () => {
 
     await waitFor(() => screen.getByText('产品知识库'));
     fireEvent.click(screen.getByText('删除'));
+    // ConfirmDialog 确认
+    fireEvent.click(await screen.findByRole('button', { name: '确认' }));
 
     await waitFor(() => {
       expect(mockedDeleteKB).toHaveBeenCalledWith('kb-1');

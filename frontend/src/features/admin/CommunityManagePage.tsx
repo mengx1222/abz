@@ -3,6 +3,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { useToast } from '../../hooks/useToast';
 import { adminCommunityApi, type AdminPost } from '../../services/adminService';
 import { cn } from '../../utils/cn';
@@ -77,6 +78,9 @@ function StarIcon({ filled }: { filled: boolean }) {
 
 export function CommunityManagePage() {
   const { toast } = useToast();
+
+  // Delete confirm
+  const [deleteTarget, setDeleteTarget] = useState<AdminPost | null>(null);
 
   // Filters
   const [statusFilter, setStatusFilter] = useState('');
@@ -157,7 +161,6 @@ export function CommunityManagePage() {
   };
 
   const handleDelete = async (post: AdminPost) => {
-    if (!window.confirm(`确定要删除帖子「${post.title}」吗？此操作不可恢复。`)) return;
     setActionLoading(post.id);
     try {
       await adminCommunityApi.deletePost(post.id);
@@ -167,6 +170,7 @@ export function CommunityManagePage() {
       toast({ title: '删除失败，请重试', variant: 'error' });
     } finally {
       setActionLoading(null);
+      setDeleteTarget(null);
     }
   };
 
@@ -300,7 +304,7 @@ export function CommunityManagePage() {
                         variant="ghost"
                         size="sm"
                         loading={actionLoading === post.id}
-                        onClick={() => handleDelete(post)}
+                        onClick={() => setDeleteTarget(post)}
                         className="text-error hover:text-error"
                       >
                         删除
@@ -338,6 +342,21 @@ export function CommunityManagePage() {
           </Button>
         </div>
       )}
+
+      {/* Delete Confirm */}
+      <ConfirmDialog
+        open={deleteTarget !== null}
+        onClose={() => setDeleteTarget(null)}
+        onConfirm={() => deleteTarget && handleDelete(deleteTarget)}
+        title="删除帖子"
+        message={
+          deleteTarget
+            ? `确定要删除帖子「${deleteTarget.title}」吗？此操作不可恢复。`
+            : undefined
+        }
+        confirmText="确认"
+        loading={actionLoading !== null && actionLoading === deleteTarget?.id}
+      />
     </div>
   );
 }

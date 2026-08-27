@@ -4,7 +4,22 @@ import { Card, CardTitle, CardDescription, CardHeader } from '../../components/u
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { Tabs } from '../../components/ui/Tabs';
+import { EmptyState } from '../../components/ui/EmptyState';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import {
+  BookOpen,
+  Check,
+  CheckCircle2,
+  ChevronLeft,
+  Copy,
+  FileText,
+  Heart,
+  MessagesSquare,
+  Search,
+  Trash2,
+} from 'lucide-react';
 import {
   streamScriptGenerate,
   getScripts,
@@ -20,12 +35,21 @@ import {
 
 // ---- 常量 ----
 
-const STYLE_MAP: Record<string, { label: string; color: string; bg: string }> = {
-  affinity: { label: '亲和型', color: 'text-rose-600', bg: 'bg-rose-50' },
-  professional: { label: '专业型', color: 'text-blue-600', bg: 'bg-blue-50' },
-  data_driven: { label: '数据驱动型', color: 'text-emerald-600', bg: 'bg-emerald-50' },
-  concise: { label: '简洁型', color: 'text-violet-600', bg: 'bg-violet-50' },
+type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'danger' | 'primary' | 'info';
+
+const STYLE_MAP: Record<string, { label: string; variant: BadgeVariant }> = {
+  affinity: { label: '亲和型', variant: 'warning' },
+  professional: { label: '专业型', variant: 'primary' },
+  data_driven: { label: '数据驱动型', variant: 'success' },
+  concise: { label: '简洁型', variant: 'info' },
 };
+
+/** 统一风格胶囊：生成卡片 / 详情 / 列表三处复用同一 Badge 渲染（语义变体） */
+function StyleTag({ styleKey, fallback }: { styleKey: string; fallback?: string }) {
+  const meta = STYLE_MAP[styleKey];
+  const resolved = meta || STYLE_MAP.professional;
+  return <Badge variant={resolved.variant}>{meta?.label || fallback || resolved.label}</Badge>;
+}
 
 const PRODUCT_TYPES = ['全部', '医疗险', '重疾险', '意外险', '年金险', '寿险', '车险'];
 
@@ -67,9 +91,9 @@ function CompliancePanel({ result }: { result: ComplianceResult | null }) {
   if (!result) return null;
   return (
     <div className={`p-3 rounded-lg border ${
-      result.status === 'red' ? 'border-red-200 bg-red-50/50' :
-      result.status === 'yellow' ? 'border-yellow-200 bg-yellow-50/50' :
-      'border-green-200 bg-green-50/50'
+      result.status === 'red' ? 'border-error/30 bg-error/10' :
+      result.status === 'yellow' ? 'border-warning/30 bg-warning/10' :
+      'border-success/30 bg-success/10'
     }`}>
       <div className="flex items-center gap-2 mb-2">
         <ComplianceBadge status={result.status} />
@@ -85,7 +109,7 @@ function CompliancePanel({ result }: { result: ComplianceResult | null }) {
                 </Badge>
               </div>
               <p className="text-text/80 pl-1">「{issue.matched_text}」</p>
-              <p className="text-emerald-600 pl-1">建议：{issue.suggestion}</p>
+              <p className="text-success pl-1">建议：{issue.suggestion}</p>
             </div>
           ))}
         </div>
@@ -109,7 +133,6 @@ function StyleScriptCard({
   wordCount?: number;
   isStreaming: boolean;
 }) {
-  const meta = STYLE_MAP[style] || STYLE_MAP.professional;
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(() => {
@@ -123,9 +146,7 @@ function StyleScriptCard({
     <Card padding="md" className="relative">
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">
-          <span className={`px-2 py-0.5 rounded text-xs font-medium ${meta.bg} ${meta.color}`}>
-            {meta.label}
-          </span>
+          <StyleTag styleKey={style} />
           {wordCount && !isStreaming && (
             <span className="text-xs text-muted">{wordCount}字</span>
           )}
@@ -141,13 +162,9 @@ function StyleScriptCard({
             title="复制话术"
           >
             {copied ? (
-              <svg className="w-4 h-4 text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-              </svg>
+              <Check aria-hidden="true" className="w-4 h-4 text-success" />
             ) : (
-              <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" />
-              </svg>
+              <Copy aria-hidden="true" className="w-4 h-4" />
             )}
           </button>
         </div>
@@ -159,12 +176,18 @@ function StyleScriptCard({
       {/* RAG 产品知识依据（Citation UI）：生成完成后展示文档标题/章节/来源 */}
       {!isStreaming && citations && citations.length > 0 && (
         <div className="mt-3 pt-3 border-t border-border">
-          <p className="text-xs font-medium text-muted mb-2">📚 产品知识依据（RAG）</p>
+          <p className="text-xs font-medium text-muted mb-2">
+            <BookOpen aria-hidden="true" className="inline h-4 w-4 mr-1 -mt-0.5" />
+            <span className="sr-only">📚 </span>产品知识依据（RAG）
+          </p>
           <div className="space-y-1.5">
             {citations.map((c, i) => (
               <div key={i} className="text-xs bg-bg/60 rounded-lg p-2">
                 <div className="flex items-center gap-2 flex-wrap">
-                  <span className="text-accent font-medium">📄 {c.document_title}</span>
+                  <span className="text-accent font-medium inline-flex items-center gap-1">
+                    <FileText aria-hidden="true" className="h-4 w-4 shrink-0" />
+                    <span className="sr-only">📄 </span>{c.document_title}
+                  </span>
                   {c.section && (
                     <Badge variant="default" className="text-[10px] px-1.5 py-0">{c.section}</Badge>
                   )}
@@ -386,28 +409,15 @@ export function ScriptsPage() {
             {user?.name || '用户'}，AI生成个性化销售话术，多风格对比，合规自动检查
           </p>
         </div>
-        <div className="flex gap-1 bg-card rounded-lg p-0.5 border border-border">
-          <button
-            onClick={() => setActiveTab('generate')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
-              activeTab === 'generate'
-                ? 'bg-accent text-white shadow-sm'
-                : 'text-muted hover:text-text'
-            }`}
-          >
-            生成话术
-          </button>
-          <button
-            onClick={() => setActiveTab('library')}
-            className={`px-4 py-1.5 rounded-md text-sm font-medium transition-colors cursor-pointer ${
-              activeTab === 'library'
-                ? 'bg-accent text-white shadow-sm'
-                : 'text-muted hover:text-text'
-            }`}
-          >
-            话术库
-          </button>
-        </div>
+        <Tabs
+          variant="pill"
+          active={activeTab}
+          onChange={(key) => setActiveTab(key as TabView)}
+          items={[
+            { key: 'generate', label: '生成话术' },
+            { key: 'library', label: '话术库' },
+          ]}
+        />
       </div>
 
       {/* ---- Tab: Generate ---- */}
@@ -445,40 +455,37 @@ export function ScriptsPage() {
                 </div>
                 <div>
                   <label className="text-xs text-muted block mb-1">销售阶段</label>
-                  <select
+                  <Select
                     value={genForm.stage}
                     onChange={(e) => setGenForm({ ...genForm, stage: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
                   >
                     {STAGE_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="text-xs text-muted block mb-1">客户异议</label>
-                  <select
+                  <Select
                     value={genForm.objection}
                     onChange={(e) => setGenForm({ ...genForm, objection: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
                   >
                     {OBJECTION_OPTIONS.map((opt) => (
                       <option key={opt.value} value={opt.value}>{opt.label}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
                 <div>
                   <label className="text-xs text-muted block mb-1">产品类型</label>
-                  <select
+                  <Select
                     value={genForm.product_type}
                     onChange={(e) => setGenForm({ ...genForm, product_type: e.target.value })}
-                    className="w-full px-3 py-2 rounded-lg border border-border bg-bg text-sm text-text focus:outline-none focus:ring-1 focus:ring-accent"
                   >
                     <option value="">选择产品</option>
                     {PRODUCT_TYPES.filter((p) => p !== '全部').map((p) => (
                       <option key={p} value={p}>{p}</option>
                     ))}
-                  </select>
+                  </Select>
                 </div>
               </div>
             </Card>
@@ -503,7 +510,7 @@ export function ScriptsPage() {
                     onClick={() => setGenStyle(key === genStyle ? '' : key)}
                     className={`px-3 py-2 rounded-lg text-xs font-medium border transition-colors cursor-pointer ${
                       genStyle === key
-                        ? `border-current ${meta.bg} ${meta.color}`
+                        ? 'border-accent bg-accent/10 text-accent'
                         : 'border-border text-muted hover:border-accent/50 hover:text-text'
                     }`}
                   >
@@ -517,17 +524,11 @@ export function ScriptsPage() {
             <Button
               variant="primary"
               className="w-full"
+              loading={isGenerating}
               disabled={!genForm.name.trim() || isGenerating}
               onClick={isGenerating ? handleStopGeneration : handleGenerate}
             >
-              {isGenerating ? (
-                <span className="flex items-center justify-center gap-2">
-                  <LoadingSpinner size="sm" />
-                  停止生成
-                </span>
-              ) : (
-                '生成话术'
-              )}
+              {isGenerating ? '停止生成' : '生成话术'}
             </Button>
             {genForm.name.trim() && !isGenerating && (
               <p className="text-xs text-muted text-center">
@@ -539,11 +540,11 @@ export function ScriptsPage() {
           {/* Right: Results */}
           <div className="lg:col-span-2 space-y-3">
             {Object.keys(genResults).length === 0 && !isGenerating && (
-              <div className="text-center py-20">
-                <div className="text-4xl mb-4 opacity-20">💬</div>
-                <p className="text-muted text-sm">填写客户信息后，AI将为您生成个性化销售话术</p>
-                <p className="text-muted/60 text-xs mt-1">支持亲和型、专业型、数据驱动型、简洁型四种风格</p>
-              </div>
+              <EmptyState
+                icon={<MessagesSquare aria-hidden="true" className="h-5 w-5 text-muted" />}
+                title="填写客户信息后，AI将为您生成个性化销售话术"
+                description="支持亲和型、专业型、数据驱动型、简洁型四种风格"
+              />
             )}
 
             {isGenerating && Object.keys(genResults).length === 0 && (
@@ -568,7 +569,7 @@ export function ScriptsPage() {
             {genRequestId && !isGenerating && Object.keys(genResults).length > 0 && (
               <div className="text-center py-2">
                 <p className="text-xs text-muted">
-                  ✅ 话术生成完成 · 话术已保存至话术库 · 
+                  <CheckCircle2 aria-hidden="true" className="inline h-4 w-4 mr-1 -mt-0.5 text-success" />话术生成完成 · 话术已保存至话术库 ·
                   <button
                     onClick={() => setActiveTab('library')}
                     className="text-accent hover:underline cursor-pointer"
@@ -592,11 +593,7 @@ export function ScriptsPage() {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="搜索话术..."
-                icon={
-                  <svg className="w-4 h-4 text-muted" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                }
+                icon={<Search aria-hidden="true" className="h-4 w-4" />}
               />
             </div>
             <div className="flex gap-1 flex-wrap">
@@ -628,9 +625,7 @@ export function ScriptsPage() {
                 onClick={handleBackToList}
                 className="text-sm text-accent hover:underline cursor-pointer flex items-center gap-1"
               >
-                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                </svg>
+                <ChevronLeft aria-hidden="true" className="h-4 w-4" />
                 返回列表
               </button>
 
@@ -644,11 +639,7 @@ export function ScriptsPage() {
                     <div>
                       <h2 className="text-lg font-semibold text-text">{scriptDetail.title}</h2>
                       <div className="flex items-center gap-2 mt-1">
-                        <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                          (STYLE_MAP[scriptDetail.style]?.bg || '') + ' ' + (STYLE_MAP[scriptDetail.style]?.color || '')
-                        }`}>
-                          {STYLE_MAP[scriptDetail.style]?.label || scriptDetail.style}
-                        </span>
+                        <StyleTag styleKey={scriptDetail.style} fallback={scriptDetail.style} />
                         {scriptDetail.product_type && (
                           <Badge variant="default">{scriptDetail.product_type}</Badge>
                         )}
@@ -661,21 +652,17 @@ export function ScriptsPage() {
                     <div className="flex items-center gap-2">
                       <button
                         onClick={() => handleFavorite(scriptDetail.id)}
-                        className="p-2 rounded-lg hover:bg-bg text-muted hover:text-rose-500 transition-colors"
+                        className="p-2 rounded-lg hover:bg-bg text-muted hover:text-error transition-colors"
                         title="收藏"
                       >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z" />
-                        </svg>
+                        <Heart aria-hidden="true" className="h-5 w-5" />
                       </button>
                       <button
                         onClick={() => handleDeleteScript(scriptDetail.id)}
-                        className="p-2 rounded-lg hover:bg-red-50 text-muted hover:text-red-500 transition-colors"
+                        className="p-2 rounded-lg hover:bg-error/10 text-muted hover:text-error transition-colors"
                         title="删除"
                       >
-                        <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                        </svg>
+                        <Trash2 aria-hidden="true" className="h-5 w-5" />
                       </button>
                     </div>
                   </div>
@@ -713,10 +700,10 @@ export function ScriptsPage() {
               )}
             </div>
           ) : scripts.length === 0 ? (
-            <div className="text-center py-12">
-              <div className="text-4xl mb-4 opacity-20">📝</div>
-              <p className="text-muted text-sm">暂无话术 · 去生成第一条吧</p>
-            </div>
+            <EmptyState
+              icon={<FileText aria-hidden="true" className="h-5 w-5 text-muted" />}
+              title="暂无话术 · 去生成第一条吧"
+            />
           ) : (
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {scripts.map((script) => (
@@ -742,11 +729,7 @@ export function ScriptsPage() {
                   </CardHeader>
                   <div className="flex items-center justify-between mt-3 pt-3 border-t border-border">
                     <div className="flex items-center gap-1.5">
-                      <span className={`px-2 py-0.5 rounded text-xs font-medium ${
-                        (STYLE_MAP[script.style]?.bg || '') + ' ' + (STYLE_MAP[script.style]?.color || '')
-                      }`}>
-                        {STYLE_MAP[script.style]?.label || script.style}
-                      </span>
+                      <StyleTag styleKey={script.style} fallback={script.style} />
                       {script.product_type && (
                         <span className="px-2 py-0.5 rounded text-xs bg-bg text-muted">
                           {script.product_type}
@@ -754,7 +737,10 @@ export function ScriptsPage() {
                       )}
                     </div>
                     <div className="flex items-center gap-3 text-xs text-muted shrink-0">
-                      <span>❤️ {script.favorited_count}</span>
+                      <span className="inline-flex items-center gap-1">
+                        <Heart aria-hidden="true" className="h-4 w-4 text-error" />
+                        {script.favorited_count}
+                      </span>
                       <span>使用 {script.usage_count}</span>
                     </div>
                   </div>

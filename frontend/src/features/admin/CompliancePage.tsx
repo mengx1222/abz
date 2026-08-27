@@ -3,6 +3,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card, CardTitle, CardDescription } from '../../components/ui/Card';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Tabs } from '../../components/ui/Tabs';
 import { useToast } from '../../hooks/useToast';
 import { complianceApi, type ComplianceRule, type ComplianceReview } from '../../services/adminService';
 import { cn } from '../../utils/cn';
@@ -66,22 +67,11 @@ export function CompliancePage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-1 border-b border-border">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={cn(
-              'px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer border-b-2 -mb-px',
-              activeTab === tab.key
-                ? 'text-accent border-accent'
-                : 'text-muted border-transparent hover:text-text'
-            )}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={TABS.map(({ key, label }) => ({ key, label }))}
+        active={activeTab}
+        onChange={(key) => setActiveTab(key as TabKey)}
+      />
 
       {/* Tab Content */}
       {activeTab === 'rules' ? <RulesTab /> : <ReviewsTab />}

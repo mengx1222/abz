@@ -3,6 +3,7 @@ import { useAuthStore } from '../../stores/authStore';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
 import { streamProductQa, type ChatMessage } from '../../services/productQaService';
 
 const SUGGESTED_QUESTIONS = [
@@ -211,7 +212,7 @@ export function ProductQaPage() {
         <div className="border-t border-border p-4 flex-shrink-0">
           <form onSubmit={handleSubmit} className="flex items-end gap-3">
             <div className="flex-1 relative">
-              <input
+              <Input
                 ref={inputRef}
                 type="text"
                 value={input}
@@ -220,7 +221,7 @@ export function ProductQaPage() {
                 placeholder="输入你的保险问题..."
                 disabled={isStreaming}
                 maxLength={2000}
-                className="w-full h-11 rounded-xl border border-border bg-white px-4 pr-12 text-sm text-text placeholder:text-muted/50 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent disabled:opacity-50"
+                className="h-11 rounded-xl px-4 pr-12 disabled:opacity-50"
               />
               <span className="absolute right-3 bottom-3 text-[11px] text-muted/40">
                 {input.length}/2000

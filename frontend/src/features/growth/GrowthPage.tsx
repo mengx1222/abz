@@ -1,8 +1,13 @@
 import { useState, useEffect, useCallback } from 'react';
+import { Check } from 'lucide-react';
 import { useAuthStore } from '../../stores/authStore';
 import { Card, CardTitle, CardDescription, CardHeader } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Modal } from '../../components/ui/Modal';
+import { Tabs } from '../../components/ui/Tabs';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { LoadingSpinner, Spinner } from '../../components/ui/LoadingSpinner';
 import {
   getGrowthOverview,
   getCourseDetail,
@@ -30,17 +35,19 @@ const statusVariant = (status: string): 'warning' | 'success' | 'default' => {
   return 'default';
 };
 
+// 奖牌行底色：金 warning / 银 surface / 铜 warning 浅档（语义 token）
 const rankStyle = (rank: number) => {
-  if (rank === 1) return 'bg-yellow-50 border-yellow-300';
-  if (rank === 2) return 'bg-gray-50 border-gray-300';
-  if (rank === 3) return 'bg-orange-50 border-orange-300';
+  if (rank === 1) return 'bg-warning/10';
+  if (rank === 2) return 'bg-surface';
+  if (rank === 3) return 'bg-warning/5';
   return '';
 };
 
+// 奖牌徽章：金 warning / 银 muted / 铜 warning 深档
 const rankBadge = (rank: number) => {
-  if (rank === 1) return 'bg-yellow-400 text-white';
-  if (rank === 2) return 'bg-gray-400 text-white';
-  if (rank === 3) return 'bg-orange-400 text-white';
+  if (rank === 1) return 'bg-warning text-white';
+  if (rank === 2) return 'bg-muted text-white';
+  if (rank === 3) return 'bg-warning/75 text-white';
   return 'bg-bg text-muted';
 };
 
@@ -170,10 +177,7 @@ export function GrowthPage() {
   // --- Renderers ---
   const renderLoading = (msg?: string) => (
     <div className="flex items-center justify-center py-20 text-muted text-sm">
-      <svg className="animate-spin h-5 w-5 mr-2" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
-      </svg>
+      <Spinner className="h-5 w-5 mr-2" />
       {msg || '加载中...'}
     </div>
   );
@@ -227,7 +231,7 @@ export function GrowthPage() {
                   <p className="text-2xl font-bold text-text">{stat.value}</p>
                   <p className="text-sm text-muted">{stat.unit}</p>
                 </div>
-                <p className={`text-xs mt-1 ${stat.up ? 'text-green-500' : 'text-red-500'}`}>
+                <p className={`text-xs mt-1 ${stat.up ? 'text-success' : 'text-error'}`}>
                   {stat.up ? '\u2191' : '\u2193'} {stat.change} 较上月
                 </p>
               </Card>
@@ -246,12 +250,12 @@ export function GrowthPage() {
               <div key={day.day} className="flex-1 flex flex-col items-center gap-1">
                 <div className="w-full flex gap-0.5 items-end justify-center" style={{ height: '100px' }}>
                   <div
-                    className="w-3/5 bg-blue-400/80 rounded-t-sm"
+                    className="w-3/5 bg-accent/80 rounded-t-sm"
                     style={{ height: `${(day.calls / maxCalls) * 100}%` }}
                     title={`通话 ${day.calls}`}
                   />
                   <div
-                    className="w-2/5 bg-green-400/80 rounded-t-sm"
+                    className="w-2/5 bg-success/80 rounded-t-sm"
                     style={{ height: `${(day.deals / maxCalls) * 100}%` }}
                     title={`成交 ${day.deals}`}
                   />
@@ -261,8 +265,8 @@ export function GrowthPage() {
             ))}
           </div>
           <div className="flex gap-4 mt-3 text-xs text-muted">
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-blue-400/80 inline-block" /> 通话量</span>
-            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-green-400/80 inline-block" /> 成交数</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-accent/80 inline-block" /> 通话量</span>
+            <span className="flex items-center gap-1"><span className="w-3 h-3 rounded-sm bg-success/80 inline-block" /> 成交数</span>
           </div>
         </Card>
 
@@ -284,7 +288,7 @@ export function GrowthPage() {
                   <div className="h-2 rounded-full bg-primary/20 overflow-hidden">
                     <div
                       className={`h-full rounded-full transition-all ${
-                        item.score >= 80 ? 'bg-green-500' : item.score >= 65 ? 'bg-yellow-500' : 'bg-red-500'
+                        item.score >= 80 ? 'bg-success' : item.score >= 65 ? 'bg-warning' : 'bg-error'
                       }`}
                       style={{ width: `${item.score}%` }}
                     />
@@ -320,7 +324,7 @@ export function GrowthPage() {
                   </div>
                   <div className="h-2 rounded-full bg-primary/20 overflow-hidden">
                     <div
-                      className={`h-full rounded-full transition-all ${course.progress === 100 ? 'bg-green-500' : 'bg-primary'}`}
+                      className={`h-full rounded-full transition-all ${course.progress === 100 ? 'bg-success' : 'bg-primary'}`}
                       style={{ width: `${course.progress}%` }}
                     />
                   </div>
@@ -375,7 +379,7 @@ export function GrowthPage() {
                   key={item.rank}
                   className={`flex items-center gap-3 py-3 px-2 rounded-lg transition-colors ${
                     rankStyle(item.rank)
-                  } ${isMe ? 'ring-2 ring-blue-400 bg-blue-50/50' : ''}`}
+                  } ${isMe ? 'ring-2 ring-accent bg-accent/5' : ''}`}
                 >
                   {/* Rank */}
                   <div
@@ -407,7 +411,7 @@ export function GrowthPage() {
 
           {/* My Rank - if not in list */}
           {leaderboard.my_rank && !leaderboard.leaderboard.some((i) => i.rank === leaderboard.my_rank!.rank) && (
-            <div className="mt-4 p-3 rounded-lg ring-2 ring-blue-400 bg-blue-50/50 flex items-center gap-3">
+            <div className="mt-4 p-3 rounded-lg ring-2 ring-accent bg-accent/5 flex items-center gap-3">
               <div className={`w-7 h-7 rounded-full flex items-center justify-center text-xs font-bold shrink-0 ${rankBadge(leaderboard.my_rank.rank)}`}>
                 {leaderboard.my_rank.rank}
               </div>
@@ -479,96 +483,71 @@ export function GrowthPage() {
     if (!courseDetail && !courseDetailLoading && !courseDetailEmpty) return null;
 
     return (
-      <div
-        className="fixed inset-0 z-50 flex items-center justify-center bg-black/40"
-        onClick={closeCourseDetail}
-      >
-        <div
-          className="bg-white rounded-xl w-full max-w-lg mx-4 max-h-[80vh] flex flex-col shadow-xl"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* Modal Header */}
-          <div className="flex items-start justify-between p-4 border-b border-border">
-            <div className="flex-1 min-w-0 mr-3">
-              <h2 className="text-lg font-bold text-text truncate">{courseDetail?.title}</h2>
-              {courseDetail && (
-                <>
-                  <p className="text-sm text-muted mt-1">{courseDetail.description}</p>
-                  <div className="flex items-center gap-2 mt-2">
-                    <Badge variant="default">{courseDetail.category}</Badge>
-                    <Badge variant={statusVariant(courseDetail.status)}>{courseDetail.status}</Badge>
-                  </div>
-                  <div className="mt-2">
-                    <div className="h-2 rounded-full bg-primary/20 overflow-hidden">
-                      <div
-                        className={`h-full rounded-full transition-all ${courseDetail.progress === 100 ? 'bg-green-500' : 'bg-primary'}`}
-                        style={{ width: `${courseDetail.progress}%` }}
-                      />
-                    </div>
-                    <p className="text-xs text-muted mt-1">
-                      {courseDetail.completed_lessons}/{courseDetail.total_lessons} 课时已完成 ({courseDetail.progress}%)
-                    </p>
-                  </div>
-                </>
-              )}
+      <Modal open onClose={closeCourseDetail} title={courseDetail?.title} size="md">
+        {/* Description / Badges / Progress */}
+        {courseDetail && (
+          <div className="mb-4">
+            <p className="text-sm text-muted">{courseDetail.description}</p>
+            <div className="flex items-center gap-2 mt-2">
+              <Badge variant="default">{courseDetail.category}</Badge>
+              <Badge variant={statusVariant(courseDetail.status)}>{courseDetail.status}</Badge>
             </div>
-            <button
-              onClick={closeCourseDetail}
-              className="text-muted hover:text-text transition-colors p-1"
-            >
-              <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
-
-          {/* Lessons List */}
-          <div className="flex-1 overflow-y-auto p-4">
-            {courseDetailLoading ? (
-              <div className="flex items-center justify-center py-10 text-muted text-sm">加载中...</div>
-            ) : courseDetail ? (
-              <div className="space-y-2">
-                {courseDetail.lessons.map((lesson) => (
-                  <div
-                    key={lesson.id}
-                    className={`flex items-center gap-3 py-2 px-3 rounded-lg ${
-                      lesson.completed ? 'bg-green-50' : 'bg-bg'
-                    }`}
-                  >
-                    {/* Checkbox */}
-                    <div
-                      className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
-                        lesson.completed
-                          ? 'bg-green-500 border-green-500'
-                          : 'border-gray-300'
-                      }`}
-                    >
-                      {lesson.completed && (
-                        <svg className="w-3 h-3 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
-                        </svg>
-                      )}
-                    </div>
-
-                    {/* Lesson Info */}
-                    <div className="flex-1 min-w-0">
-                      <p className={`text-sm ${lesson.completed ? 'text-muted line-through' : 'text-text'}`}>{lesson.title}</p>
-                    </div>
-
-                    {/* Duration */}
-                    <span className="text-xs text-muted shrink-0">{lesson.duration}</span>
-                  </div>
-                ))}
+            <div className="mt-2">
+              <div className="h-2 rounded-full bg-primary/20 overflow-hidden">
+                <div
+                  className={`h-full rounded-full transition-all ${courseDetail.progress === 100 ? 'bg-success' : 'bg-primary'}`}
+                  style={{ width: `${courseDetail.progress}%` }}
+                />
               </div>
-            ) : (
-              /* P1-3：详情未开放（生产返回 None）→ 友好空状态，不崩溃 */
-              <p className="text-sm text-muted py-10 text-center">
-                该课程详情暂未开放，敬请期待
+              <p className="text-xs text-muted mt-1">
+                {courseDetail.completed_lessons}/{courseDetail.total_lessons} 课时已完成 ({courseDetail.progress}%)
               </p>
-            )}
+            </div>
           </div>
-        </div>
-      </div>
+        )}
+
+        {/* Lessons List */}
+        {courseDetailLoading ? (
+          <LoadingSpinner text="加载中..." />
+        ) : courseDetail ? (
+          <div className="space-y-2">
+            {courseDetail.lessons.map((lesson) => (
+              <div
+                key={lesson.id}
+                className={`flex items-center gap-3 py-2 px-3 rounded-lg ${
+                  lesson.completed ? 'bg-success/10' : 'bg-bg'
+                }`}
+              >
+                {/* Checkbox */}
+                <div
+                  className={`w-5 h-5 rounded border-2 flex items-center justify-center shrink-0 ${
+                    lesson.completed
+                      ? 'bg-success border-success'
+                      : 'border-border'
+                  }`}
+                >
+                  {lesson.completed && (
+                    <Check className="w-3 h-3 text-white" strokeWidth={3} />
+                  )}
+                </div>
+
+                {/* Lesson Info */}
+                <div className="flex-1 min-w-0">
+                  <p className={`text-sm ${lesson.completed ? 'text-muted line-through' : 'text-text'}`}>{lesson.title}</p>
+                </div>
+
+                {/* Duration */}
+                <span className="text-xs text-muted shrink-0">{lesson.duration}</span>
+              </div>
+            ))}
+          </div>
+        ) : (
+          /* P1-3：详情未开放（生产返回 None）→ 友好空状态，不崩溃 */
+          <p className="text-sm text-muted py-10 text-center">
+            该课程详情暂未开放，敬请期待
+          </p>
+        )}
+      </Modal>
     );
   };
 
@@ -576,29 +555,18 @@ export function GrowthPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-4">
       {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-text">我的成长</h1>
-        <p className="text-muted text-sm mt-1">
-          {user?.name || '用户'}，追踪个人成长轨迹，AI定制学习路径
-        </p>
-      </div>
+      <PageHeader
+        title="我的成长"
+        description={`${user?.name || '用户'}，追踪个人成长轨迹，AI定制学习路径`}
+      />
 
       {/* Tab Bar */}
-      <div className="flex gap-1 border-b border-border">
-        {tabs.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2.5 text-sm font-medium border-b-2 transition-colors cursor-pointer ${
-              activeTab === tab.key
-                ? 'border-primary text-primary'
-                : 'border-transparent text-muted hover:text-text'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        variant="underline"
+        active={activeTab}
+        onChange={(key) => setActiveTab(key as TabKey)}
+        items={tabs}
+      />
 
       {/* Tab Content */}
       {activeTab === 'learning' && renderLearningTab()}

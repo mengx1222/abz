@@ -2,6 +2,7 @@ import { useState, useEffect, useCallback } from 'react';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Select } from '../../components/ui/Select';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { auditLogApi, type AuditLog } from '../../services/adminService';
 
@@ -36,25 +37,32 @@ const resourceOptions = [
 
 const pageSizeOptions = [10, 20, 50];
 
-const actionBadgeMap: Record<string, { className: string; label: string }> = {
-  login: { className: 'bg-blue-100 text-blue-700', label: '登录' },
-  'customer.view': { className: 'bg-green-100 text-green-700', label: '查看客户' },
-  'customer.create': { className: 'bg-green-100 text-green-700', label: '创建客户' },
-  'customer.update': { className: 'bg-green-100 text-green-700', label: '更新客户' },
-  'ai.product_qa': { className: 'bg-purple-100 text-purple-700', label: 'AI产品问答' },
-  'ai.script_generate': { className: 'bg-purple-100 text-purple-700', label: 'AI话术生成' },
-  'script.generate': { className: 'bg-orange-100 text-orange-700', label: '生成话术' },
-  'script.approve': { className: 'bg-orange-100 text-orange-700', label: '审批话术' },
-  'training.start': { className: 'bg-cyan-100 text-cyan-700', label: '开始培训' },
-  'training.complete': { className: 'bg-cyan-100 text-cyan-700', label: '完成培训' },
-  'community.post': { className: 'bg-pink-100 text-pink-700', label: '发布帖子' },
-  'community.comment': { className: 'bg-pink-100 text-pink-700', label: '发表评论' },
-  'compliance.check': { className: 'bg-red-100 text-red-700', label: '合规检查' },
-  'knowledge.upload': { className: 'bg-teal-100 text-teal-700', label: '上传知识' },
+type BadgeVariant = 'default' | 'success' | 'warning' | 'error' | 'danger' | 'primary' | 'info';
+
+interface ActionBadge {
+  variant: BadgeVariant;
+  label: string;
+}
+
+const actionBadgeMap: Record<string, ActionBadge> = {
+  login: { variant: 'primary', label: '登录' },
+  'customer.view': { variant: 'success', label: '查看客户' },
+  'customer.create': { variant: 'success', label: '创建客户' },
+  'customer.update': { variant: 'success', label: '更新客户' },
+  'ai.product_qa': { variant: 'info', label: 'AI产品问答' },
+  'ai.script_generate': { variant: 'info', label: 'AI话术生成' },
+  'script.generate': { variant: 'warning', label: '生成话术' },
+  'script.approve': { variant: 'warning', label: '审批话术' },
+  'training.start': { variant: 'primary', label: '开始培训' },
+  'training.complete': { variant: 'primary', label: '完成培训' },
+  'community.post': { variant: 'default', label: '发布帖子' },
+  'community.comment': { variant: 'default', label: '发表评论' },
+  'compliance.check': { variant: 'danger', label: '合规检查' },
+  'knowledge.upload': { variant: 'success', label: '上传知识' },
 };
 
-function getActionBadge(action: string) {
-  return actionBadgeMap[action] || { className: 'bg-gray-100 text-gray-600', label: action };
+function getActionBadge(action: string): ActionBadge {
+  return actionBadgeMap[action] || { variant: 'default', label: action };
 }
 
 function formatTime(iso: string) {
@@ -127,7 +135,7 @@ export function AuditLogPage() {
           <h1 className="text-2xl font-bold text-text">审计日志</h1>
           <p className="text-sm text-muted mt-1">查看系统操作记录</p>
         </div>
-        <Badge className="bg-amber-100 text-amber-700 w-fit">演示模式</Badge>
+        <Badge variant="warning" className="w-fit">演示模式</Badge>
       </div>
 
       {/* Filters */}
@@ -135,47 +143,47 @@ export function AuditLogPage() {
         <div className="flex flex-wrap items-center gap-3">
           <div className="flex items-center gap-2">
             <label className="text-sm text-muted whitespace-nowrap">操作类型</label>
-            <select
+            <Select
               value={action}
               onChange={(e) => handleActionChange(e.target.value)}
-              className="h-9 rounded-lg border border-border bg-white px-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="h-9 w-auto"
             >
               {actionOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2">
             <label className="text-sm text-muted whitespace-nowrap">资源类型</label>
-            <select
+            <Select
               value={resourceType}
               onChange={(e) => handleResourceChange(e.target.value)}
-              className="h-9 rounded-lg border border-border bg-white px-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="h-9 w-auto"
             >
               {resourceOptions.map((opt) => (
                 <option key={opt.value} value={opt.value}>
                   {opt.label}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <div className="flex items-center gap-2">
             <label className="text-sm text-muted whitespace-nowrap">每页条数</label>
-            <select
+            <Select
               value={pageSize}
               onChange={(e) => handlePageSizeChange(e.target.value)}
-              className="h-9 rounded-lg border border-border bg-white px-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="h-9 w-auto"
             >
               {pageSizeOptions.map((s) => (
                 <option key={s} value={s}>
                   {s} 条
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
 
           <span className="text-xs text-muted ml-auto">共 {total.toLocaleString()} 条记录</span>
@@ -218,7 +226,7 @@ export function AuditLogPage() {
                         </div>
                       </td>
                       <td className="px-4 py-3">
-                        <Badge className={badge.className}>{badge.label}</Badge>
+                        <Badge variant={badge.variant}>{badge.label}</Badge>
                       </td>
                       <td className="px-4 py-3 text-muted">{log.resource_type}</td>
                       <td className="px-4 py-3 text-text max-w-xs truncate">{log.description}</td>

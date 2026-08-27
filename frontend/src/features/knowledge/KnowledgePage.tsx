@@ -6,12 +6,12 @@
  * - 查看知识库详情（文档列表）
  * - 文档详情查看 / 上传 / 发布 / 取消发布 / 删除
  * - 404/403 语义：toast 展示后端 detail.message（不显示为系统异常）
- * - mutation 均有 loading/防重复；删除有确认机制
+ * - mutation 均有 loading/防重复；删除/取消发布走 ConfirmDialog 确认机制
  *
  * 数据来源：真实后端 API（Task 21/22 DB-backed）；无 mock fallback。
  * 「演示模式」Badge 仅 VITE_APP_ENV==='demo' 时显示。
  */
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   type KnowledgeBase,
   type KnowledgeDocument,
@@ -30,6 +30,15 @@ import {
 } from '../../services/knowledgeService';
 import { Button } from '../../components/ui/Button';
 import { Badge } from '../../components/ui/Badge';
+import { Card, CardTitle } from '../../components/ui/Card';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { Textarea } from '../../components/ui/Textarea';
+import { PageHeader } from '../../components/ui/PageHeader';
+import { EmptyState } from '../../components/ui/EmptyState';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
+import { Upload, LibraryBig, FileText } from 'lucide-react';
 import { useToast } from '../../hooks/useToast';
 
 // ---- Category labels ----
@@ -64,6 +73,14 @@ const STATUS_LABELS: Record<string, string> = {
   expired: '已过期',
 };
 
+/** 文件类型图标底色：语义 token 化 */
+const FILE_TYPE_STYLES: Record<string, string> = {
+  pdf: 'bg-error/10 text-error',
+  json: 'bg-warning/10 text-warning',
+  md: 'bg-accent/10 text-accent',
+};
+const FILE_TYPE_FALLBACK_STYLE = 'bg-surface text-muted';
+
 /** 演示模式标识：仅 demo 环境显示（生产不显示，避免误导）。 */
 const isDemoEnv = import.meta.env.VITE_APP_ENV === 'demo';
 
@@ -84,6 +101,13 @@ export function KnowledgePage() {
   const [uploading, setUploading] = useState(false);
   const [editingKB, setEditingKB] = useState<KnowledgeBase | null>(null);
   const [newKB, setNewKB] = useState({ name: '', description: '', category: 'product', is_public: true });
+
+  // 待确认操作目标（替代原生 window.confirm）
+  const [pendingUnpublish, setPendingUnpublish] = useState<KnowledgeDocument | null>(null);
+  const [pendingDeleteDoc, setPendingDeleteDoc] = useState<KnowledgeDocument | null>(null);
+  const [pendingDeleteKB, setPendingDeleteKB] = useState<KnowledgeBase | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchKBs = useCallback(async () => {
     try {
@@ -251,10 +275,9 @@ export function KnowledgePage() {
     }
   };
 
-  // 取消发布文档
-  const handleUnpublish = async (doc: KnowledgeDocument) => {
+  // 取消发布文档（执行，确认弹窗回调后调用）
+  const performUnpublish = async (doc: KnowledgeDocument) => {
     if (!selectedKB) return;
-    if (!confirm(`确定取消发布文档「${doc.title}」？取消后内容将不再被 AI 检索。`)) return;
     try {
       setPublishingDocId(doc.id);
       await unpublishDocument(selectedKB.id, doc.id);
@@ -272,10 +295,9 @@ export function KnowledgePage() {
     }
   };
 
-  // 删除文档
-  const handleDeleteDoc = async (doc: KnowledgeDocument) => {
+  // 删除文档（执行，确认弹窗回调后调用）
+  const performDeleteDoc = async (doc: KnowledgeDocument) => {
     if (!selectedKB) return;
-    if (!confirm(`确定删除文档「${doc.title}」？此操作不可恢复。`)) return;
     try {
       setDeletingDocId(doc.id);
       await deleteDocument(selectedKB.id, doc.id);
@@ -293,9 +315,8 @@ export function KnowledgePage() {
     }
   };
 
-  // 删除知识库
-  const handleDeleteKB = async (kb: KnowledgeBase) => {
-    if (!confirm(`确定删除知识库「${kb.name}」及其所有文档？此操作不可恢复。`)) return;
+  // 删除知识库（执行，确认弹窗回调后调用）
+  const performDeleteKB = async (kb: KnowledgeBase) => {
     try {
       setDeletingKbId(kb.id);
       await deleteKnowledgeBase(kb.id);
@@ -307,6 +328,61 @@ export function KnowledgePage() {
       setDeletingKbId(null);
     }
   };
+
+  // ---- 确认弹窗（统一替代 window.confirm） ----
+  const unpublishDialog = (
+    <ConfirmDialog
+      open={pendingUnpublish !== null}
+      onClose={() => setPendingUnpublish(null)}
+      onConfirm={() => {
+        const doc = pendingUnpublish;
+        setPendingUnpublish(null);
+        if (doc) performUnpublish(doc);
+      }}
+      title="确认取消发布"
+      message={
+        pendingUnpublish
+          ? `确定取消发布文档「${pendingUnpublish.title}」？取消后内容将不再被 AI 检索。`
+          : undefined
+      }
+      danger={false}
+      loading={publishingDocId !== null}
+    />
+  );
+
+  const deleteDocDialog = (
+    <ConfirmDialog
+      open={pendingDeleteDoc !== null}
+      onClose={() => setPendingDeleteDoc(null)}
+      onConfirm={() => {
+        const doc = pendingDeleteDoc;
+        setPendingDeleteDoc(null);
+        if (doc) performDeleteDoc(doc);
+      }}
+      title="删除文档"
+      message={
+        pendingDeleteDoc ? `确定删除文档「${pendingDeleteDoc.title}」？此操作不可恢复。` : undefined
+      }
+      loading={deletingDocId !== null}
+    />
+  );
+
+  const deleteKBDialog = (
+    <ConfirmDialog
+      open={pendingDeleteKB !== null}
+      onClose={() => setPendingDeleteKB(null)}
+      onConfirm={() => {
+        const kb = pendingDeleteKB;
+        setPendingDeleteKB(null);
+        if (kb) performDeleteKB(kb);
+      }}
+      title="删除知识库"
+      message={
+        pendingDeleteKB ? `确定删除知识库「${pendingDeleteKB.name}」及其所有文档？此操作不可恢复。` : undefined
+      }
+      loading={deletingKbId !== null}
+    />
+  );
 
   const formatFileSize = (bytes: number) => {
     if (bytes < 1024) return `${bytes} B`;
@@ -326,13 +402,13 @@ export function KnowledgePage() {
         <div className="flex items-center gap-4">
           <button
             onClick={handleBackFromDoc}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="flex items-center gap-2 text-sm text-muted hover:text-text transition-colors cursor-pointer"
           >
             ← 返回文档列表
           </button>
           <div className="flex-1 min-w-0">
-            <h2 className="text-xl font-semibold text-gray-900 truncate">{selectedDoc.title}</h2>
-            <p className="text-sm text-gray-500 mt-1">知识库：{selectedKB.name}</p>
+            <h2 className="text-xl font-semibold text-text truncate">{selectedDoc.title}</h2>
+            <p className="text-sm text-muted mt-1">知识库：{selectedKB.name}</p>
           </div>
           <Badge variant={STATUS_VARIANTS[selectedDoc.status] || 'default'}>
             {STATUS_LABELS[selectedDoc.status] || selectedDoc.status}
@@ -340,37 +416,37 @@ export function KnowledgePage() {
         </div>
 
         {docLoading ? (
-          <div className="text-center py-12 text-gray-400">加载中...</div>
+          <LoadingSpinner text="加载中..." />
         ) : (
-          <div className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm space-y-4">
+          <Card padding="lg" className="space-y-4">
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div>
-                <p className="text-gray-500">文件名</p>
-                <p className="font-medium text-gray-900 mt-0.5">{selectedDoc.file_name || '—'}</p>
+                <p className="text-muted">文件名</p>
+                <p className="font-medium text-text mt-0.5">{selectedDoc.file_name || '—'}</p>
               </div>
               <div>
-                <p className="text-gray-500">文件类型</p>
-                <p className="font-medium text-gray-900 mt-0.5">{selectedDoc.file_type.toUpperCase()}</p>
+                <p className="text-muted">文件类型</p>
+                <p className="font-medium text-text mt-0.5">{selectedDoc.file_type.toUpperCase()}</p>
               </div>
               <div>
-                <p className="text-gray-500">文件大小</p>
-                <p className="font-medium text-gray-900 mt-0.5">{formatFileSize(selectedDoc.file_size)}</p>
+                <p className="text-muted">文件大小</p>
+                <p className="font-medium text-text mt-0.5">{formatFileSize(selectedDoc.file_size)}</p>
               </div>
               <div>
-                <p className="text-gray-500">知识块数</p>
-                <p className="font-medium text-gray-900 mt-0.5">{selectedDoc.chunk_count}</p>
+                <p className="text-muted">知识块数</p>
+                <p className="font-medium text-text mt-0.5">{selectedDoc.chunk_count}</p>
               </div>
               <div>
-                <p className="text-gray-500">发布时间</p>
-                <p className="font-medium text-gray-900 mt-0.5">{formatDate(selectedDoc.published_at)}</p>
+                <p className="text-muted">发布时间</p>
+                <p className="font-medium text-text mt-0.5">{formatDate(selectedDoc.published_at)}</p>
               </div>
               <div>
-                <p className="text-gray-500">创建时间</p>
-                <p className="font-medium text-gray-900 mt-0.5">{formatDate(selectedDoc.created_at)}</p>
+                <p className="text-muted">创建时间</p>
+                <p className="font-medium text-text mt-0.5">{formatDate(selectedDoc.created_at)}</p>
               </div>
             </div>
             {selectedDoc.parse_error && (
-              <div className="p-3 bg-red-50 border border-red-100 rounded-lg text-sm text-red-600">
+              <div className="p-3 bg-error/10 border border-error/20 rounded-lg text-sm text-error">
                 解析错误：{selectedDoc.parse_error}
               </div>
             )}
@@ -381,7 +457,7 @@ export function KnowledgePage() {
                   variant="ghost"
                   loading={publishingDocId === selectedDoc.id}
                   disabled={publishingDocId === selectedDoc.id}
-                  onClick={() => handleUnpublish(selectedDoc)}
+                  onClick={() => setPendingUnpublish(selectedDoc)}
                 >
                   取消发布
                 </Button>
@@ -401,13 +477,16 @@ export function KnowledgePage() {
                 variant="danger"
                 loading={deletingDocId === selectedDoc.id}
                 disabled={deletingDocId === selectedDoc.id}
-                onClick={() => handleDeleteDoc(selectedDoc)}
+                onClick={() => setPendingDeleteDoc(selectedDoc)}
               >
                 删除
               </Button>
             </div>
-          </div>
+          </Card>
         )}
+
+        {unpublishDialog}
+        {deleteDocDialog}
       </div>
     );
   }
@@ -419,24 +498,24 @@ export function KnowledgePage() {
         <div className="flex items-center gap-4">
           <button
             onClick={handleBack}
-            className="flex items-center gap-2 text-sm text-gray-500 hover:text-gray-700 transition-colors"
+            className="flex items-center gap-2 text-sm text-muted hover:text-text transition-colors cursor-pointer"
           >
             ← 返回列表
           </button>
           <div className="flex-1">
-            <h2 className="text-xl font-semibold text-gray-900">{selectedKB.name}</h2>
-            <p className="text-sm text-gray-500 mt-1">{selectedKB.description}</p>
+            <h2 className="text-xl font-semibold text-text">{selectedKB.name}</h2>
+            <p className="text-sm text-muted mt-1">{selectedKB.description}</p>
           </div>
           <div className="flex items-center gap-3">
             <Badge variant={STATUS_VARIANTS[selectedKB.status] || 'default'}>
               {STATUS_LABELS[selectedKB.status] || selectedKB.status}
             </Badge>
-            <span className="text-sm text-gray-500">
+            <span className="text-sm text-muted">
               {selectedKB.document_count} 文档 · {selectedKB.total_chunks} 分块
             </span>
             <button
               onClick={() => openEditForm(selectedKB)}
-              className="text-sm text-blue-600 hover:text-blue-800"
+              className="text-sm text-accent hover:text-accent-hover transition-colors cursor-pointer"
             >
               编辑
             </button>
@@ -444,48 +523,56 @@ export function KnowledgePage() {
         </div>
 
         {/* Upload bar */}
-        <div className="flex items-center gap-3 p-4 bg-gray-50 rounded-lg border border-dashed border-gray-300">
-          <label className={`flex items-center gap-2 px-4 py-2 bg-blue-600 text-white rounded-lg text-sm font-medium cursor-pointer hover:bg-blue-700 transition-colors ${uploading ? 'opacity-50 cursor-not-allowed' : ''}`}>
+        <div className="flex items-center gap-3 p-4 bg-surface rounded-lg border border-dashed border-border">
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept=".txt,.md,.json,.pdf,.docx"
+            onChange={handleUpload}
+            disabled={uploading}
+            className="hidden"
+          />
+          <Button
+            size="sm"
+            variant="primary"
+            loading={uploading}
+            disabled={uploading}
+            onClick={() => fileInputRef.current?.click()}
+          >
+            {!uploading && <Upload className="h-4 w-4" aria-hidden="true" />}
             {uploading ? '上传中...' : '上传文档'}
-            <input
-              type="file"
-              accept=".txt,.md,.json,.pdf,.docx"
-              onChange={handleUpload}
-              disabled={uploading}
-              className="hidden"
-            />
-          </label>
-          <span className="text-sm text-gray-500">支持 TXT、Markdown、JSON、PDF 格式</span>
+          </Button>
+          <span className="text-sm text-muted">支持 TXT、Markdown、JSON、PDF 格式</span>
         </div>
 
         {/* Document list */}
         <div className="space-y-3">
           {documents.length === 0 ? (
-            <div className="text-center py-12 text-gray-400">
-              <p className="text-lg">暂无文档</p>
-              <p className="text-sm mt-1">上传文档后，系统将自动解析并生成知识块</p>
-            </div>
+            <EmptyState
+              icon={<FileText aria-hidden="true" className="h-5 w-5 text-muted" />}
+              title="暂无文档"
+              description="上传文档后，系统将自动解析并生成知识块"
+            />
           ) : (
             documents.map((doc) => (
               <div
                 key={doc.id}
-                className="flex items-center justify-between p-4 bg-white rounded-lg border border-gray-200 hover:border-blue-200 hover:shadow-sm transition-all"
+                className="flex items-center justify-between p-4 bg-card rounded-xl border border-border hover:border-accent/30 hover:shadow-sm transition-all"
               >
                 <button
-                  className="flex items-center gap-4 text-left flex-1 min-w-0"
+                  className="flex items-center gap-4 text-left flex-1 min-w-0 cursor-pointer"
                   onClick={() => handleSelectDoc(doc)}
                 >
-                  <div className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-medium shrink-0 ${
-                    doc.file_type === 'pdf' ? 'bg-red-50 text-red-600' :
-                    doc.file_type === 'json' ? 'bg-yellow-50 text-yellow-600' :
-                    doc.file_type === 'md' ? 'bg-purple-50 text-purple-600' :
-                    'bg-gray-50 text-gray-600'
-                  }`}>
+                  <div
+                    className={`w-10 h-10 rounded-lg flex items-center justify-center text-xs font-medium shrink-0 ${
+                      FILE_TYPE_STYLES[doc.file_type] || FILE_TYPE_FALLBACK_STYLE
+                    }`}
+                  >
                     {doc.file_type.toUpperCase()}
                   </div>
                   <div className="min-w-0">
-                    <p className="font-medium text-gray-900 truncate">{doc.title}</p>
-                    <p className="text-sm text-gray-500 mt-0.5">
+                    <p className="font-medium text-text truncate">{doc.title}</p>
+                    <p className="text-sm text-muted mt-0.5">
                       {doc.file_name} · {formatFileSize(doc.file_size)} · {doc.chunk_count} 个知识块
                     </p>
                   </div>
@@ -510,15 +597,14 @@ export function KnowledgePage() {
                       variant="ghost"
                       loading={publishingDocId === doc.id}
                       disabled={publishingDocId === doc.id}
-                      onClick={() => handleUnpublish(doc)}
+                      onClick={() => setPendingUnpublish(doc)}
                     >
                       取消发布
                     </Button>
                   )}
                   <button
-                    onClick={() => handleDeleteDoc(doc)}
-                    disabled={deletingDocId === doc.id}
-                    className="text-gray-400 hover:text-red-500 transition-colors text-sm disabled:opacity-50"
+                    onClick={() => setPendingDeleteDoc(doc)}
+                    className="cursor-pointer transition-colors text-sm text-muted hover:text-error disabled:opacity-50 disabled:cursor-not-allowed"
                   >
                     {deletingDocId === doc.id ? '删除中...' : '删除'}
                   </button>
@@ -527,6 +613,9 @@ export function KnowledgePage() {
             ))
           )}
         </div>
+
+        {unpublishDialog}
+        {deleteDocDialog}
       </div>
     );
   }
@@ -534,67 +623,58 @@ export function KnowledgePage() {
   // ---- 知识库列表视图 ----
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-bold text-gray-900">知识库管理</h1>
-          <p className="text-gray-500 mt-1">管理保险产品知识文档，为 AI 助手提供专业知识支撑</p>
-        </div>
-        <div className="flex items-center gap-3">
-          {isDemoEnv && <Badge variant="warning">演示模式</Badge>}
-          <Button variant="primary" onClick={openCreateForm}>
-            + 新建知识库
-          </Button>
-        </div>
-      </div>
+      <PageHeader
+        title="知识库管理"
+        description="管理保险产品知识文档，为 AI 助手提供专业知识支撑"
+        actions={
+          <>
+            {isDemoEnv && <Badge variant="warning">演示模式</Badge>}
+            <Button variant="primary" onClick={openCreateForm}>
+              + 新建知识库
+            </Button>
+          </>
+        }
+      />
 
       {/* Create / Edit form */}
       {showCreateForm && (
-        <div className="p-6 bg-white rounded-lg border border-gray-200 shadow-sm space-y-4">
-          <h3 className="font-semibold text-gray-900">{editingKB ? '编辑知识库' : '新建知识库'}</h3>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">名称 *</label>
-              <input
-                type="text"
-                value={newKB.name}
-                onChange={(e) => setNewKB({ ...newKB, name: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-                placeholder="如：华安保险产品知识库"
-                maxLength={200}
-              />
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">分类</label>
-              <select
-                value={newKB.category}
-                onChange={(e) => setNewKB({ ...newKB, category: e.target.value })}
-                className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                <option value="product">产品知识</option>
-                <option value="regulation">监管合规</option>
-                <option value="training">培训资料</option>
-                <option value="faq">常见问题</option>
-              </select>
-            </div>
-          </div>
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">描述</label>
-            <textarea
-              value={newKB.description}
-              onChange={(e) => setNewKB({ ...newKB, description: e.target.value })}
-              className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="简要描述知识库的用途和内容范围"
-              rows={2}
-              maxLength={2000}
+        <Card padding="lg" className="space-y-4">
+          <CardTitle>{editingKB ? '编辑知识库' : '新建知识库'}</CardTitle>
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <Input
+              label="名称 *"
+              type="text"
+              value={newKB.name}
+              onChange={(e) => setNewKB({ ...newKB, name: e.target.value })}
+              placeholder="如：华安保险产品知识库"
+              maxLength={200}
             />
+            <Select
+              label="分类"
+              value={newKB.category}
+              onChange={(e) => setNewKB({ ...newKB, category: e.target.value })}
+            >
+              <option value="product">产品知识</option>
+              <option value="regulation">监管合规</option>
+              <option value="training">培训资料</option>
+              <option value="faq">常见问题</option>
+            </Select>
           </div>
+          <Textarea
+            label="描述"
+            value={newKB.description}
+            onChange={(e) => setNewKB({ ...newKB, description: e.target.value })}
+            placeholder="简要描述知识库的用途和内容范围"
+            rows={2}
+            maxLength={2000}
+          />
           <div className="flex items-center gap-4">
-            <label className="flex items-center gap-2 text-sm">
+            <label className="flex items-center gap-2 text-sm text-text cursor-pointer">
               <input
                 type="checkbox"
                 checked={newKB.is_public}
                 onChange={(e) => setNewKB({ ...newKB, is_public: e.target.checked })}
-                className="rounded border-gray-300"
+                className="rounded border-border accent-accent"
               />
               公开可见（全员可访问）
             </label>
@@ -619,55 +699,65 @@ export function KnowledgePage() {
               取消
             </Button>
           </div>
-        </div>
+        </Card>
       )}
 
       {/* KB Cards */}
       {loading ? (
-        <div className="text-center py-12 text-gray-400">加载中...</div>
+        <LoadingSpinner text="加载中..." />
       ) : knowledgeBases.length === 0 ? (
-        <div className="text-center py-12 text-gray-400">
-          <p className="text-lg">暂无知识库</p>
-          <p className="text-sm mt-1">创建知识库并上传文档，为 AI 助手提供专业知识</p>
-        </div>
+        <EmptyState
+          icon={<LibraryBig aria-hidden="true" className="h-5 w-5 text-muted" />}
+          title="暂无知识库"
+          description="创建知识库并上传文档，为 AI 助手提供专业知识"
+          action={
+            <Button variant="secondary" size="sm" onClick={openCreateForm}>
+              新建知识库
+            </Button>
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {knowledgeBases.map((kb) => (
             <div
               key={kb.id}
-              className="p-5 bg-white rounded-lg border border-gray-200 hover:border-blue-200 hover:shadow-md transition-all cursor-pointer group"
+              className="p-5 bg-card rounded-xl border border-border hover:border-accent/30 hover:shadow-md transition-all cursor-pointer group"
               onClick={() => handleSelectKB(kb)}
             >
               <div className="flex items-start justify-between mb-3">
                 <div className="flex items-center gap-2">
-                  <span className="text-xs px-2 py-0.5 bg-blue-50 text-blue-600 rounded font-medium">
-                    {CATEGORY_LABELS[kb.category] || kb.category}
-                  </span>
+                  <Badge variant="primary">{CATEGORY_LABELS[kb.category] || kb.category}</Badge>
                   <Badge variant={STATUS_VARIANTS[kb.status] || 'default'}>
                     {STATUS_LABELS[kb.status] || kb.status}
                   </Badge>
                 </div>
               </div>
-              <h3 className="font-semibold text-gray-900 group-hover:text-blue-600 transition-colors">
+              <h3 className="font-semibold text-text group-hover:text-accent transition-colors">
                 {kb.name}
               </h3>
-              <p className="text-sm text-gray-500 mt-1 line-clamp-2">{kb.description}</p>
-              <div className="flex items-center gap-4 mt-4 pt-3 border-t border-gray-100">
-                <span className="text-sm text-gray-500">{kb.document_count} 文档</span>
-                <span className="text-sm text-gray-500">{kb.total_chunks} 分块</span>
-                <span className="text-sm text-gray-500">v{kb.version}</span>
+              <p className="text-sm text-muted mt-1 line-clamp-2">{kb.description}</p>
+              <div className="flex items-center gap-4 mt-4 pt-3 border-t border-border">
+                <span className="text-sm text-muted">{kb.document_count} 文档</span>
+                <span className="text-sm text-muted">{kb.total_chunks} 分块</span>
+                <span className="text-sm text-muted">v{kb.version}</span>
               </div>
               <div className="flex gap-3 mt-3 opacity-0 group-hover:opacity-100 transition-opacity">
                 <button
-                  onClick={(e) => { e.stopPropagation(); openEditForm(kb); }}
-                  className="text-xs text-blue-500 hover:text-blue-700"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    openEditForm(kb);
+                  }}
+                  className="text-xs text-accent hover:text-accent-hover transition-colors cursor-pointer"
                 >
                   编辑
                 </button>
                 <button
-                  onClick={(e) => { e.stopPropagation(); handleDeleteKB(kb); }}
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    setPendingDeleteKB(kb);
+                  }}
                   disabled={deletingKbId === kb.id}
-                  className="text-xs text-red-400 hover:text-red-600 disabled:opacity-50"
+                  className="text-xs text-error/80 hover:text-error transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {deletingKbId === kb.id ? '删除中...' : '删除'}
                 </button>
@@ -676,6 +766,8 @@ export function KnowledgePage() {
           ))}
         </div>
       )}
+
+      {deleteKBDialog}
     </div>
   );
 }

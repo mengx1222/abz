@@ -4,6 +4,10 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { Textarea } from '../../components/ui/Textarea';
+import { Modal } from '../../components/ui/Modal';
+import { ConfirmDialog } from '../../components/ui/ConfirmDialog';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useToast } from '../../hooks/useToast';
 import {
@@ -159,167 +163,140 @@ function CreateCustomerModal({
 
   if (!open) return null;
 
-  const fieldClass =
-    'w-full h-10 rounded-lg border border-border bg-white px-3 text-sm text-text placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent';
-  const selectClass = fieldClass;
   const labelClass = 'text-sm font-medium text-text mb-1.5 block';
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/40"
-        onClick={onClose}
-      />
-      {/* Dialog */}
-      <div className="relative bg-card rounded-xl border border-border shadow-lg w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-        <div className="flex items-center justify-between p-4 border-b border-border">
-          <h2 className="text-lg font-semibold text-text">新增客户</h2>
-          <button
-            onClick={onClose}
-            className="text-muted hover:text-text text-xl leading-none cursor-pointer"
-          >
-            x
-          </button>
-        </div>
-
-        <div className="p-4 grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <label className={labelClass}>
-              姓名 <span className="text-error">*</span>
-            </label>
-            <input
-              className={fieldClass}
-              value={form.name}
-              onChange={(e) => update('name', e.target.value)}
-              placeholder="请输入姓名"
-            />
-          </div>
-          <div>
-            <label className={labelClass}>年龄</label>
-            <input
-              type="number"
-              min={0}
-              max={150}
-              className={fieldClass}
-              value={form.age}
-              onChange={(e) => update('age', e.target.value)}
-              placeholder="请输入年龄"
-            />
-          </div>
-          <div>
-            <label className={labelClass}>性别</label>
-            <select
-              className={selectClass}
-              value={form.gender}
-              onChange={(e) => update('gender', e.target.value)}
-            >
-              <option value="">请选择</option>
-              <option value="male">男</option>
-              <option value="female">女</option>
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>手机号</label>
-            <input
-              className={fieldClass}
-              value={form.phone}
-              onChange={(e) => update('phone', e.target.value)}
-              placeholder="请输入手机号"
-            />
-          </div>
-          <div>
-            <label className={labelClass}>客户类型</label>
-            <select
-              className={selectClass}
-              value={form.customer_type}
-              onChange={(e) => update('customer_type', e.target.value)}
-            >
-              {Object.entries(TYPE_MAP).map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>感兴趣险种</label>
-            <input
-              className={fieldClass}
-              value={form.insurance_type}
-              onChange={(e) => update('insurance_type', e.target.value)}
-              placeholder="如: 重疾险、医疗险"
-            />
-          </div>
-          <div>
-            <label className={labelClass}>当前阶段</label>
-            <select
-              className={selectClass}
-              value={form.current_stage}
-              onChange={(e) => update('current_stage', e.target.value)}
-            >
-              {STAGE_OPTIONS.map(([k, v]) => (
-                <option key={k} value={k}>
-                  {v.label}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>意向等级 (1-5)</label>
-            <select
-              className={selectClass}
-              value={form.intention_level}
-              onChange={(e) => update('intention_level', e.target.value)}
-            >
-              {INTENTION_OPTIONS.map((n) => (
-                <option key={n} value={n}>
-                  {n}
-                </option>
-              ))}
-            </select>
-          </div>
-          <div>
-            <label className={labelClass}>来源渠道</label>
-            <input
-              className={fieldClass}
-              value={form.source_channel}
-              onChange={(e) => update('source_channel', e.target.value)}
-              placeholder="如: 转介绍、线上咨询"
-            />
-          </div>
-          <div>
-            <label className={labelClass}>标签 (逗号分隔)</label>
-            <input
-              className={fieldClass}
-              value={form.tags}
-              onChange={(e) => update('tags', e.target.value)}
-              placeholder="如: 高净值, 有小孩"
-            />
-          </div>
-          <div className="sm:col-span-2">
-            <label className={labelClass}>备注</label>
-            <textarea
-              className={
-                fieldClass + ' h-20 resize-none'
-              }
-              value={form.notes}
-              onChange={(e) => update('notes', e.target.value)}
-              placeholder="备注信息"
-            />
-          </div>
-        </div>
-
-        <div className="flex justify-end gap-3 p-4 border-t border-border">
+    <Modal
+      open={open}
+      onClose={onClose}
+      title="新增客户"
+      size="lg"
+      footer={
+        <>
           <Button variant="secondary" onClick={onClose}>
             取消
           </Button>
           <Button variant="primary" onClick={handleSubmit} loading={submitting}>
             创建
           </Button>
+        </>
+      }
+    >
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label className={labelClass}>
+            姓名 <span className="text-error">*</span>
+          </label>
+          <Input
+            value={form.name}
+            onChange={(e) => update('name', e.target.value)}
+            placeholder="请输入姓名"
+          />
+        </div>
+        <div>
+          <label className={labelClass}>年龄</label>
+          <Input
+            type="number"
+            min={0}
+            max={150}
+            value={form.age}
+            onChange={(e) => update('age', e.target.value)}
+            placeholder="请输入年龄"
+          />
+        </div>
+        <div>
+          <label className={labelClass}>性别</label>
+          <Select
+            value={form.gender}
+            onChange={(e) => update('gender', e.target.value)}
+          >
+            <option value="">请选择</option>
+            <option value="male">男</option>
+            <option value="female">女</option>
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>手机号</label>
+          <Input
+            value={form.phone}
+            onChange={(e) => update('phone', e.target.value)}
+            placeholder="请输入手机号"
+          />
+        </div>
+        <div>
+          <label className={labelClass}>客户类型</label>
+          <Select
+            value={form.customer_type}
+            onChange={(e) => update('customer_type', e.target.value)}
+          >
+            {Object.entries(TYPE_MAP).map(([k, v]) => (
+              <option key={k} value={k}>
+                {v}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>感兴趣险种</label>
+          <Input
+            value={form.insurance_type}
+            onChange={(e) => update('insurance_type', e.target.value)}
+            placeholder="如: 重疾险、医疗险"
+          />
+        </div>
+        <div>
+          <label className={labelClass}>当前阶段</label>
+          <Select
+            value={form.current_stage}
+            onChange={(e) => update('current_stage', e.target.value)}
+          >
+            {STAGE_OPTIONS.map(([k, v]) => (
+              <option key={k} value={k}>
+                {v.label}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>意向等级 (1-5)</label>
+          <Select
+            value={form.intention_level}
+            onChange={(e) => update('intention_level', e.target.value)}
+          >
+            {INTENTION_OPTIONS.map((n) => (
+              <option key={n} value={n}>
+                {n}
+              </option>
+            ))}
+          </Select>
+        </div>
+        <div>
+          <label className={labelClass}>来源渠道</label>
+          <Input
+            value={form.source_channel}
+            onChange={(e) => update('source_channel', e.target.value)}
+            placeholder="如: 转介绍、线上咨询"
+          />
+        </div>
+        <div>
+          <label className={labelClass}>标签 (逗号分隔)</label>
+          <Input
+            value={form.tags}
+            onChange={(e) => update('tags', e.target.value)}
+            placeholder="如: 高净值, 有小孩"
+          />
+        </div>
+        <div className="sm:col-span-2">
+          <label className={labelClass}>备注</label>
+          <Textarea
+            className="h-20 resize-none"
+            value={form.notes}
+            onChange={(e) => update('notes', e.target.value)}
+            placeholder="备注信息"
+          />
         </div>
       </div>
-    </div>
+    </Modal>
   );
 }
 
@@ -358,6 +335,7 @@ export function CustomersPage() {
 
   // Delete
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [pendingDelete, setPendingDelete] = useState<Customer | null>(null);
 
   const fetchCustomers = useCallback(async () => {
     setLoading(true);
@@ -390,17 +368,19 @@ export function CustomersPage() {
     setPage(1);
   }, [search, customerType, stageFilter, intentionFilter]);
 
-  const handleDelete = async (id: string, name: string) => {
-    if (!window.confirm(`确定要删除客户 "${name}" 吗？`)) return;
-    setDeletingId(id);
+  const handleConfirmDelete = async () => {
+    if (!pendingDelete) return;
+    const target = pendingDelete;
+    setDeletingId(target.id);
     try {
-      await deleteCustomer(id);
+      await deleteCustomer(target.id);
       toast({ title: '已删除', variant: 'success' });
       fetchCustomers();
     } catch {
       toast({ title: '删除失败', variant: 'error' });
     } finally {
       setDeletingId(null);
+      setPendingDelete(null);
     }
   };
 
@@ -456,10 +436,10 @@ export function CustomersPage() {
             <span className="text-border mx-1">|</span>
 
             {/* Stage dropdown */}
-            <select
+            <Select
               value={stageFilter}
               onChange={(e) => setStageFilter(e.target.value)}
-              className="h-8 rounded-lg border border-border bg-white px-2 text-xs text-text focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="h-8 w-auto text-xs"
             >
               <option value="">全部阶段</option>
               {STAGE_OPTIONS.map(([k, v]) => (
@@ -467,13 +447,13 @@ export function CustomersPage() {
                   {v.label}
                 </option>
               ))}
-            </select>
+            </Select>
 
             {/* Intention dropdown */}
-            <select
+            <Select
               value={intentionFilter}
               onChange={(e) => setIntentionFilter(e.target.value)}
-              className="h-8 rounded-lg border border-border bg-white px-2 text-xs text-text focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+              className="h-8 w-auto text-xs"
             >
               <option value="">全部意向</option>
               {INTENTION_OPTIONS.map((n) => (
@@ -481,7 +461,7 @@ export function CustomersPage() {
                   意向等级 {n}
                 </option>
               ))}
-            </select>
+            </Select>
           </div>
         </div>
       </Card>
@@ -598,7 +578,7 @@ export function CustomersPage() {
                           size="sm"
                           onClick={(e) => {
                             e.stopPropagation();
-                            handleDelete(c.id, c.name);
+                            setPendingDelete(c);
                           }}
                           loading={deletingId === c.id}
                           className="text-error hover:text-error"
@@ -645,6 +625,19 @@ export function CustomersPage() {
         open={showCreate}
         onClose={() => setShowCreate(false)}
         onCreated={fetchCustomers}
+      />
+
+      {/* Delete Confirm */}
+      <ConfirmDialog
+        open={pendingDelete !== null}
+        onClose={() => setPendingDelete(null)}
+        onConfirm={handleConfirmDelete}
+        title="删除客户"
+        message={
+          pendingDelete ? `确定要删除客户 "${pendingDelete.name}" 吗？` : undefined
+        }
+        confirmText="确认"
+        loading={deletingId !== null}
       />
     </div>
   );

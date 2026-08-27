@@ -6,6 +6,19 @@ import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Card } from '../../components/ui/Card';
 import {
+  AlertTriangle,
+  BarChart3,
+  BookOpen,
+  Brain,
+  CheckCircle2,
+  ChevronLeft,
+  Lightbulb,
+  Pin,
+  Smile,
+  Target,
+  User,
+} from 'lucide-react';
+import {
   startSession,
   streamTrainingMessage,
   streamTrainingScore,
@@ -17,10 +30,10 @@ import {
 
 // ---- Constants ----
 
-const ROLE_CONFIG: Record<string, { label: string; align: string; bg: string; avatar: string; avatarBg: string }> = {
-  agent: { label: '我', align: 'justify-end', bg: 'bg-accent text-white', avatar: '我', avatarBg: 'bg-accent' },
-  customer: { label: '客户', align: 'justify-start', bg: 'bg-card border border-border', avatar: '客', avatarBg: 'bg-rose-100 text-rose-600' },
-  coach: { label: '教练', align: 'justify-start', bg: 'bg-emerald-50 border border-emerald-200', avatar: '💡', avatarBg: 'bg-emerald-100' },
+const ROLE_CONFIG: Record<string, { label: string; align: string; bg: string; avatar: React.ReactNode; avatarBg: string }> = {
+  agent: { label: '我', align: 'justify-end', bg: 'bg-accent text-white rounded-br-md', avatar: '我', avatarBg: 'bg-accent' },
+  customer: { label: '客户', align: 'justify-start', bg: 'bg-bg border border-border text-text rounded-bl-md', avatar: '客', avatarBg: 'bg-warning/10 text-warning' },
+  coach: { label: '教练', align: 'justify-start', bg: 'bg-success/10 border border-success/30', avatar: <Lightbulb aria-hidden="true" className="h-4 w-4" />, avatarBg: 'bg-success/10 text-success' },
 };
 
 export function TrainingChatPage() {
@@ -211,9 +224,7 @@ export function TrainingChatPage() {
             onClick={() => navigate('/training')}
             className="p-1 rounded hover:bg-bg text-muted hover:text-text transition-colors"
           >
-            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
+            <ChevronLeft aria-hidden="true" className="h-[18px] w-[18px]" />
           </button>
           <div>
             <h1 className="text-lg font-semibold text-text">{scenario}</h1>
@@ -228,17 +239,11 @@ export function TrainingChatPage() {
         <Button
           variant="primary"
           size="sm"
+          loading={isScoring}
           disabled={isScoring || messages.filter((m) => m.role === 'agent').length < 2}
           onClick={handleComplete}
         >
-          {isScoring ? (
-            <span className="flex items-center gap-2">
-              <LoadingSpinner size="sm" />
-              评分中...
-            </span>
-          ) : (
-            '结束训练 · 查看评分'
-          )}
+          {isScoring ? '评分中...' : '结束训练 · 查看评分'}
         </Button>
       </div>
 
@@ -250,14 +255,16 @@ export function TrainingChatPage() {
             <div className="flex-1 overflow-y-auto space-y-3 mb-4 max-h-[60vh] pr-1">
               {messages.length === 0 && (
                 <div className="text-center py-12">
-                  <div className="text-3xl mb-3 opacity-20">🎯</div>
+                  <div className="mx-auto mb-3 h-12 w-12 rounded-full bg-surface flex items-center justify-center">
+                    <Target aria-hidden="true" className="h-5 w-5 text-muted" />
+                  </div>
                   <p className="text-muted text-sm">
                     {persona ? `您正在与${persona.name || '客户'}对话` : '开始您的销售话术练习'}
                   </p>
                   {persona?.key_objections && (
                     <div className="mt-2 flex flex-wrap gap-1 justify-center">
                       {Array.isArray(persona.key_objections) && persona.key_objections.map((obj: string) => (
-                        <span key={obj} className="px-2 py-0.5 rounded text-xs bg-rose-50 text-rose-500">
+                        <span key={obj} className="px-2 py-0.5 rounded text-xs bg-warning/10 text-warning">
                           {obj}
                         </span>
                       ))}
@@ -278,7 +285,7 @@ export function TrainingChatPage() {
                     <div className={`max-w-[75%] px-3 py-2 rounded-xl text-sm ${cfg.bg}`}>
                       <span className="whitespace-pre-wrap">{msg.content}</span>
                       {msg.role === 'customer' && msg.content === '' && customerStreaming && (
-                        <span className="inline-block w-1.5 h-4 bg-rose-400 ml-0.5 animate-pulse rounded-sm" />
+                        <span className="inline-block w-1.5 h-4 bg-accent/60 ml-0.5 animate-pulse rounded-sm" />
                       )}
                     </div>
                     {cfg.align === 'justify-end' && (
@@ -293,13 +300,13 @@ export function TrainingChatPage() {
               {/* Scoring Text */}
               {scoringText && (
                 <div className="flex justify-start gap-2">
-                  <div className="w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold shrink-0 bg-amber-100 text-amber-600">
-                    📊
+                  <div className="w-8 h-8 rounded-full flex items-center justify-center shrink-0 bg-accent/10 text-accent">
+                    <BarChart3 aria-hidden="true" className="h-4 w-4" />
                   </div>
-                  <div className="max-w-[75%] px-3 py-2 rounded-xl text-sm bg-amber-50 border border-amber-200">
+                  <div className="max-w-[75%] px-3 py-2 rounded-xl text-sm bg-bg border border-border text-text rounded-bl-md">
                     <span className="whitespace-pre-wrap">{scoringText}</span>
                     {isScoring && (
-                      <span className="inline-block w-1.5 h-4 bg-amber-400 ml-0.5 animate-pulse rounded-sm" />
+                      <span className="inline-block w-1.5 h-4 bg-accent/60 ml-0.5 animate-pulse rounded-sm" />
                     )}
                   </div>
                 </div>
@@ -323,10 +330,11 @@ export function TrainingChatPage() {
                 <Button
                   variant="primary"
                   size="sm"
+                  loading={isSending}
                   disabled={!input.trim() || isSending}
                   onClick={handleSend}
                 >
-                  {isSending ? <LoadingSpinner size="sm" /> : '发送'}
+                  发送
                 </Button>
               </div>
             )}
@@ -340,15 +348,15 @@ export function TrainingChatPage() {
             <Card padding="md">
               <h3 className="text-sm font-semibold text-text mb-2">客户人设</h3>
               <div className="space-y-1.5 text-xs text-muted">
-                {persona.name && <p>👤 {persona.name}，{persona.age || '?'}岁</p>}
-                {persona.personality && <p>🧠 {persona.personality}</p>}
-                {persona.mood && <p>😊 {persona.mood}</p>}
-                {persona.insurance_knowledge && <p>📚 保险认知：{persona.insurance_knowledge}</p>}
+                {persona.name && <p className="flex items-center gap-1"><User aria-hidden="true" className="h-4 w-4 shrink-0" />{persona.name}，{persona.age || '?'}岁</p>}
+                {persona.personality && <p className="flex items-start gap-1"><Brain aria-hidden="true" className="h-4 w-4 shrink-0 mt-0.5" /><span>{persona.personality}</span></p>}
+                {persona.mood && <p className="flex items-center gap-1"><Smile aria-hidden="true" className="h-4 w-4 shrink-0" />{persona.mood}</p>}
+                {persona.insurance_knowledge && <p className="flex items-start gap-1"><BookOpen aria-hidden="true" className="h-4 w-4 shrink-0 mt-0.5" /><span>保险认知：{persona.insurance_knowledge}</span></p>}
                 {Array.isArray(persona.key_objections) && persona.key_objections.length > 0 && (
                   <div className="mt-1">
                     <p className="font-medium text-text">关键异议：</p>
                     {persona.key_objections.map((obj: string) => (
-                      <span key={obj} className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-rose-50 text-rose-500 mr-1 mt-1">
+                      <span key={obj} className="inline-block px-1.5 py-0.5 rounded text-[10px] bg-warning/10 text-warning mr-1 mt-1">
                         {obj}
                       </span>
                     ))}
@@ -360,8 +368,11 @@ export function TrainingChatPage() {
 
           {/* Coaching Hint */}
           {coachingHint && (
-            <Card padding="md" className="border-emerald-200 bg-emerald-50/30">
-              <h3 className="text-sm font-semibold text-emerald-700 mb-2">💡 教练提示</h3>
+            <Card padding="md" className="border-success/30 bg-success/10">
+              <h3 className="text-sm font-semibold text-success mb-2 flex items-center gap-1">
+                <Lightbulb aria-hidden="true" className="h-4 w-4" />
+                教练提示
+              </h3>
               <p className="text-xs text-text/80 leading-relaxed">{coachingHint.hint}</p>
               <div className="mt-2">
                 <Badge variant="success" className="text-[10px]">
@@ -377,8 +388,8 @@ export function TrainingChatPage() {
               <h3 className="text-sm font-semibold text-text mb-3">训练评分</h3>
               <div className="text-center mb-3">
                 <div className={`text-3xl font-bold ${
-                  score.total_score >= 85 ? 'text-emerald-500' :
-                  score.total_score >= 70 ? 'text-amber-500' : 'text-red-500'
+                  score.total_score >= 85 ? 'text-success' :
+                  score.total_score >= 70 ? 'text-warning' : 'text-error'
                 }`}>
                   {score.total_score}
                 </div>
@@ -400,8 +411,8 @@ export function TrainingChatPage() {
                     <div className="w-full h-1.5 bg-border rounded-full overflow-hidden">
                       <div
                         className={`h-full rounded-full transition-all duration-500 ${
-                          item.value >= 85 ? 'bg-emerald-500' :
-                          item.value >= 70 ? 'bg-amber-500' : 'bg-red-500'
+                          item.value >= 85 ? 'bg-success' :
+                          item.value >= 70 ? 'bg-warning' : 'bg-error'
                         }`}
                         style={{ width: `${item.value}%` }}
                       />
@@ -413,7 +424,10 @@ export function TrainingChatPage() {
               {/* Strengths */}
               {score.strengths.length > 0 && (
                 <div className="mt-3">
-                  <p className="text-xs font-medium text-emerald-600 mb-1">✅ 优势</p>
+                  <p className="text-xs font-medium text-success mb-1 flex items-center gap-1">
+                    <CheckCircle2 aria-hidden="true" className="h-4 w-4" />
+                    优势
+                  </p>
                   {score.strengths.map((s, i) => (
                     <p key={i} className="text-xs text-muted">· {s}</p>
                   ))}
@@ -423,7 +437,10 @@ export function TrainingChatPage() {
               {/* Weaknesses */}
               {score.weaknesses.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-xs font-medium text-amber-600 mb-1">⚠️ 待提升</p>
+                  <p className="text-xs font-medium text-warning mb-1 flex items-center gap-1">
+                    <AlertTriangle aria-hidden="true" className="h-4 w-4" />
+                    待提升
+                  </p>
                   {score.weaknesses.map((w, i) => (
                     <p key={i} className="text-xs text-muted">· {w}</p>
                   ))}
@@ -433,7 +450,10 @@ export function TrainingChatPage() {
               {/* Recommendations */}
               {score.recommendations.length > 0 && (
                 <div className="mt-2">
-                  <p className="text-xs font-medium text-accent mb-1">📌 建议</p>
+                  <p className="text-xs font-medium text-accent mb-1 flex items-center gap-1">
+                    <Pin aria-hidden="true" className="h-4 w-4" />
+                    建议
+                  </p>
                   {score.recommendations.map((r, i) => (
                     <p key={i} className="text-xs text-muted">· {r}</p>
                   ))}

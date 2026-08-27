@@ -3,6 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
+import { Input } from '../../components/ui/Input';
+import { Select } from '../../components/ui/Select';
+import { Textarea } from '../../components/ui/Textarea';
+import { Tabs } from '../../components/ui/Tabs';
+import { PageHeader } from '../../components/ui/PageHeader';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { Avatar } from '../../components/ui/Avatar';
 import { useToast } from '../../hooks/useToast';
@@ -160,9 +165,6 @@ function InteractionForm({
   const [content, setContent] = useState('');
   const [outcome, setOutcome] = useState('');
 
-  const fieldClass =
-    'w-full h-10 rounded-lg border border-border bg-white px-3 text-sm text-text placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent';
-  const selectClass = fieldClass;
   const labelClass = 'text-sm font-medium text-text mb-1.5 block';
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -177,32 +179,30 @@ function InteractionForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>互动方式</label>
-            <select
-              className={selectClass}
+            <Select
               value={type}
               onChange={(e) => setType(e.target.value as InteractionCreate['type'])}
             >
               {Object.entries(INTERACTION_TYPE_MAP).map(([k, v]) => (
                 <option key={k} value={k}>{v}</option>
               ))}
-            </select>
+            </Select>
           </div>
           <div>
             <label className={labelClass}>方向</label>
-            <select
-              className={selectClass}
+            <Select
               value={direction}
               onChange={(e) => setDirection(e.target.value as InteractionCreate['direction'])}
             >
               <option value="outbound">呼出</option>
               <option value="inbound">呼入</option>
-            </select>
+            </Select>
           </div>
         </div>
         <div>
           <label className={labelClass}>沟通内容</label>
-          <textarea
-            className={fieldClass + ' h-20 resize-none'}
+          <Textarea
+            className="h-20 resize-none"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="记录沟通要点..."
@@ -210,8 +210,8 @@ function InteractionForm({
         </div>
         <div>
           <label className={labelClass}>沟通结果</label>
-          <textarea
-            className={fieldClass + ' h-16 resize-none'}
+          <Textarea
+            className="h-16 resize-none"
             value={outcome}
             onChange={(e) => setOutcome(e.target.value)}
             placeholder="沟通结果与下一步计划..."
@@ -245,9 +245,6 @@ function FollowupForm({
   const [content, setContent] = useState('');
   const [status, setStatus] = useState<FollowupCreate['status']>('pending');
 
-  const fieldClass =
-    'w-full h-10 rounded-lg border border-border bg-white px-3 text-sm text-text placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent';
-  const selectClass = fieldClass;
   const labelClass = 'text-sm font-medium text-text mb-1.5 block';
 
   const handleSubmit = (e: React.FormEvent) => {
@@ -267,9 +264,8 @@ function FollowupForm({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
           <div>
             <label className={labelClass}>计划日期</label>
-            <input
+            <Input
               type="date"
-              className={fieldClass}
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
               required
@@ -277,21 +273,20 @@ function FollowupForm({
           </div>
           <div>
             <label className={labelClass}>状态</label>
-            <select
-              className={selectClass}
+            <Select
               value={status}
               onChange={(e) => setStatus(e.target.value as FollowupCreate['status'])}
             >
               <option value="pending">待完成</option>
               <option value="completed">已完成</option>
               <option value="cancelled">已取消</option>
-            </select>
+            </Select>
           </div>
         </div>
         <div>
           <label className={labelClass}>跟进内容</label>
-          <textarea
-            className={fieldClass + ' h-20 resize-none'}
+          <Textarea
+            className="h-20 resize-none"
             value={content}
             onChange={(e) => setContent(e.target.value)}
             placeholder="跟进计划详情..."
@@ -486,80 +481,64 @@ export function CustomerDetailPage() {
           返回列表
         </button>
 
-        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
-          <div className="flex items-center gap-3">
-            <Avatar name={customer.name} size="lg" />
-            <div>
-              <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold text-text">{customer.name}</h1>
-                {customer.age && (
-                  <span className="text-sm text-muted">
-                    {customer.age}岁
-                  </span>
-                )}
-                {customer.gender && (
-                  <span className="text-sm text-muted">
-                    {GENDER_MAP[customer.gender] || customer.gender}
-                  </span>
-                )}
-              </div>
-              <div className="flex items-center gap-2 mt-1">
+        <div className="flex items-start gap-3">
+          <Avatar name={customer.name} size="lg" />
+          <PageHeader
+            className="flex-1 mb-0"
+            title={customer.name}
+            description={
+              <span className="inline-flex items-center flex-wrap gap-2">
+                {customer.age ? <span>{customer.age}岁</span> : null}
+                {customer.gender ? (
+                  <span>{GENDER_MAP[customer.gender] || customer.gender}</span>
+                ) : null}
                 {stage && <Badge variant={stage.variant}>{stage.label}</Badge>}
                 <Badge variant="default">{typeLabel}</Badge>
+              </span>
+            }
+            actions={
+              <div className="flex gap-2 flex-wrap">
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={() => navigate(`/sales-agent/${customer.id}`)}
+                >
+                  AI 销售副驾
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowInteractionForm(true)}
+                >
+                  添加互动
+                </Button>
+                <Button
+                  variant="secondary"
+                  size="sm"
+                  onClick={() => setShowFollowupForm(true)}
+                >
+                  添加跟进
+                </Button>
+                <Button
+                  variant="primary"
+                  size="sm"
+                  onClick={handleStartAnalysis}
+                  loading={analyzing}
+                >
+                  AI分析
+                </Button>
               </div>
-            </div>
-          </div>
-
-          <div className="flex gap-2 flex-wrap">
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={() => navigate(`/sales-agent/${customer.id}`)}
-            >
-              AI 销售副驾
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowInteractionForm(true)}
-            >
-              添加互动
-            </Button>
-            <Button
-              variant="secondary"
-              size="sm"
-              onClick={() => setShowFollowupForm(true)}
-            >
-              添加跟进
-            </Button>
-            <Button
-              variant="primary"
-              size="sm"
-              onClick={handleStartAnalysis}
-              loading={analyzing}
-            >
-              AI分析
-            </Button>
-          </div>
+            }
+          />
         </div>
       </div>
 
       {/* Tabs */}
-      <div className="flex border-b border-border gap-1">
-        {TABS.map((tab) => (
-          <button
-            key={tab.key}
-            onClick={() => setActiveTab(tab.key)}
-            className={`px-4 py-2.5 text-sm font-medium transition-colors cursor-pointer border-b-2 -mb-px ${
-              activeTab === tab.key
-                ? 'text-accent border-accent'
-                : 'text-muted border-transparent hover:text-text'
-            }`}
-          >
-            {tab.label}
-          </button>
-        ))}
-      </div>
+      <Tabs
+        items={TABS.map(({ key, label }) => ({ key, label }))}
+        active={activeTab}
+        onChange={(key) => setActiveTab(key as TabKey)}
+      />
 
       {/* Tab Content */}
       {activeTab === 'info' && <InfoTab customer={customer} />}
