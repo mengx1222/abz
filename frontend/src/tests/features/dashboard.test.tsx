@@ -23,7 +23,7 @@ const mockedGetDashboard = vi.mocked(getDashboard);
 
 const baseOverview = {
   greeting: '上午好',
-  user_name: '林思远',
+  user_name: '张张',
   today_stats: [
     { label: '今日拜访', value: '3', sub: '较昨日 +1', trend: 'up' as const },
   ],
@@ -89,7 +89,7 @@ describe('DashboardPage（仪表盘）', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('上午好，林思远')).toBeInTheDocument();
+      expect(screen.getByText('上午好，张张')).toBeInTheDocument();
     });
     expect(screen.getByText('客户管理')).toBeInTheDocument();
     expect(screen.getByText('今日拜访')).toBeInTheDocument();
@@ -103,7 +103,7 @@ describe('DashboardPage（仪表盘）', () => {
     renderPage();
 
     await waitFor(() => {
-      expect(screen.getByText('上午好，林思远')).toBeInTheDocument();
+      expect(screen.getByText('上午好，张张')).toBeInTheDocument();
     });
     expect(screen.queryByText('AI 今日建议')).not.toBeInTheDocument();
   });

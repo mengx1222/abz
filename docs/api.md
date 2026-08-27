@@ -498,7 +498,7 @@ GET /api/v1/dashboard
 ```json
 {
   "greeting": "上午好",
-  "user_name": "林思远",
+  "user_name": "张张",
   "today_stats": [
     {"label": "今日互动", "value": "5", "sub": "+2 较昨日", "trend": "up"},
     {"label": "成交保单", "value": "1", "sub": "2个高意向", "trend": "neutral"},
@@ -2433,9 +2433,9 @@ GET /api/v1/growth/leaderboard?period=month
 {
   "period": "month",
   "leaderboard": [
-    {"rank": 1, "user_name": "林思远", "org_name": "华东区第一营业部", "score": 150, "avatar": ""}
+    {"rank": 1, "user_name": "张张", "org_name": "华东区第一营业部", "score": 150, "avatar": ""}
   ],
-  "my_rank": {"rank": 1, "user_name": "林思远", "org_name": "华东区第一营业部", "score": 150, "avatar": ""}
+  "my_rank": {"rank": 1, "user_name": "张张", "org_name": "华东区第一营业部", "score": 150, "avatar": ""}
 }
 ```
 

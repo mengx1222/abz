@@ -28,10 +28,10 @@ logger = get_logger()
 DEMO_PASSWORD = settings.DEMO_PASSWORD
 
 DEMO_USERS_CONFIG = {
-    "13800138000": {"name": "林思远", "role_code": "AGENT",         "role_name": "代理人"},
-    "13800138001": {"name": "张伟",   "role_code": "TEAM_LEADER",   "role_name": "团队长"},
-    "13800138002": {"name": "李芳",   "role_code": "BRANCH_ADMIN",  "role_name": "分公司管理员"},
-    "13800138003": {"name": "王强",   "role_code": "SYSTEM_ADMIN",  "role_name": "系统管理员"},
+    "13800138000": {"name": "张张", "role_code": "AGENT",         "role_name": "代理人"},
+    "13800138001": {"name": "罗罗",   "role_code": "TEAM_LEADER",   "role_name": "团队长"},
+    "13800138002": {"name": "噜噜",   "role_code": "BRANCH_ADMIN",  "role_name": "分公司管理员"},
+    "13800138003": {"name": "噜妹",   "role_code": "SYSTEM_ADMIN",  "role_name": "系统管理员"},
 }
 
 

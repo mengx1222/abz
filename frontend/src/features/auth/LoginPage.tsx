@@ -6,10 +6,10 @@ import { useAuthStore } from '../../stores/authStore';
 import { useToast } from '../../hooks/useToast';
 
 const DEMO_USERS = [
-  { phone: '13800138000', name: '林思远', role: '代理人', desc: '一线销售' },
-  { phone: '13800138001', name: '张伟', role: '团队长', desc: '团队管理' },
-  { phone: '13800138002', name: '李芳', role: '分公司管理员', desc: '分公司运营' },
-  { phone: '13800138003', name: '王强', role: '系统管理员', desc: '系统管理' },
+  { phone: '13800138000', name: '张张', role: '代理人', desc: '一线销售' },
+  { phone: '13800138001', name: '罗罗', role: '团队长', desc: '团队管理' },
+  { phone: '13800138002', name: '噜噜', role: '分公司管理员', desc: '分公司运营' },
+  { phone: '13800138003', name: '噜妹', role: '系统管理员', desc: '系统管理' },
 ];
 
 export function LoginPage() {

@@ -40,7 +40,7 @@ class TestAuthApi:
         assert response.status_code == 200
         data = response.json()["data"]
         assert data["phone"] == "13800138000"
-        assert data["name"] == "林思远"
+        assert data["name"] == "张张"
         assert data["demo_mode"] is True
 
     async def test_refresh_token(self, client: AsyncClient):

@@ -31,7 +31,7 @@ function axiosRes(data: unknown): never {
 const mockUser: AdminUser = {
   id: 'u-1',
   phone: '13800138000',
-  name: '林思远',
+  name: '张张',
   role_code: 'AGENT',
   role_name: '代理人',
   organization_name: '上海分公司-浦东团队',
@@ -91,7 +91,7 @@ describe('UsersPage（用户管理）', () => {
     mockedList.mockResolvedValue(axiosRes(pageData()));
     render(<UsersPage />);
     await waitFor(() => {
-      expect(screen.getByText('林思远')).toBeInTheDocument();
+      expect(screen.getByText('张张')).toBeInTheDocument();
     });
     expect(screen.getByText('13800138000')).toBeInTheDocument();
     expect(screen.getAllByText('代理人').length).toBeGreaterThan(0);
@@ -101,7 +101,7 @@ describe('UsersPage（用户管理）', () => {
     mockedList.mockResolvedValue(axiosRes(pageData()));
     mockedDisable.mockResolvedValue(axiosRes({ success: true, data: { id: 'u-1' } }));
     render(<UsersPage />);
-    await waitFor(() => screen.getByText('林思远'));
+    await waitFor(() => screen.getByText('张张'));
     fireEvent.click(screen.getByRole('button', { name: '禁用' }));
     await waitFor(() => {
       expect(mockedDisable).toHaveBeenCalledWith('u-1', '管理员操作');

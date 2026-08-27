@@ -158,11 +158,11 @@ def build_demo_scripts() -> list[dict]:
             "is_favorited": False, "created_at": ts, "updated_at": ts,
         },
 
-        # === 9-12: 张伟 30岁 不需要保险 意外险 ===
+        # === 9-12: 罗罗 30岁 不需要保险 意外险 ===
         {
             "id": str(uuid.uuid5(uuid.NAMESPACE_URL, "demo-script-9")),
-            "title": "意外险 — 张伟不需要保险（亲和型）",
-            "customer_context": {"name": "张伟", "age": 30, "type": "个人", "stage": "初次接触", "objection": "觉得自己年轻不需要保险"},
+            "title": "意外险 — 罗罗不需要保险（亲和型）",
+            "customer_context": {"name": "罗罗", "age": 30, "type": "个人", "stage": "初次接触", "objection": "觉得自己年轻不需要保险"},
             "style": "affinity",
             "content": (
                 "张哥，我太理解您了！我30岁的时候也是这么想的——年轻力壮，保险是给中年人准备的。\n\n"
@@ -178,8 +178,8 @@ def build_demo_scripts() -> list[dict]:
         },
         {
             "id": str(uuid.uuid5(uuid.NAMESPACE_URL, "demo-script-10")),
-            "title": "意外险 — 张伟不需要保险（专业型）",
-            "customer_context": {"name": "张伟", "age": 30, "type": "个人", "stage": "初次接触", "objection": "觉得自己年轻不需要保险"},
+            "title": "意外险 — 罗罗不需要保险（专业型）",
+            "customer_context": {"name": "罗罗", "age": 30, "type": "个人", "stage": "初次接触", "objection": "觉得自己年轻不需要保险"},
             "style": "professional",
             "content": (
                 "张先生，关于'年轻人不需要保险'这个观点，我从专业的风险管理角度来分析。\n\n"
@@ -195,8 +195,8 @@ def build_demo_scripts() -> list[dict]:
         },
         {
             "id": str(uuid.uuid5(uuid.NAMESPACE_URL, "demo-script-11")),
-            "title": "意外险 — 张伟不需要保险（数据驱动型）",
-            "customer_context": {"name": "张伟", "age": 30, "type": "个人", "stage": "初次接触", "objection": "觉得自己年轻不需要保险"},
+            "title": "意外险 — 罗罗不需要保险（数据驱动型）",
+            "customer_context": {"name": "罗罗", "age": 30, "type": "个人", "stage": "初次接触", "objection": "觉得自己年轻不需要保险"},
             "style": "data_driven",
             "content": (
                 "张先生，用数据说话：\n\n"

@@ -136,10 +136,10 @@ async def seed_all_data(session_factory):
 
         # == 3. Users ==
         users_data = [
-            ("13800138000", "林思远", "AGENT", "上海分公司-浦东团队"),
-            ("13800138001", "张伟", "TEAM_LEADER", "上海分公司-浦东团队"),
-            ("13800138002", "李芳", "BRANCH_ADMIN", "上海分公司"),
-            ("13800138003", "王强", "SYSTEM_ADMIN", "华安保险总部"),
+            ("13800138000", "张张", "AGENT", "上海分公司-浦东团队"),
+            ("13800138001", "罗罗", "TEAM_LEADER", "上海分公司-浦东团队"),
+            ("13800138002", "噜噜", "BRANCH_ADMIN", "上海分公司"),
+            ("13800138003", "噜妹", "SYSTEM_ADMIN", "华安保险总部"),
         ]
         print("\n[Users]")
         user_map = {}
@@ -298,7 +298,7 @@ async def seed_all_data(session_factory):
             ("followup", "跟进提醒", "您有3位客户需要今日跟进"),
             ("system", "系统更新", "系统已升级到v0.2.0"),
             ("training", "训练提醒", "您本周陪练训练不足2小时"),
-            ("team", "团队通知", "张伟发布了新的销售经验分享"),
+            ("team", "团队通知", "罗罗发布了新的销售经验分享"),
             ("followup", "客户生日", "客户张明华的生日即将到来"),
             ("system", "合规提醒", "您的3条话术需要更新合规标签"),
             ("community", "社区互动", "您的帖子获得了10个赞"),
@@ -306,7 +306,7 @@ async def seed_all_data(session_factory):
             ("followup", "保单续期", "刘芳芳的保单将在30天后到期"),
             ("team", "团队活动", "本月团队销售会议定于周五14:00"),
             ("system", "安全提醒", "建议您更新登录密码"),
-            ("community", "评论回复", "李芳回复了您的帖子"),
+            ("community", "评论回复", "噜噜回复了您的帖子"),
         ]
         for i, (ntype, title, content) in enumerate(notifs):
             session.add(Notification(

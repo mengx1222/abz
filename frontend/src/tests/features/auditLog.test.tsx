@@ -29,7 +29,7 @@ function axiosRes(data: unknown): never {
 const mockLog: AuditLog = {
   id: 'log-1',
   user_id: 'u-1',
-  user_name: '林思远',
+  user_name: '张张',
   user_role: 'AGENT',
   action: 'customer.create',
   resource_type: 'customers',
@@ -79,7 +79,7 @@ describe('AuditLogPage（审计日志）', () => {
     mockedList.mockResolvedValue(axiosRes(pageData()));
     render(<AuditLogPage />);
     await waitFor(() => {
-      expect(screen.getByText('林思远')).toBeInTheDocument();
+      expect(screen.getByText('张张')).toBeInTheDocument();
     });
     expect(screen.getAllByText('创建客户').length).toBeGreaterThan(0);
     expect(screen.getByText('customers')).toBeInTheDocument();

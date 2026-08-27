@@ -195,12 +195,12 @@ _DEMO_LEARNING_COURSES: list[dict] = [
 _DEMO_LEADERBOARD: list[dict] = [
     {"rank": 1, "user_name": "陈明辉", "org_name": "华东区第一营业部·销售一组", "score": 2850, "avatar": "CM"},
     {"rank": 2, "user_name": "刘婷婷", "org_name": "华东区第一营业部·销售二组", "score": 2680, "avatar": "LT"},
-    {"rank": 3, "user_name": "张伟", "org_name": "华东区第一营业部·管理", "score": 2540, "avatar": "ZW"},
+    {"rank": 3, "user_name": "罗罗", "org_name": "华东区第一营业部·管理", "score": 2540, "avatar": "ZW"},
     {"rank": 4, "user_name": "赵志强", "org_name": "华东区第二营业部·销售一组", "score": 2310, "avatar": "ZZ"},
-    {"rank": 5, "user_name": "林思远", "org_name": "华东区第一营业部·销售一组", "score": 2180, "avatar": "LS"},
+    {"rank": 5, "user_name": "张张", "org_name": "华东区第一营业部·销售一组", "score": 2180, "avatar": "LS"},
     {"rank": 6, "user_name": "孙丽娜", "org_name": "华东区第二营业部·销售二组", "score": 2050, "avatar": "SL"},
     {"rank": 7, "user_name": "王大力", "org_name": "华东区第一营业部·销售二组", "score": 1920, "avatar": "WD"},
-    {"rank": 8, "user_name": "李芳", "org_name": "华安保险总部", "score": 1880, "avatar": "LF"},
+    {"rank": 8, "user_name": "噜噜", "org_name": "华安保险总部", "score": 1880, "avatar": "LF"},
     {"rank": 9, "user_name": "黄小燕", "org_name": "华东区第二营业部·销售一组", "score": 1750, "avatar": "HX"},
     {"rank": 10, "user_name": "吴建国", "org_name": "华东区第二营业部·销售二组", "score": 1620, "avatar": "WJ"},
 ]
@@ -410,7 +410,7 @@ class GrowthService:
         leaderboard = [LeaderboardItem(**item) for item in _DEMO_LEADERBOARD]
         my_rank = None
         for item in leaderboard:
-            if item.user_name == "林思远":
+            if item.user_name == "张张":
                 my_rank = item
                 break
         return LeaderboardResponse(

@@ -318,10 +318,10 @@ Demo 账号清单（seed.py，默认密码 `888888`，仅 DEMO 模式；生产�
 
 | 姓名 | 手机号 | 角色 | 密码 |
 |------|--------|------|------|
-| 林思远 | `13800138000` | AGENT | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
-| 张伟 | `13800138001` | TEAM_LEADER | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
-| 李芳 | `13800138002` | BRANCH_ADMIN | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
-| 王强 | `13800138003` | SYSTEM_ADMIN | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
+| 张张 | `13800138000` | AGENT | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
+| 罗罗 | `13800138001` | TEAM_LEADER | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
+| 噜噜 | `13800138002` | BRANCH_ADMIN | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
+| 噜妹 | `13800138003` | SYSTEM_ADMIN | 888888（默认，可 AZB_DEMO_PASSWORD 覆盖） |
 
 ### 4.4 重新初始化
 

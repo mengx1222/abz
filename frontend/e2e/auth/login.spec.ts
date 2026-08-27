@@ -39,8 +39,8 @@ test.describe('Login 流程', () => {
     await page.waitForURL(/\/dashboard/, { timeout: 15_000 });
     await expect(page).toHaveURL(/\/dashboard/);
 
-    // 5. 页面关键元素出现（用户名来自 seed 的 AGENT 林思远）
-    await expect(page.getByText('林思远').first()).toBeVisible({ timeout: 15_000 });
+    // 5. 页面关键元素出现（用户名来自 seed 的 AGENT 张张）
+    await expect(page.getByText('张张').first()).toBeVisible({ timeout: 15_000 });
 
     // 6. 无真实 JS/网络错误
     expect(errors, `浏览器错误:\n${errors.join('\n')}`).toEqual([]);

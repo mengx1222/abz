@@ -46,17 +46,17 @@ CATEGORY_LABELS: dict[str, str] = {
 
 # 固定的用户ID映射（与 DEMO_USERS_CONFIG 一致）
 _DEMO_USER_IDS: dict[str, uuid.UUID] = {
-    "13800138000": uuid.UUID("a1b2c3d4-0001-4000-8000-000000000001"),  # 林思远 AGENT
-    "13800138001": uuid.UUID("b2c3d4e5-0002-4000-8000-000000000002"),  # 张伟 TEAM_LEADER
-    "13800138002": uuid.UUID("c3d4e5f6-0003-4000-8000-000000000003"),  # 李芳 KNOWLEDGE_ADMIN
-    "13800138003": uuid.UUID("d4e5f6a7-0004-4000-8000-000000000004"),  # 王强 COMPLIANCE
+    "13800138000": uuid.UUID("a1b2c3d4-0001-4000-8000-000000000001"),  # 张张 AGENT
+    "13800138001": uuid.UUID("b2c3d4e5-0002-4000-8000-000000000002"),  # 罗罗 TEAM_LEADER
+    "13800138002": uuid.UUID("c3d4e5f6-0003-4000-8000-000000000003"),  # 噜噜 KNOWLEDGE_ADMIN
+    "13800138003": uuid.UUID("d4e5f6a7-0004-4000-8000-000000000004"),  # 噜妹 COMPLIANCE
 }
 
 _DEMO_USER_INFO: dict[str, dict] = {
-    "13800138000": {"name": "林思远", "role": "agent", "org": "华东区第一营业部"},
-    "13800138001": {"name": "张伟", "role": "team_leader", "org": "华东区第一营业部"},
-    "13800138002": {"name": "李芳", "role": "knowledge_admin", "org": "华安保险总部"},
-    "13800138003": {"name": "王强", "role": "compliance", "org": "华安保险合规部"},
+    "13800138000": {"name": "张张", "role": "agent", "org": "华东区第一营业部"},
+    "13800138001": {"name": "罗罗", "role": "team_leader", "org": "华东区第一营业部"},
+    "13800138002": {"name": "噜噜", "role": "knowledge_admin", "org": "华安保险总部"},
+    "13800138003": {"name": "噜妹", "role": "compliance", "org": "华安保险合规部"},
 }
 
 _DEMO_POSTS: list[dict] = [

@@ -158,25 +158,25 @@ ORGANIZATIONS = [
 DEMO_USERS = [
     {
         "phone": "13800138000",
-        "name": "林思远",
+        "name": "张张",
         "role_code": "AGENT",
         "org_name": "上海分公司-浦东团队",
     },
     {
         "phone": "13800138001",
-        "name": "张伟",
+        "name": "罗罗",
         "role_code": "TEAM_LEADER",
         "org_name": "上海分公司-浦东团队",
     },
     {
         "phone": "13800138002",
-        "name": "李芳",
+        "name": "噜噜",
         "role_code": "BRANCH_ADMIN",
         "org_name": "上海分公司",
     },
     {
         "phone": "13800138003",
-        "name": "王强",
+        "name": "噜妹",
         "role_code": "SYSTEM_ADMIN",
         "org_name": "华安保险总部",
     },
@@ -185,13 +185,13 @@ DEMO_USERS = [
 # ============================================================
 #  Pilot 演示客户（ULTIMATE Pilot Prep + RDY 阶段1 强化）
 #  生产模式（DEMO_MODE=false）下 AGENT 仅可见 assigned_to=本人 的客户（P0-1 语义），
-#  因此演示客户必须挂到 AGENT 演示用户（13800138000 林思远）名下，试点演示才有数据。
+#  因此演示客户必须挂到 AGENT 演示用户（13800138000 张张）名下，试点演示才有数据。
 #
 #  数据标识（稳定 identifier/tags，不加 schema）：
 #   - tags 含 "PILOT"：Internal Pilot 合成演示数据（可重复、脱敏，无真实客户信息）
 #   - tags 含 "COMPLIANCE_RISK"：合规高风险案例（返佣/承诺收益诉求）→ Compliance RED 演练
 #   - tags 含 "OBJECTION"：常见异议场景（价格/理赔时效/线上投保疑虑）→ 异议处理演练
-#   phone 唯一用于幂等；全部 assigned_to=13800138000（AGENT 林思远），organization 一致。
+#   phone 唯一用于幂等；全部 assigned_to=13800138000（AGENT 张张），organization 一致。
 # ============================================================
 PILOT_CUSTOMERS = [
     {

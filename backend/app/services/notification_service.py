@@ -60,8 +60,8 @@ _DEMO_NOTIFICATIONS: list[dict] = [
     {
         "id": str(uuid.UUID("30000001-0001-4000-8000-000000000004")),
         "type": "team",
-        "title": "张伟分享了一篇销售心得",
-        "content": "团队主管张伟分享了《如何用三个问题快速了解客户需求》，获得289个赞，快去看看吧！",
+        "title": "罗罗分享了一篇销售心得",
+        "content": "团队主管罗罗分享了《如何用三个问题快速了解客户需求》，获得289个赞，快去看看吧！",
         "time": "3小时前",
         "created_at": datetime.now(timezone.utc) - timedelta(hours=3),
         "read": True,

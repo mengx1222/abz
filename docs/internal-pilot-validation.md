@@ -11,7 +11,7 @@
 
 | 项 | 值 | 来源 |
 |----|-----|------|
-| 测试用户 | AGENT `13800138000` 林思远（上海分公司-浦东团队，`demo_mode=True` 标记） | `scripts/seed.py` |
+| 测试用户 | AGENT `13800138000` 张张（上海分公司-浦东团队，`demo_mode=True` 标记） | `scripts/seed.py` |
 | 试点客户 | 陈女士 `13900000001` / 刘先生 `13900000002` / 周女士 `13900000003`（均 `assigned_to=13800138000`，同组织） | `scripts/seed.py` |
 | 客户互动/跟进 | 每客户 ≥1 互动 + ≥1 跟进 | `scripts/seed.py` |
 | 试点知识库 | 「E2E产品知识库」（`e2e_seed_knowledge.py`）：2 文档 / ≥6 chunks / 1536 维 embedding / `product_type` 边界 | `scripts/e2e_seed_knowledge.py` |

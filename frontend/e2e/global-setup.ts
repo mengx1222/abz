@@ -79,7 +79,7 @@ export default async function globalSetup(): Promise<void> {
   console.log('[setup] login ok');
 
   // 拉取完整用户信息（含 role_code 等字段，供前端 TopBar/Sidebar 渲染）
-  let fullUser: Record<string, unknown> = { phone: PHONE, name: '林思远' };
+  let fullUser: Record<string, unknown> = { phone: PHONE, name: '张张' };
   try {
     const me = await api.get(`${API_BASE}/auth/me`, {
       headers: { Authorization: `Bearer ${token}` },
