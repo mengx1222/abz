@@ -68,25 +68,30 @@
   }
 }
 
-* {
-  margin: 0;
-  padding: 0;
-  box-sizing: border-box;
-}
+/* 全局重置必须放进 @layer base：
+   未分层的作者样式在 CSS cascade 中优先于一切 @layer 规则，
+   裸写 *{padding:0} 会永久压死全部 p-/m-/gap- 工具类（Tailwind v4 层叠规则） */
+@layer base {
+  * {
+    margin: 0;
+    padding: 0;
+    box-sizing: border-box;
+  }
 
-body {
-  font-family: var(--font-sans);
-  background-color: var(--color-bg);
-  color: var(--color-text);
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  text-rendering: optimizeLegibility;
-}
+  body {
+    font-family: var(--font-sans);
+    background-color: var(--color-bg);
+    color: var(--color-text);
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    text-rendering: optimizeLegibility;
+  }
 
-#root {
-  width: 100%;
-  height: 100vh;
-  overflow: hidden;
+  #root {
+    width: 100%;
+    height: 100vh;
+    overflow: hidden;
+  }
 }
 
 /* 文本选中色跟随品牌 */
