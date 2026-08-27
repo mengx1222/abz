@@ -4,6 +4,7 @@ import { cn } from '../../utils/cn';
 import { Sidebar } from './Sidebar';
 import { TopBar } from './TopBar';
 import { RoleGuard } from './RoleGuard';
+import { AssistantDrawer } from '../assistant/AssistantDrawer';
 
 export function AppLayout() {
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
@@ -22,6 +23,9 @@ export function AppLayout() {
           </RoleGuard>
         </main>
       </div>
+
+      {/* 全局 AI 助手抽屉（TopBar「AI 助手」唤起） */}
+      <AssistantDrawer />
     </div>
   );
 }

@@ -4,11 +4,13 @@ import { Search, Bell, ChevronDown, Sparkles, LogOut, Settings } from 'lucide-re
 import { cn } from '../../utils/cn';
 import { Avatar } from '../ui/Avatar';
 import { useAuthStore } from '../../stores/authStore';
+import { useAssistantStore } from '../../stores/assistantStore';
 
 export function TopBar() {
   const navigate = useNavigate();
   const user = useAuthStore((s) => s.user);
   const logout = useAuthStore((s) => s.logout);
+  const toggleAssistant = useAssistantStore((s) => s.toggle);
   const [searchValue, setSearchValue] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
@@ -51,6 +53,9 @@ export function TopBar() {
       <div className="flex items-center gap-2 ml-4">
         {/* AI Assistant Button */}
         <button
+          onClick={toggleAssistant}
+          aria-haspopup="dialog"
+          title="全局 AI 助手"
           className="h-9 px-3.5 rounded-lg bg-accent/10 text-accent text-sm font-medium hover:bg-accent/20 transition-colors flex items-center gap-1.5 cursor-pointer"
         >
           <Sparkles className="h-4 w-4" />
