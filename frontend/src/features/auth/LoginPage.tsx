@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Smartphone, KeyRound } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
 import { useAuthStore } from '../../stores/authStore';
@@ -100,16 +101,7 @@ export function LoginPage() {
               value={phone}
               onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
               maxLength={11}
-              icon={
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={1.5}
-                    d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z"
-                  />
-                </svg>
-              }
+              icon={<Smartphone className="w-4 h-4" />}
             />
 
             <div>
@@ -119,18 +111,18 @@ export function LoginPage() {
                   type="button"
                   onClick={handleSendCode}
                   disabled={countdown > 0}
-                  className="text-xs text-accent hover:text-accent/80 disabled:text-muted disabled:cursor-not-allowed cursor-pointer transition-colors"
+                  className="text-xs text-accent hover:text-accent-hover disabled:text-muted disabled:cursor-not-allowed cursor-pointer transition-colors"
                 >
                   {countdown > 0 ? `${countdown}s 后重新发送` : '获取验证码'}
                 </button>
               </div>
-              <input
+              <Input
                 type="text"
                 placeholder="请输入验证码"
                 value={code}
                 onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
                 maxLength={6}
-                className="w-full h-10 rounded-lg border border-border bg-white px-3 text-sm text-text placeholder:text-muted/60 transition-colors duration-150 focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+                icon={<KeyRound className="w-4 h-4" />}
               />
             </div>
 
