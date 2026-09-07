@@ -24,3 +24,11 @@ export async function refreshToken(refreshTokenValue: string): Promise<TokenData
   });
   return response.data.data;
 }
+
+export async function changePassword(oldPassword: string, newPassword: string): Promise<string> {
+  const response = await api.post<BackendResponse<{ message: string }>>('/auth/change-password', {
+    old_password: oldPassword,
+    new_password: newPassword,
+  });
+  return response.data.data.message;
+}

@@ -10,7 +10,7 @@ from app.core.deps import get_db, get_current_user
 from app.core.security import decode_token
 from app.models.user import User
 from app.schemas.common import SuccessResponse, ErrorResponse, ErrorDetail
-from app.schemas.user import UserLogin, TokenResponse, UserOut, RefreshRequest
+from app.schemas.user import UserLogin, TokenResponse, UserOut, RefreshRequest, PasswordChange
 from app.services.auth_service import AuthService
 
 logger = get_logger()
@@ -121,6 +121,58 @@ async def logout(
     request_id = getattr(request.state, "request_id", None)
     logger.info("user_logout", user_id=str(current_user.id))
     return SuccessResponse(data={"message": "已登出"}, request_id=request_id)
+
+
+@router.post(
+    "/change-password",
+    response_model=SuccessResponse,
+    summary="修改自身密码",
+    responses={
+        400: {"model": ErrorResponse, "description": "校验失败（演示账号/原密码错误/新密码不合规）"},
+        401: {"model": ErrorResponse, "description": "未认证"},
+    },
+)
+async def change_password(
+    body: PasswordChange,
+    request: Request,
+    current_user: User = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> SuccessResponse:
+    """用户修改自身密码（仅正式模式生效；演示账号明确拒绝）。
+
+    成功后现有 access/refresh token 在过期前仍然有效（无黑名单），
+    建议用户修改后重新登录获取新令牌。
+    """
+    request_id = getattr(request.state, "request_id", None)
+    auth_service = AuthService(db)
+
+    try:
+        await auth_service.change_password(current_user, body.old_password, body.new_password)
+    except ValueError as e:
+        logger.warning("change_password_failed", user_id=str(current_user.id), reason=str(e))
+        await record_audit_log(
+            user_id=str(current_user.id), organization_id=current_user.organization_id,
+            action="change_password", resource_type="auth",
+            description=f"修改密码失败: {e}", status="failure", request_id=request_id,
+        )
+        return JSONResponse(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            content=ErrorResponse(
+                error=ErrorDetail(code="PASSWORD_CHANGE_FAILED", message=str(e)),
+                request_id=request_id,
+            ).model_dump(),
+        )
+
+    logger.info("change_password_success", user_id=str(current_user.id))
+    await record_audit_log(
+        user_id=str(current_user.id), organization_id=current_user.organization_id,
+        action="change_password", resource_type="auth",
+        description="用户修改自身密码", status="success", request_id=request_id,
+    )
+    return SuccessResponse(
+        data={"message": "密码修改成功，请使用新密码重新登录"},
+        request_id=request_id,
+    )
 
 
 @router.get(

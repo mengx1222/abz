@@ -59,3 +59,24 @@ class TestAuthApi:
         assert response.status_code == 200
         data = response.json()["data"]
         assert "access_token" in data
+
+
+class TestChangePasswordApi:
+    async def test_change_password_demo_rejected(self, client: AsyncClient, auth_headers: dict):
+        """演示模式下修改密码被明确拒绝（400）。"""
+        response = await client.post(
+            "/api/v1/auth/change-password",
+            json={"old_password": "888888", "new_password": "newpass4567"},
+            headers=auth_headers,
+        )
+        assert response.status_code == 400
+        assert response.json()["error"]["code"] == "PASSWORD_CHANGE_FAILED"
+        assert "演示账号" in response.json()["error"]["message"]
+
+    async def test_change_password_unauthorized(self, client: AsyncClient):
+        """未认证调用返回 401。"""
+        response = await client.post(
+            "/api/v1/auth/change-password",
+            json={"old_password": "whatever1", "new_password": "newpass4567"},
+        )
+        assert response.status_code == 401

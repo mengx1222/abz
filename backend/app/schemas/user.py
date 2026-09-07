@@ -32,6 +32,12 @@ class RefreshRequest(BaseModel):
     refresh_token: str
 
 
+class PasswordChange(BaseModel):
+    """修改自身密码请求（正式模式；演示账号不支持修改）。"""
+    old_password: str = Field(..., min_length=1, max_length=100, description="原密码")
+    new_password: str = Field(..., min_length=8, max_length=100, description="新密码（至少8位，不得与原密码相同）")
+
+
 class UserOut(BaseModel):
     """用户信息输出。"""
     id: uuid.UUID

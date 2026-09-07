@@ -179,6 +179,28 @@ class AuthService:
 
         return self._issue_tokens(user)
 
+    async def change_password(self, user: User, old_password: str, new_password: str) -> None:
+        """用户修改自身密码（仅正式模式；演示账号密码由 settings 注入，不支持修改）。
+
+        校验顺序：演示模式拒绝 → 原密码验证 → 新密码策略（≥8位且不与原密码相同）→ 落库。
+        """
+        if settings.DEMO_MODE or user.demo_mode:
+            raise ValueError("演示账号不支持修改密码")
+
+        if user.password_hash is None or not verify_password(old_password, user.password_hash):
+            # 统一提示，不泄露账号状态
+            raise ValueError("原密码错误")
+
+        if len(new_password) < 8:
+            raise ValueError("新密码至少需要 8 位")
+        if new_password == old_password:
+            raise ValueError("新密码不能与原密码相同")
+
+        user.password_hash = hash_password(new_password)
+        user.updated_at = datetime.now(timezone.utc)
+        self.session.add(user)
+        await self.session.commit()
+
     def build_user_output(self, user: User) -> UserOut:
         """将 User 模型转换为输出 schema。"""
         return UserOut(

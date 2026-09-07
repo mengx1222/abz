@@ -1,10 +1,11 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, ChevronDown, Sparkles, LogOut, Settings } from 'lucide-react';
+import { Search, Bell, ChevronDown, Sparkles, LogOut, Settings, KeyRound } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { Avatar } from '../ui/Avatar';
 import { useAuthStore } from '../../stores/authStore';
 import { useAssistantStore } from '../../stores/assistantStore';
+import { ChangePasswordModal } from '../../features/settings/ChangePasswordModal';
 
 export function TopBar() {
   const navigate = useNavigate();
@@ -13,6 +14,7 @@ export function TopBar() {
   const toggleAssistant = useAssistantStore((s) => s.toggle);
   const [searchValue, setSearchValue] = useState('');
   const [userMenuOpen, setUserMenuOpen] = useState(false);
+  const [changePasswordOpen, setChangePasswordOpen] = useState(false);
   const userMenuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -100,6 +102,14 @@ export function TopBar() {
                 <p className="text-xs text-muted">{user?.phone}</p>
               </div>
               <button
+                onClick={() => { setUserMenuOpen(false); setChangePasswordOpen(true); }}
+                role="menuitem"
+                className="w-full text-left px-3 py-2 text-sm text-text hover:bg-bg transition-colors cursor-pointer flex items-center gap-2"
+              >
+                <KeyRound className="h-4 w-4 text-muted" />
+                修改密码
+              </button>
+              <button
                 onClick={() => { setUserMenuOpen(false); }}
                 role="menuitem"
                 className="w-full text-left px-3 py-2 text-sm text-text hover:bg-bg transition-colors cursor-pointer flex items-center gap-2"
@@ -119,6 +129,8 @@ export function TopBar() {
           )}
         </div>
       </div>
+
+      <ChangePasswordModal open={changePasswordOpen} onClose={() => setChangePasswordOpen(false)} />
     </header>
   );
 }
