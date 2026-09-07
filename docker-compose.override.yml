@@ -1,0 +1,13 @@
+services:
+  backend:
+    environment:
+      AZB_APP_ENV: "production"
+      AZB_DEBUG: "false"
+      AZB_DEMO_MODE: "false"
+      AZB_AI_PROVIDER: "qwen"
+      AZB_AI_API_KEY: ${AZB_AI_API_KEY}
+      AZB_AI_BASE_URL: ${AZB_AI_BASE_URL}
+      AZB_AI_MODEL: ${AZB_AI_MODEL}
+      AZB_AI_EMBEDDING_MODEL: ${AZB_AI_EMBEDDING_MODEL}
+      AZB_JWT_SECRET_KEY: ${AZB_JWT_SECRET_KEY}
+      AZB_DEMO_PASSWORD: ${AZB_DEMO_PASSWORD}
