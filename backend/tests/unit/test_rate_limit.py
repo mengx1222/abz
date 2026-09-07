@@ -40,3 +40,50 @@ class TestTokenBucketRateLimiter:
         for _ in range(100):
             assert limiter.acquire() is True
         assert limiter.acquire() is False
+
+
+class TestRateKey:
+    """限流身份键：登录用户按 user_id，未认证/无效 token 按 IP（NAT 修复）。"""
+
+    @staticmethod
+    def _request(auth: str | None = None):
+        from fastapi import Request
+
+        headers = []
+        if auth is not None:
+            headers.append((b"authorization", auth.encode()))
+        scope = {
+            "type": "http",
+            "method": "GET",
+            "path": "/api/v1/dashboard",
+            "headers": headers,
+            "client": ("1.2.3.4", 12345),
+        }
+        return Request(scope)
+
+    def test_valid_token_uses_user_key(self):
+        from app.core.rate_limit import RateLimitMiddleware
+        from app.core.security import create_access_token
+
+        token = create_access_token({"sub": "user-abc", "phone": "13800138000"})
+        request = self._request(f"Bearer {token}")
+        key = RateLimitMiddleware._get_rate_key(request, "1.2.3.4")
+        assert key == "u:user-abc"
+
+    def test_no_auth_uses_ip_key(self):
+        from app.core.rate_limit import RateLimitMiddleware
+
+        request = self._request(None)
+        assert RateLimitMiddleware._get_rate_key(request, "1.2.3.4") == "ip:1.2.3.4"
+
+    def test_invalid_token_falls_back_to_ip(self):
+        from app.core.rate_limit import RateLimitMiddleware
+
+        request = self._request("Bearer not-a-jwt")
+        assert RateLimitMiddleware._get_rate_key(request, "1.2.3.4") == "ip:1.2.3.4"
+
+    def test_non_bearer_uses_ip_key(self):
+        from app.core.rate_limit import RateLimitMiddleware
+
+        request = self._request("Basic dXNlcjpwYXNz")
+        assert RateLimitMiddleware._get_rate_key(request, "1.2.3.4") == "ip:1.2.3.4"

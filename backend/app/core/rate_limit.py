@@ -15,6 +15,7 @@ from structlog import get_logger
 
 from app.core.config import settings
 from app.core.redis_store import redis_incr_with_ttl, redis_ttl
+from app.core.security import decode_token
 
 logger = get_logger()
 
@@ -100,6 +101,26 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         return request.client.host if request.client else "unknown"
 
     @staticmethod
+    def _get_rate_key(request: Request, client_ip: str) -> str:
+        """限流身份键（NAT 场景修复）。
+
+        办公室/企业网络下多名用户共享同一出口 IP，纯 IP 限流会把全公司钉在
+        同一个 30/s 默认桶里。因此：请求携带有效 access token（sub 可解析）
+        → 按用户限流（key=u:{sub}）；未认证/无效 token → 退回按 IP 限流
+        （key=ip:{client_ip}，覆盖 login 等匿名端点）。
+        """
+        auth_header = request.headers.get("Authorization", "")
+        if auth_header.startswith("Bearer "):
+            try:
+                payload = decode_token(auth_header[7:].strip())
+                sub = payload.get("sub")
+                if sub:
+                    return f"u:{sub}"
+            except Exception:
+                pass  # 无效/过期 token → 按 IP
+        return f"ip:{client_ip}"
+
+    @staticmethod
     def _route_template(path: str) -> str:
         """将路径中的 UUID 段替换为 {id}，限流 key 按路由模板聚合（ULTIMATE P1-2）。
 
@@ -135,16 +156,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
 
         client_ip = self._get_client_ip(request)
         rate, capacity = self._match_rule(path)
+        rate_key = self._get_rate_key(request, client_ip)
 
         # Task 40：production → Redis 原子计数（跨实例共享）
         if not self._demo_mode:
-            return await self._dispatch_redis(request, call_next, client_ip, path, rate, capacity)
+            return await self._dispatch_redis(request, call_next, rate_key, path, rate, capacity)
 
         # Demo 模式放宽（内存令牌桶）
         rate *= self.DEMO_RELAX_FACTOR
         capacity = int(capacity * self.DEMO_RELAX_FACTOR)
 
-        key = f"{client_ip}:{self._route_template(path)}"
+        key = f"{rate_key}:{self._route_template(path)}"
         limiter = self._get_limiter(key, rate, capacity)
 
         if not limiter.acquire():
@@ -186,7 +208,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         self,
         request: Request,
         call_next: RequestResponseEndpoint,
-        client_ip: str,
+        rate_key: str,
         path: str,
         rate: float,
         capacity: int,
@@ -194,16 +216,17 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         """Production：Redis 原子固定窗口计数（跨实例共享）。
 
         窗口秒数 = ceil(capacity / rate)（近似令牌桶的桶满时间）；窗口上限 = capacity（不削弱限制）。
-        Redis 不可用 → fail-closed 503（安全关键限流不放行、不静默内存降级）。
+        计数键按"登录用户 / IP"区分（_get_rate_key），避免办公室 NAT 共享出口 IP 时
+        全公司共享同一个限流桶。Redis 不可用 → fail-closed 503（安全关键限流不放行、不静默内存降级）。
         """
         window = max(1, ceil(capacity / rate)) if rate > 0 else 1
-        key = f"rl:{client_ip}:{self._route_template(path)}"
+        key = f"rl:{rate_key}:{self._route_template(path)}"
 
         current = await redis_incr_with_ttl(key, window)
         if current is None:
             logger.warning(
                 "rate_limiter_unavailable",
-                ip=client_ip,
+                rate_key=rate_key,
                 path=path,
                 error_code="RATE_LIMITER_UNAVAILABLE",
             )
@@ -224,7 +247,7 @@ class RateLimitMiddleware(BaseHTTPMiddleware):
         if current > capacity:
             logger.warning(
                 "rate_limited",
-                ip=client_ip,
+                rate_key=rate_key,
                 path=path,
                 retry_after=ttl,
                 error_code="RATE_LIMITED",
