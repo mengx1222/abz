@@ -499,7 +499,7 @@ export function CustomerDetailPage() {
             actions={
               <div className="flex gap-2 flex-wrap">
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="sm"
                   onClick={() => navigate(`/sales-agent/${customer.id}`)}
                 >
@@ -520,7 +520,7 @@ export function CustomerDetailPage() {
                   添加跟进
                 </Button>
                 <Button
-                  variant="primary"
+                  variant="secondary"
                   size="sm"
                   onClick={handleStartAnalysis}
                   loading={analyzing}
