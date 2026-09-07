@@ -41,24 +41,31 @@ app = FastAPI(
     version=settings.APP_VERSION,
     lifespan=lifespan,
     docs_url=None,  # 禁用默认 /docs（其静态资源走 cdn.jsdelivr.net，国内易白屏），改用下方自定义路由
+    redoc_url=None,  # 生产收口：接口文档仅开发环境（DEBUG=true）暴露
+    openapi_url="/openapi.json" if settings.DEBUG else None,
 )
 
 
-@app.get("/docs", include_in_schema=False)
-async def custom_swagger_ui_html():
-    """Swagger UI 文档：静态资源改用国内可达 CDN（bootcdn），避免 jsdelivr 被墙导致白屏。"""
-    return get_swagger_ui_html(
-        openapi_url=app.openapi_url or "/openapi.json",
-        title=f"{settings.APP_NAME} - API 文档",
-        swagger_js_url="https://cdn.bootcdn.net/ajax/libs/swagger-ui/5.17.14/swagger-ui-bundle.js",
-        swagger_css_url="https://cdn.bootcdn.net/ajax/libs/swagger-ui/5.17.14/swagger-ui.css",
-    )
+if settings.DEBUG:
+    @app.get("/docs", include_in_schema=False)
+    async def custom_swagger_ui_html():
+        """Swagger UI 文档：静态资源改用国内可达 CDN（bootcdn），避免 jsdelivr 被墙导致白屏。
+
+        仅 DEBUG 环境挂载；生产（APP_ENV=production / DEBUG=false）访问 /docs 与
+        /openapi.json 均为 404，不向外暴露 89 个接口的完整规格。
+        """
+        return get_swagger_ui_html(
+            openapi_url=app.openapi_url or "/openapi.json",
+            title=f"{settings.APP_NAME} - API 文档",
+            swagger_js_url="https://cdn.bootcdn.net/ajax/libs/swagger-ui/5.17.14/swagger-ui-bundle.js",
+            swagger_css_url="https://cdn.bootcdn.net/ajax/libs/swagger-ui/5.17.14/swagger-ui.css",
+        )
 
 # CORS 配置
 cors_origins = settings.FRONTEND_URL.split(",") if settings.FRONTEND_URL else ["http://localhost:3000"]
-if settings.DEBUG or settings.DEMO_MODE:
+if settings.DEBUG:
     cors_origins.append("http://localhost:5173")  # Vite dev server
-    cors_origins.append("*")  # Demo模式允许所有来源
+    cors_origins.append("*")  # 仅 DEBUG 允许所有来源（demo 部署为同源托管，无需通配）
 
 app.add_middleware(
     CORSMiddleware,

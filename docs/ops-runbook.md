@@ -12,6 +12,7 @@
 |----|------|------|
 | 生产 secrets | 根目录 `.env.production`（从 `backend/.env.production` 模板复制） | `AZB_JWT_SECRET_KEY`（≥32 位随机串）、`AZB_DEMO_PASSWORD`（试点强密码）、`AZB_AI_API_KEY`、`POSTGRES_PASSWORD`；所有 `CHANGE_ME` 必须替换 |
 | 代理信任 | `.env.production` 的 `AZB_TRUST_PROXY` | 前面有 Nginx/Caddy/Cloudflare 时设 `true`（否则限流与审计日志按代理 IP 计数）；**要求代理层剥离客户端伪造的 XFF/X-Real-IP**。直连暴露保持 `false` |
+| 接口文档收口 | `.env.production` 的 `AZB_DEBUG` | **必须设 `false`**：生产下 `/docs`、`/openapi.json` 返回 404（仅 DEBUG=true 暴露 89 个接口规格）。`DEBUG` 还控制 CORS 是否放行 `*`（生产用 `AZB_FRONTEND_URL` 精确白名单） |
 | HTTPS | 反向代理层 | 内部试点可先 HTTP+IP；正式商用必须 HTTPS（Caddy 自动证书或 Cloudflare 托管域 + 命名隧道） |
 | 防火墙 | 服务器 + 云安全组 | 仅放行 22/80/443；PostgreSQL 5432、Redis 6379 **不得**对外网开放（compose 已绑定 127.0.0.1，保持） |
 | 端口收敛 | compose | 生产建议 backend 不直接映射 8000 到公网，由前端 Nginx 统一代理 `/api/` |

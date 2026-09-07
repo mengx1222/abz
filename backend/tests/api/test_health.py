@@ -20,3 +20,12 @@ class TestHealthApi:
         data = response.json()
         assert data["success"] is True
         assert data["data"]["status"] == "ready"
+
+
+class TestDocsGatedInProduction:
+    async def test_docs_and_openapi_404_in_production(self, client: AsyncClient):
+        """生产收口：DEBUG=false 时 /docs 与 /openapi.json 均为 404，不暴露接口规格。"""
+        docs = await client.get("/docs")
+        assert docs.status_code == 404
+        openapi = await client.get("/openapi.json")
+        assert openapi.status_code == 404
