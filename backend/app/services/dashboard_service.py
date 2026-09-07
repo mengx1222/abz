@@ -23,10 +23,10 @@ logger = get_logger()
 # ---- Demo 数据 ----
 
 _DEMO_TODAY_STATS: list[dict] = [
-    {"label": "今日通话", "value": "12", "sub": "+3 较昨日", "trend": "up"},
-    {"label": "成交保单", "value": "2", "sub": "+1 较昨日", "trend": "up"},
-    {"label": "待跟进客户", "value": "8", "sub": "3个高意向", "trend": "neutral"},
-    {"label": "AI 问答次数", "value": "34", "sub": "产品 18 · 话术 16", "trend": "neutral"},
+    {"label": "今日通话", "value": "12", "sub": "+3 较昨日", "trend": "up", "action_url": "/customers"},
+    {"label": "成交保单", "value": "2", "sub": "+1 较昨日", "trend": "up", "action_url": "/customers"},
+    {"label": "待跟进客户", "value": "8", "sub": "3个高意向", "trend": "neutral", "action_url": "/customers"},
+    {"label": "AI 问答次数", "value": "34", "sub": "产品 18 · 话术 16", "trend": "neutral", "action_url": "/product-qa"},
 ]
 
 _DEMO_AI_SUGGESTIONS: list[dict] = [
@@ -231,11 +231,11 @@ class DashboardService:
             TodayStat(
                 label="今日互动", value=str(inter_today),
                 sub=("+" if inter_diff > 0 else "") + str(inter_diff) + " 较昨日",
-                trend=inter_trend,
+                trend=inter_trend, action_url="/customers",
             ),
-            TodayStat(label="成交保单", value=str(closed_count), sub=f"{high_intent}个高意向", trend="neutral"),
-            TodayStat(label="待跟进客户", value=str(pending_followups), sub="待处理跟进", trend="neutral"),
-            TodayStat(label="AI 问答次数", value=str(ai_today), sub="今日累计", trend="neutral"),
+            TodayStat(label="成交保单", value=str(closed_count), sub=f"{high_intent}个高意向", trend="neutral", action_url="/customers"),
+            TodayStat(label="待跟进客户", value=str(pending_followups), sub="待处理跟进", trend="neutral", action_url="/customers"),
+            TodayStat(label="AI 问答次数", value=str(ai_today), sub="今日累计", trend="neutral", action_url="/product-qa"),
         ]
 
         # ---- ai_suggestions（从真实数据推导） ----

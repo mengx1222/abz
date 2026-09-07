@@ -155,13 +155,33 @@ export function DashboardPage() {
         <div>
           <h2 className="text-base font-semibold text-text mb-3">今日工作</h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
-            {data.today_stats.map((stat) => (
-              <Card key={stat.label} padding="md">
-                <p className="text-sm text-muted">{stat.label}</p>
-                <p className="text-2xl font-bold text-text mt-1">{stat.value}</p>
-                <p className="text-xs text-muted mt-1">{stat.sub}</p>
-              </Card>
-            ))}
+            {data.today_stats.map((stat) => {
+              const clickable = !!stat.action_url;
+              return (
+                <Card
+                  key={stat.label}
+                  padding="md"
+                  onClick={clickable ? () => navigate(stat.action_url as string) : undefined}
+                  role={clickable ? 'button' : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  onKeyDown={
+                    clickable
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            navigate(stat.action_url as string);
+                          }
+                        }
+                      : undefined
+                  }
+                  className={clickable ? 'cursor-pointer hover:shadow-md transition-shadow' : undefined}
+                >
+                  <p className="text-sm text-muted">{stat.label}</p>
+                  <p className="text-2xl font-bold text-text mt-1">{stat.value}</p>
+                  <p className="text-xs text-muted mt-1">{stat.sub}</p>
+                </Card>
+              );
+            })}
           </div>
         </div>
       )}
@@ -171,19 +191,40 @@ export function DashboardPage() {
         <div>
           <h2 className="text-base font-semibold text-text mb-3">AI 今日建议</h2>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {data.ai_suggestions.map((s) => (
-              <Card key={s.id} padding="md" hover>
-                <div className="flex items-start justify-between mb-2">
-                  <CardTitle className="text-sm leading-snug">{s.title}</CardTitle>
-                  <Badge variant={toBadgeVariant(s.tag_variant)}>{s.tag}</Badge>
-                </div>
-                <CardDescription className="text-xs leading-relaxed">
-                  {s.description}
-                </CardDescription>
-              </Card>
-            ))}
-            </div>
+            {data.ai_suggestions.map((s) => {
+              const clickable = !!s.action_url;
+              return (
+                <Card
+                  key={s.id}
+                  padding="md"
+                  hover={clickable}
+                  onClick={clickable ? () => navigate(s.action_url as string) : undefined}
+                  role={clickable ? 'button' : undefined}
+                  tabIndex={clickable ? 0 : undefined}
+                  onKeyDown={
+                    clickable
+                      ? (e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault();
+                            navigate(s.action_url as string);
+                          }
+                        }
+                      : undefined
+                  }
+                  className={clickable ? 'cursor-pointer' : undefined}
+                >
+                  <div className="flex items-start justify-between mb-2">
+                    <CardTitle className="text-sm leading-snug">{s.title}</CardTitle>
+                    <Badge variant={toBadgeVariant(s.tag_variant)}>{s.tag}</Badge>
+                  </div>
+                  <CardDescription className="text-xs leading-relaxed">
+                    {s.description}
+                  </CardDescription>
+                </Card>
+              );
+            })}
           </div>
+        </div>
       )}
     </div>
   );

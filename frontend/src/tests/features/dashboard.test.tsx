@@ -25,7 +25,7 @@ const baseOverview = {
   greeting: '上午好',
   user_name: '张张',
   today_stats: [
-    { label: '今日拜访', value: '3', sub: '较昨日 +1', trend: 'up' as const },
+    { label: '今日拜访', value: '3', sub: '较昨日 +1', trend: 'up' as const, action_url: null },
   ],
   ai_suggestions: [
     {

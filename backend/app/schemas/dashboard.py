@@ -9,6 +9,7 @@ class TodayStat(BaseModel):
     value: str
     sub: str
     trend: str = "neutral"  # up / down / neutral
+    action_url: str | None = None  # 点击跳转目标（前端据此可点）
 
 
 class AiSuggestion(BaseModel):

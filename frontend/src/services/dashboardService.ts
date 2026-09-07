@@ -7,6 +7,7 @@ export interface TodayStat {
   value: string;
   sub: string;
   trend: 'up' | 'down' | 'neutral';
+  action_url: string | null;
 }
 
 export interface AiSuggestion {
