@@ -24,15 +24,30 @@ async def get_growth_overview(
     return await service.get_overview(user.id)
 
 
-@router.get("/courses/{course_id}", response_model=CourseDetail | None)
+@router.get("/courses/{course_id}", response_model=CourseDetail)
 async def get_course_detail(
     course_id: str,
     user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    """获取课程详情（含课时列表）。"""
+    """获取课程详情（含课时列表）。
+
+    课程体系尚未落库（P1-3）：Demo 模式返回静态数据；生产模式课程不存在 → 404，
+    前端已按"课程暂未开放"空态兜底，不再返回 data:null 的二义性成功响应。
+    """
     service = GrowthService(session=db)
-    return await service.get_course_detail(course_id, user.id)
+    detail = await service.get_course_detail(course_id, user.id)
+    if detail is None:
+        from fastapi.responses import JSONResponse
+
+        return JSONResponse(
+            status_code=404,
+            content={
+                "success": False,
+                "error": {"code": "COURSE_NOT_FOUND", "message": "课程暂未开放"},
+            },
+        )
+    return detail
 
 
 @router.get("/leaderboard", response_model=LeaderboardResponse)

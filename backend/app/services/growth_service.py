@@ -326,7 +326,8 @@ class GrowthService:
     async def get_course_detail(self, course_id: str, user_id: uuid.UUID) -> CourseDetail | None:
         """获取课程详情。
 
-        当前数据库尚无课程表，课程为 Demo 静态数据，生产模式返回 None（待课程体系落库）。
+        当前数据库尚无课程表，课程为 Demo 静态数据；生产模式返回 None，
+        API 层（growth.py）将 None 转为 404 COURSE_NOT_FOUND（待课程体系落库）。
         """
         if settings.DEMO_MODE:
             return self._demo_get_course_detail(course_id, user_id)
