@@ -508,14 +508,14 @@ export function CustomerDetailPage() {
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setShowInteractionForm(true)}
+                  onClick={() => { setActiveTab('interactions'); setShowInteractionForm(true); }}
                 >
                   添加互动
                 </Button>
                 <Button
                   variant="secondary"
                   size="sm"
-                  onClick={() => setShowFollowupForm(true)}
+                  onClick={() => { setActiveTab('followups'); setShowFollowupForm(true); }}
                 >
                   添加跟进
                 </Button>
