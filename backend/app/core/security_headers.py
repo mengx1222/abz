@@ -24,6 +24,17 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         "connect-src 'self'"
     )
 
+    # 仅文档端点（Swagger UI / ReDoc）使用：UI 框架与样式需从国内 CDN 加载，
+    # 但 default-src 仍锁 'self'，不对其它接口放松限制
+    CSP_DOCS = (
+        "default-src 'self'; "
+        "script-src 'self' 'unsafe-inline' https://cdn.bootcdn.net; "
+        "style-src 'self' 'unsafe-inline' https://cdn.bootcdn.net; "
+        "img-src 'self' data: blob: https://fastapi.tiangolo.com; "
+        "font-src 'self' https://cdn.bootcdn.net; "
+        "connect-src 'self'"
+    )
+
     async def dispatch(self, request: Request, call_next: RequestResponseEndpoint) -> Response:
         response = await call_next(request)
 
@@ -33,8 +44,10 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         response.headers["Referrer-Policy"] = "strict-origin-when-cross-origin"
         response.headers["Permissions-Policy"] = "camera=(), microphone=(), geolocation=()"
 
-        # CSP
-        if settings.DEMO_MODE or settings.DEBUG:
+        # CSP：文档端点（/docs /redoc）需加载 CDN 资源，单独放宽；其余接口保持严格策略
+        if request.url.path in {"/docs", "/redoc"}:
+            response.headers["Content-Security-Policy"] = self.CSP_DOCS
+        elif settings.DEMO_MODE or settings.DEBUG:
             response.headers["Content-Security-Policy"] = self.CSP_DEMO
         else:
             response.headers["Content-Security-Policy"] = self.CSP_PRODUCTION
