@@ -134,7 +134,7 @@ jobs:
         run: echo "AI_SMOKE=NOT_RUN (push trigger)"
 
       - name: Upload benchmark artifacts (latency numbers only, no sensitive data)
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: benchmark-results
           path: |
