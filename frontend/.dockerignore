@@ -1,0 +1,8 @@
+# 前端构建上下文排除（Dockerfile 内由 npm ci 从 package.json 全新安装）
+node_modules
+dist
+e2e
+playwright.config.ts
+playwright-report
+test-results
+*.log
