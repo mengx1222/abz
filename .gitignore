@@ -68,3 +68,7 @@ tool-results/
 # Local tools / binaries (不入库)
 cloudflared.exe
 *.exe
+
+# 调试截图 / 本地工具产物 (不入库)
+/*.png
+.playwright-mcp/

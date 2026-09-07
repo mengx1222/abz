@@ -50,3 +50,27 @@ def is_postgres(op_obj) -> bool:
 #   - Vector → skip or use BLOB on SQLite
 #
 # See the migration files for examples.
+
+
+def install_sqlite_ddl_compat() -> bool:
+    """便携 Demo 构建：让 ORM create_all 在 SQLite 上可编译。
+
+    仅当 DATABASE_URL 为 SQLite 时生效；将 JSONB → JSON、Vector → BLOB 渲染。
+    PostgreSQL 路径完全不受影响。
+    """
+    url = str(__import__("app.core.config", fromlist=["settings"]).settings.DATABASE_URL)
+    if not url.startswith("sqlite"):
+        return False
+
+    from sqlalchemy.dialects.postgresql import JSONB
+    from sqlalchemy.dialects.sqlite.base import SQLiteTypeCompiler
+    from pgvector.sqlalchemy import Vector
+
+    if not hasattr(SQLiteTypeCompiler, "visit_JSONB_original"):
+        SQLiteTypeCompiler.visit_JSONB = (
+            lambda self, type_, **kw: self.visit_JSON(type_, **kw)
+        )
+        SQLiteTypeCompiler.visit_Vector = lambda self, type_, **kw: "BLOB"
+        SQLiteTypeCompiler.visit_VECTOR = lambda self, type_, **kw: "BLOB"
+    _ = JSONB, Vector  # 显式引用，确保方言与 pgvector 已加载
+    return True
