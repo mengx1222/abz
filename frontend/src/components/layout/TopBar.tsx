@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Search, Bell, ChevronDown, Sparkles, LogOut, Settings, KeyRound } from 'lucide-react';
+import { Search, Bell, ChevronDown, Sparkles, LogOut, KeyRound } from 'lucide-react';
 import { cn } from '../../utils/cn';
 import { Avatar } from '../ui/Avatar';
 import { useAuthStore } from '../../stores/authStore';
@@ -108,14 +108,6 @@ export function TopBar() {
               >
                 <KeyRound className="h-4 w-4 text-muted" />
                 修改密码
-              </button>
-              <button
-                onClick={() => { setUserMenuOpen(false); }}
-                role="menuitem"
-                className="w-full text-left px-3 py-2 text-sm text-text hover:bg-bg transition-colors cursor-pointer flex items-center gap-2"
-              >
-                <Settings className="h-4 w-4 text-muted" />
-                个人设置
               </button>
               <button
                 onClick={handleLogout}

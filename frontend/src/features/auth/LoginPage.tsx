@@ -1,10 +1,12 @@
-import { useState, type FormEvent } from 'react';
+import { useEffect, useState, type FormEvent } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Smartphone, KeyRound } from 'lucide-react';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
 import { useAuthStore } from '../../stores/authStore';
 import { useToast } from '../../hooks/useToast';
+import { fetchAuthMode } from '../../services/authService';
 
 const DEMO_USERS = [
   { phone: '13800138000', name: '张张', role: '代理人', desc: '一线销售' },
@@ -13,17 +15,38 @@ const DEMO_USERS = [
   { phone: '13800138003', name: '噜妹', role: '系统管理员', desc: '系统管理' },
 ];
 
+type AuthMode = 'loading' | 'demo' | 'password';
+
 export function LoginPage() {
   const navigate = useNavigate();
   const login = useAuthStore((s) => s.login);
   const isLoading = useAuthStore((s) => s.isLoading);
   const { toast } = useToast();
 
-  const [phone, setPhone] = useState('13800138000');
-  const [code, setCode] = useState('888888');
+  const [authMode, setAuthMode] = useState<AuthMode>('loading');
+  const [phone, setPhone] = useState('');
+  const [code, setCode] = useState('');
+  const [password, setPassword] = useState('');
   const [countdown, setCountdown] = useState(0);
 
-  async function handleSendCode() {
+  // 按后端运行模式选择登录表单：demo=验证码+快捷登录，生产=密码
+  useEffect(() => {
+    let active = true;
+    fetchAuthMode().then((mode) => {
+      if (!active) return;
+      setAuthMode(mode);
+      // demo 模式预填演示账号，减少输入
+      if (mode === 'demo') {
+        setPhone('13800138000');
+        setCode('888888');
+      }
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
+  function handleSendCode() {
     if (!phone || phone.length !== 11) {
       toast({ title: '请输入正确的手机号', variant: 'warning' });
       return;
@@ -41,18 +64,9 @@ export function LoginPage() {
     toast({ title: '验证码已发送', variant: 'success' });
   }
 
-  async function handleSubmit(e: FormEvent) {
-    e.preventDefault();
-    if (!phone || phone.length !== 11) {
-      toast({ title: '请输入正确的手机号', variant: 'warning' });
-      return;
-    }
-    if (!code || code.length < 4) {
-      toast({ title: '请输入验证码', variant: 'warning' });
-      return;
-    }
+  async function doLogin(credentials: { phone: string; verification_code?: string; password?: string }) {
     try {
-      await login(phone, code);
+      await login(credentials);
       toast({ title: '登录成功', variant: 'success' });
       navigate('/dashboard');
     } catch (err) {
@@ -60,18 +74,31 @@ export function LoginPage() {
     }
   }
 
-  function handleDemoLogin(demoPhone: string) {
-    setPhone(demoPhone);
-    setCode('888888');
-    // Auto-login on next frame
-    setTimeout(async () => {
-      try {
-        await login(demoPhone, '888888');
-        toast({ title: '登录成功', variant: 'success' });
-        navigate('/dashboard');
-      } catch {
-        toast({ title: '登录失败', variant: 'error' });
+  async function handleSubmit(e: FormEvent) {
+    e.preventDefault();
+    if (!phone || phone.length !== 11) {
+      toast({ title: '请输入正确的手机号', variant: 'warning' });
+      return;
+    }
+    if (authMode === 'password') {
+      if (!password) {
+        toast({ title: '请输入密码', variant: 'warning' });
+        return;
       }
+      await doLogin({ phone, password });
+      return;
+    }
+    if (!code || code.length < 4) {
+      toast({ title: '请输入验证码', variant: 'warning' });
+      return;
+    }
+    await doLogin({ phone, verification_code: code });
+  }
+
+  function handleDemoLogin(demoPhone: string) {
+    // Auto-login on next frame（当前已在 demo 模式，直接走验证码登录）
+    setTimeout(async () => {
+      await doLogin({ phone: demoPhone, verification_code: '888888' });
     }, 0);
   }
 
@@ -93,73 +120,93 @@ export function LoginPage() {
         <div className="bg-card rounded-2xl border border-border shadow-sm p-8">
           <h2 className="text-lg font-semibold text-text mb-6">登录</h2>
 
-          <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-            <Input
-              label="手机号"
-              type="tel"
-              placeholder="请输入手机号"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
-              maxLength={11}
-              icon={<Smartphone className="w-4 h-4" />}
-            />
-
-            <div>
-              <div className="flex items-center justify-between mb-1.5">
-                <label className="text-sm font-medium text-text">验证码</label>
-                <button
-                  type="button"
-                  onClick={handleSendCode}
-                  disabled={countdown > 0}
-                  className="text-xs text-accent hover:text-accent-hover disabled:text-muted disabled:cursor-not-allowed cursor-pointer transition-colors"
-                >
-                  {countdown > 0 ? `${countdown}s 后重新发送` : '获取验证码'}
-                </button>
-              </div>
-              <Input
-                type="text"
-                placeholder="请输入验证码"
-                value={code}
-                onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
-                maxLength={6}
-                icon={<KeyRound className="w-4 h-4" />}
-              />
+          {authMode === 'loading' ? (
+            <div className="flex items-center justify-center py-10">
+              <LoadingSpinner size="lg" />
             </div>
+          ) : (
+            <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+              <Input
+                label="手机号"
+                type="tel"
+                placeholder="请输入手机号"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value.replace(/\D/g, '').slice(0, 11))}
+                maxLength={11}
+                icon={<Smartphone className="w-4 h-4" />}
+              />
 
-            <Button type="submit" loading={isLoading} className="mt-2 w-full h-11">
-              登录
-            </Button>
-          </form>
+              {authMode === 'demo' ? (
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <label className="text-sm font-medium text-text">验证码</label>
+                    <button
+                      type="button"
+                      onClick={handleSendCode}
+                      disabled={countdown > 0}
+                      className="text-xs text-accent hover:text-accent-hover disabled:text-muted disabled:cursor-not-allowed cursor-pointer transition-colors"
+                    >
+                      {countdown > 0 ? `${countdown}s 后重新发送` : '获取验证码'}
+                    </button>
+                  </div>
+                  <Input
+                    type="text"
+                    placeholder="请输入验证码"
+                    value={code}
+                    onChange={(e) => setCode(e.target.value.replace(/\D/g, '').slice(0, 6))}
+                    maxLength={6}
+                    icon={<KeyRound className="w-4 h-4" />}
+                  />
+                </div>
+              ) : (
+                <Input
+                  label="密码"
+                  type="password"
+                  placeholder="请输入密码"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  icon={<KeyRound className="w-4 h-4" />}
+                />
+              )}
+
+              <Button type="submit" loading={isLoading} className="mt-2 w-full h-11">
+                登录
+              </Button>
+            </form>
+          )}
         </div>
 
-        {/* Demo user quick-switch */}
-        <div className="mt-4">
-          <p className="text-xs text-muted mb-2 text-center">演示模式 — 快速登录</p>
-          <div className="grid grid-cols-2 gap-2">
-            {DEMO_USERS.map((u) => (
-              <button
-                key={u.phone}
-                type="button"
-                onClick={() => handleDemoLogin(u.phone)}
-                disabled={isLoading}
-                className="flex items-center gap-2.5 bg-card border border-border rounded-lg px-3 py-2.5 hover:border-accent/40 hover:shadow-sm transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
-              >
-                <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-                  <span className="text-accent text-xs font-bold">
-                    {u.name.charAt(0)}
-                  </span>
-                </div>
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-text truncate">{u.name}</p>
-                  <p className="text-[11px] text-muted truncate">{u.role} · {u.desc}</p>
-                </div>
-              </button>
-            ))}
+        {/* Demo user quick-switch（仅演示模式） */}
+        {authMode === 'demo' && (
+          <div className="mt-4">
+            <p className="text-xs text-muted mb-2 text-center">演示模式 — 快速登录</p>
+            <div className="grid grid-cols-2 gap-2">
+              {DEMO_USERS.map((u) => (
+                <button
+                  key={u.phone}
+                  type="button"
+                  onClick={() => handleDemoLogin(u.phone)}
+                  disabled={isLoading}
+                  className="flex items-center gap-2.5 bg-card border border-border rounded-lg px-3 py-2.5 hover:border-accent/40 hover:shadow-sm transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
+                >
+                  <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                    <span className="text-accent text-xs font-bold">
+                      {u.name.charAt(0)}
+                    </span>
+                  </div>
+                  <div className="min-w-0">
+                    <p className="text-sm font-medium text-text truncate">{u.name}</p>
+                    <p className="text-[11px] text-muted truncate">{u.role} · {u.desc}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+            <p className="text-[11px] text-muted/50 text-center mt-2">
+              统一验证码：<span className="font-mono">888888</span>
+            </p>
           </div>
-          <p className="text-[11px] text-muted/50 text-center mt-2">
-            统一验证码：<span className="font-mono">888888</span>
-          </p>
-        </div>
+        )}
 
         <p className="text-center text-xs text-muted/60 mt-4">
           © 2026 华安保险 · 安诊保 AI 副驾

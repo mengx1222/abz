@@ -1,14 +1,15 @@
 import { useAuthStore } from '../stores/authStore';
 import { useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
+import type { LoginRequest } from '../types/auth';
 
 export function useAuth() {
   const { user, token, isAuthenticated, isLoading, login, logout, setUser } = useAuthStore();
   const navigate = useNavigate();
 
   const handleLogin = useCallback(
-    async (phone: string, code: string) => {
-      await login(phone, code);
+    async (credentials: LoginRequest) => {
+      await login(credentials);
       navigate('/dashboard');
     },
     [login, navigate]

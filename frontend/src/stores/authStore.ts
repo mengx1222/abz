@@ -1,6 +1,6 @@
 import { create } from 'zustand';
-import { UserInfo } from '../types/auth';
-import { loginWithCode, getCurrentUser } from '../services/authService';
+import { LoginRequest, UserInfo } from '../types/auth';
+import { loginWithCredentials, getCurrentUser } from '../services/authService';
 import { getApiErrorMessage } from '../utils/apiError';
 
 interface AuthState {
@@ -8,7 +8,7 @@ interface AuthState {
   token: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  login: (phone: string, code: string) => Promise<void>;
+  login: (credentials: LoginRequest) => Promise<void>;
   logout: () => void;
   fetchUser: () => Promise<void>;
   setUser: (user: UserInfo) => void;
@@ -38,10 +38,10 @@ export const useAuthStore = create<AuthState>((set) => ({
   isAuthenticated: !!getStoredToken(),
   isLoading: false,
 
-  login: async (phone: string, code: string) => {
+  login: async (credentials: LoginRequest) => {
     set({ isLoading: true });
     try {
-      const tokenData = await loginWithCode({ phone, verification_code: code });
+      const tokenData = await loginWithCredentials(credentials);
 
       localStorage.setItem('abz_token', tokenData.access_token);
 

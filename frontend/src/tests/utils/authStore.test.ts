@@ -3,12 +3,12 @@ import { useAuthStore } from '../../stores/authStore';
 
 // Mock authService
 vi.mock('../../services/authService', () => ({
-  loginWithCode: vi.fn(),
+  loginWithCredentials: vi.fn(),
   getCurrentUser: vi.fn(),
 }));
 
-import { loginWithCode, getCurrentUser } from '../../services/authService';
-const mockedLoginWithCode = vi.mocked(loginWithCode);
+import { loginWithCredentials, getCurrentUser } from '../../services/authService';
+const mockedLogin = vi.mocked(loginWithCredentials);
 const mockedGetCurrentUser = vi.mocked(getCurrentUser);
 
 const mockUser = {
@@ -41,7 +41,7 @@ describe('authStore', () => {
   });
 
   it('login sets user and token', async () => {
-    mockedLoginWithCode.mockResolvedValue({
+    mockedLogin.mockResolvedValue({
       access_token: 'test-access-token',
       refresh_token: 'test-refresh-token',
       token_type: 'Bearer',
@@ -50,7 +50,7 @@ describe('authStore', () => {
     mockedGetCurrentUser.mockResolvedValue(mockUser);
 
     const store = useAuthStore.getState();
-    await store.login('13800138000', '123456');
+    await store.login({ phone: '13800138000', verification_code: '123456' });
 
     const state = useAuthStore.getState();
     expect(state.token).toBe('test-access-token');
@@ -59,9 +59,24 @@ describe('authStore', () => {
     expect(state.isLoading).toBe(false);
   });
 
+  it('login with password passes password through to service (production mode)', async () => {
+    mockedLogin.mockResolvedValue({
+      access_token: 'pwd-token',
+      refresh_token: 'refresh',
+      token_type: 'Bearer',
+      expires_in: 3600,
+    });
+    mockedGetCurrentUser.mockResolvedValue(mockUser);
+
+    await useAuthStore.getState().login({ phone: '13900139000', password: 'Secret#2026' });
+
+    expect(mockedLogin).toHaveBeenCalledWith({ phone: '13900139000', password: 'Secret#2026' });
+    expect(useAuthStore.getState().isAuthenticated).toBe(true);
+  });
+
   it('logout clears state', async () => {
     // First login
-    mockedLoginWithCode.mockResolvedValue({
+    mockedLogin.mockResolvedValue({
       access_token: 'token',
       refresh_token: 'refresh',
       token_type: 'Bearer',
@@ -69,7 +84,7 @@ describe('authStore', () => {
     });
     mockedGetCurrentUser.mockResolvedValue(mockUser);
 
-    await useAuthStore.getState().login('13800138000', '123456');
+    await useAuthStore.getState().login({ phone: '13800138000', verification_code: '123456' });
 
     // Then logout
     useAuthStore.getState().logout();
@@ -85,7 +100,7 @@ describe('authStore', () => {
   it('isAuthenticated reflects login state', async () => {
     expect(useAuthStore.getState().isAuthenticated).toBe(false);
 
-    mockedLoginWithCode.mockResolvedValue({
+    mockedLogin.mockResolvedValue({
       access_token: 'token',
       refresh_token: 'refresh',
       token_type: 'Bearer',
@@ -93,7 +108,7 @@ describe('authStore', () => {
     });
     mockedGetCurrentUser.mockResolvedValue(mockUser);
 
-    await useAuthStore.getState().login('13800138000', '123456');
+    await useAuthStore.getState().login({ phone: '13800138000', verification_code: '123456' });
     expect(useAuthStore.getState().isAuthenticated).toBe(true);
 
     useAuthStore.getState().logout();
@@ -101,7 +116,7 @@ describe('authStore', () => {
   });
 
   it('login persists token to localStorage', async () => {
-    mockedLoginWithCode.mockResolvedValue({
+    mockedLogin.mockResolvedValue({
       access_token: 'persisted-token',
       refresh_token: 'refresh',
       token_type: 'Bearer',
@@ -109,17 +124,17 @@ describe('authStore', () => {
     });
     mockedGetCurrentUser.mockResolvedValue(mockUser);
 
-    await useAuthStore.getState().login('13800138000', '123456');
+    await useAuthStore.getState().login({ phone: '13800138000', verification_code: '123456' });
 
     expect(localStorage.getItem('abz_token')).toBe('persisted-token');
     expect(JSON.parse(localStorage.getItem('abz_user')!)).toEqual(mockUser);
   });
 
   it('login throws on failure and clears isLoading', async () => {
-    mockedLoginWithCode.mockRejectedValue(new Error('Network error'));
+    mockedLogin.mockRejectedValue(new Error('Network error'));
 
     await expect(
-      useAuthStore.getState().login('13800138000', 'wrong')
+      useAuthStore.getState().login({ phone: '13800138000', password: 'wrong' })
     ).rejects.toThrow('登录失败，请检查手机号和验证码');
 
     expect(useAuthStore.getState().isLoading).toBe(false);
