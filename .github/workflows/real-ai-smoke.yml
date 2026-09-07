@@ -80,7 +80,7 @@ jobs:
         if: steps.key_check.outputs.skip == 'true'
         run: echo "Real AI smoke test skipped — configure AZB_AI_API_KEY/AZB_AI_BASE_URL/AZB_AI_MODEL secrets to enable."
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.key_check.outputs.skip != 'true'
 
       - uses: actions/setup-python@v5
