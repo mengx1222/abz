@@ -9,11 +9,12 @@
 - Demo模式：内存中的关键词匹配检索
 """
 import math
+import re
 import uuid
 from dataclasses import dataclass, field
 from datetime import datetime, timezone
 
-from sqlalchemy import func, select, text, or_, and_, cast
+from sqlalchemy import case, func, select, text, or_, and_, cast
 from sqlalchemy.dialects.postgresql import UUID
 from structlog import get_logger
 
@@ -270,6 +271,20 @@ class Retriever:
             user_roles=user_roles,
             product_type=product_type,
         )
+
+        # Step 2.5: Embedding 降级模式（如 opencode.ai Go 网关无 /embeddings）：
+        # plainto_tsquery("simple") 按空格分词，中文整句基本无法命中 →
+        # 追加 ILIKE 子串检索，保证无向量 API 也能召回知识依据（中文友好）。
+        if query_embedding is None:
+            like_results = await self._like_search(
+                query, top_k=BM25_SEARCH_TOP_K,
+                knowledge_base_ids=knowledge_base_ids,
+                effective_now=now, org_id=org_id,
+                accessible_org_ids=accessible_org_ids,
+                user_roles=user_roles,
+                product_type=product_type,
+            )
+            bm25_results = self._merge_like_results(bm25_results, like_results)
 
         # Step 3: RRF融合
         fused = self._rrf_fusion(vector_results, bm25_results)
@@ -531,6 +546,158 @@ class Retriever:
             ]
         except Exception as e:
             logger.error("bm25_search_error", error=str(e))
+            return []
+
+    @staticmethod
+    def _like_escape(query: str) -> str:
+        """转义 ILIKE 特殊字符（% _ \\），避免用户输入被当成通配符注入。"""
+        return (
+            query.replace("\\", "\\\\")
+            .replace("%", "\\%")
+            .replace("_", "\\_")
+        )
+
+    @staticmethod
+    def _cjk_grams(query: str, max_grams: int = 24) -> list[str]:
+        """中文友好的检索基元：CJK 连续段生成 2-gram，字母数字 token 整体保留。
+
+        例："百万医疗险的等待期是多久" →
+          CJK 段"百万医疗险的等待期是多久" 的 2-gram：百万/万医/医疗/疗险/险的/的等/等待/待期…
+          字母数字段（如 "600"、"alpine"）作为独立 gram。
+        """
+        grams: list[str] = []
+        seen: set[str] = set()
+        cjk_run = re.compile(r"[\u4e00-\u9fff]+")
+        alnum_run = re.compile(r"[A-Za-z0-9]{2,}")
+        pos = 0
+        for m in cjk_run.finditer(query):
+            run = m.group()
+            if m.start() > pos:
+                for t in alnum_run.findall(query[pos : m.start()]):
+                    t = t.lower()
+                    if t not in seen:
+                        seen.add(t)
+                        grams.append(t)
+            if len(run) >= 2:
+                for i in range(len(run) - 1):
+                    g = run[i : i + 2]
+                    if g not in seen:
+                        seen.add(g)
+                        grams.append(g)
+            pos = m.end()
+        if pos < len(query):
+            for t in alnum_run.findall(query[pos:]):
+                t = t.lower()
+                if t not in seen:
+                    seen.add(t)
+                    grams.append(t)
+        return grams[:max_grams]
+
+    @staticmethod
+    def _merge_like_results(
+        bm25_results: list[dict],
+        like_results: list[dict],
+    ) -> list[dict]:
+        """合并 BM25 与 ILIKE 结果：同 chunk 保留 BM25（语义更可信），LIKE 仅补漏。"""
+        seen = {r["chunk_id"] for r in bm25_results}
+        for r in like_results:
+            if r["chunk_id"] not in seen:
+                bm25_results.append(r)
+                seen.add(r["chunk_id"])
+        return bm25_results
+
+    async def _like_search(
+        self,
+        query: str,
+        top_k: int,
+        knowledge_base_ids: list[str] | None,
+        effective_now: datetime | None = None,
+        org_id: str | None = None,
+        accessible_org_ids: list[str] | None = None,
+        user_roles: list[str] | None = None,
+        product_type: str | None = None,
+    ) -> list[dict]:
+        """Embedding 降级模式的 2-gram ILIKE 检索（中文友好）。
+
+        与 _bm25_search 同构的权限/产品/生效日期过滤；召回 = 任一 gram 命中，
+        排序 = 命中 gram 数降序 → 内容长度升序（短块更聚焦）。
+        分数 = 0.5 + 0.5 × 命中率（> MIN_CONTEXT_SCORE=0.3），保证命中即可作为知识依据。
+        """
+        grams = self._cjk_grams(query.strip())
+        content_col = DocumentChunk.__table__.c.content
+        if not grams:
+            grams = [query.strip()]
+        escaped_grams = [self._like_escape(g) for g in grams]
+
+        match_conds = [content_col.ilike(f"%{g}%", escape="\\") for g in escaped_grams]
+        matched_count = sum(
+            case((content_col.ilike(f"%{g}%", escape="\\"), 1), else_=0)
+            for g in escaped_grams
+        )
+        total_grams = len(grams)
+
+        stmt = (
+            select(
+                DocumentChunk.__table__.c.id,
+                DocumentChunk.__table__.c.document_id,
+                DocumentChunk.__table__.c.content,
+                DocumentChunk.__table__.c["metadata"],
+                Document.knowledge_base_id.label("kb_id"),
+                KnowledgeBase.allowed_roles.label("kb_allowed_roles"),
+                KnowledgeBase.organization_id.label("kb_org_id"),
+                matched_count.label("_matched"),
+            )
+            .where(or_(*match_conds))
+            .where(~Document.is_deleted)
+            .where(Document.status == "published")
+            .join(Document, DocumentChunk.document_id == Document.id)
+            .join(KnowledgeBase, Document.knowledge_base_id == KnowledgeBase.id)
+        )
+
+        if effective_now is not None:
+            stmt = stmt.where(
+                or_(Document.effective_date.is_(None), Document.effective_date <= effective_now)
+            )
+            stmt = stmt.where(
+                or_(Document.expiry_date.is_(None), Document.expiry_date > effective_now)
+            )
+
+        for cond in self._permission_conditions(user_roles, accessible_org_ids, org_id):
+            stmt = stmt.where(cond)
+
+        if knowledge_base_ids:
+            kb_uuids = [uuid.UUID(kid) for kid in knowledge_base_ids if kid]
+            if kb_uuids:
+                stmt = stmt.where(Document.knowledge_base_id.in_(kb_uuids))
+
+        if product_type:
+            stmt = stmt.where(self._product_boundary_condition(product_type))
+
+        stmt = stmt.order_by(
+            text("_matched DESC"), func.char_length(content_col).asc()
+        ).limit(top_k)
+
+        try:
+            result = await self.db.execute(stmt)
+            rows = result.all()
+            return [
+                {
+                    "chunk_id": str(row.id),
+                    "document_id": str(row.document_id),
+                    "content": row.content,
+                    "metadata": {
+                        **(row._mapping.get("metadata") or {}),
+                        "kb_allowed_roles": row.kb_allowed_roles,
+                        "kb_org_id": str(row.kb_org_id) if row.kb_org_id else None,
+                        "knowledge_base_id": str(row.kb_id) if row.kb_id else "",
+                    },
+                    # 命中率加权：最低 0.5（保证过 pipeline 的 MIN_CONTEXT_SCORE）
+                    "score": 0.5 + 0.5 * (int(row._mapping.get("_matched") or 0) / total_grams),
+                }
+                for row in rows
+            ]
+        except Exception as e:
+            logger.error("like_search_error", error=str(e))
             return []
 
     @staticmethod
