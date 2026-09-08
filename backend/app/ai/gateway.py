@@ -70,12 +70,18 @@ class AIGateway:
                 "无法初始化真实 Provider（生产模式禁止静默降级到 Mock）。"
             )
 
+        extra_headers: dict | None = None
+        if settings.AI_SESSION_ID:
+            # opencode.ai Go 网关要求 x-opencode-session（会话路由）；配置了固定串则全局带上
+            extra_headers = {"x-opencode-session": settings.AI_SESSION_ID}
+
         return OpenAIProvider(
             api_key=settings.AI_API_KEY,
             base_url=settings.AI_BASE_URL,
             model=settings.AI_MODEL,
             embedding_model=settings.AI_EMBEDDING_MODEL,
             timeout=settings.AI_TIMEOUT,
+            extra_headers=extra_headers,
         )
 
     # ------------------------------------------------------------------

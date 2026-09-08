@@ -49,6 +49,7 @@ class Settings(BaseSettings):
 
     # --- AI Provider ---
     AI_PROVIDER: str = "mock"  # mock / deepseek / qwen / openai
+    AI_SESSION_ID: str = ""  # 可选：网关要求的路由标识（如 opencode.ai 的 x-opencode-session），空则不发
     AI_API_KEY: str = ""
     AI_BASE_URL: str = ""
     AI_MODEL: str = ""

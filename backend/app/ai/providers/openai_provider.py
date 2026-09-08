@@ -40,18 +40,22 @@ class OpenAIProvider:
         model: str = "",
         embedding_model: str = "",
         timeout: float = 30.0,
+        extra_headers: dict | None = None,
     ):
         self._api_key = api_key
         self._base_url = base_url.rstrip("/")
         self._model = model
         self._embedding_model = embedding_model
         self._timeout = timeout
+        headers = {
+            "Authorization": f"Bearer {api_key}",
+            "Content-Type": "application/json",
+        }
+        if extra_headers:
+            headers.update(extra_headers)
         self._client = httpx.AsyncClient(
             base_url=self._base_url,
-            headers={
-                "Authorization": f"Bearer {api_key}",
-                "Content-Type": "application/json",
-            },
+            headers=headers,
             timeout=httpx.Timeout(timeout, connect=10.0),
         )
 
