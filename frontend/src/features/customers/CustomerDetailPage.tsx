@@ -654,17 +654,6 @@ function InteractionsTab({
 }) {
   return (
     <div className="space-y-3">
-      {!showForm && (
-        <Button
-          variant="secondary"
-          size="sm"
-          onClick={() => {}}  // handled by parent
-          style={{ display: 'none' }}
-        >
-          添加互动记录
-        </Button>
-      )}
-
       {showForm && (
         <InteractionForm
           onSubmit={onSubmitForm}
