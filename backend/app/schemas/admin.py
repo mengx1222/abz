@@ -24,6 +24,7 @@ class AdminUserUpdate(BaseModel):
     role_code: Optional[str] = None
     organization_id: Optional[uuid.UUID] = None
     team_id: Optional[uuid.UUID] = None
+    new_password: Optional[str] = Field(None, min_length=6, max_length=50, description="重置密码（留空不修改）")
 
 
 class AdminUserItem(BaseModel):

@@ -168,7 +168,7 @@ export const adminUserApi = {
   create: (data: { name: string; phone: string; role_code: string; organization_id: string; initial_password: string }) =>
     api.post<SuccessData<AdminUser>>('/admin/users', data),
 
-  update: (userId: string, data: Partial<{ name: string; role_code: string }>) =>
+  update: (userId: string, data: Partial<{ name: string; role_code: string; new_password?: string }>) =>
     api.put<SuccessData<AdminUser>>(`/admin/users/${userId}`, data),
 
   disable: (userId: string, reason: string) =>

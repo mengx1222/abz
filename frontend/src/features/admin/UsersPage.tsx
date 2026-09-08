@@ -1,19 +1,22 @@
-import { useCallback, useEffect, useState } from 'react';
+import { useCallback, useEffect, useState, type FormEvent } from 'react';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
 import { LoadingSpinner } from '../../components/ui/LoadingSpinner';
+import { Modal } from '../../components/ui/Modal';
 import { useToast } from '../../hooks/useToast';
+import { useAuthStore } from '../../stores/authStore';
 import { adminUserApi, type AdminUser } from '../../services/adminService';
 
 // ----------- Constants -----------
 
 const ROLE_VARIANT_MAP: Record<string, 'default' | 'warning' | 'success' | 'error'> = {
-  admin: 'error',
-  manager: 'warning',
-  agent: 'success',
-  trainee: 'default',
+  SYSTEM_ADMIN: 'error',
+  HQ_ADMIN: 'error',
+  BRANCH_ADMIN: 'warning',
+  TEAM_LEADER: 'warning',
+  AGENT: 'success',
 };
 
 const STATUS_OPTIONS = [
@@ -24,10 +27,11 @@ const STATUS_OPTIONS = [
 
 const ROLE_OPTIONS = [
   { key: '', label: '全部角色' },
-  { key: 'admin', label: '管理员' },
-  { key: 'manager', label: '主管' },
-  { key: 'agent', label: '代理人' },
-  { key: 'trainee', label: '实习生' },
+  { key: 'SYSTEM_ADMIN', label: '系统管理员' },
+  { key: 'HQ_ADMIN', label: '总部管理员' },
+  { key: 'BRANCH_ADMIN', label: '分公司管理员' },
+  { key: 'TEAM_LEADER', label: '团队长' },
+  { key: 'AGENT', label: '代理人' },
 ];
 
 // ----------- Helpers -----------
@@ -47,6 +51,8 @@ function formatDateTime(dateStr?: string): string {
 
 export function UsersPage() {
   const { toast } = useToast();
+  const currentUser = useAuthStore((s) => s.user);
+  const isDemo = currentUser?.demo_mode ?? true;
 
   // Filters
   const [keyword, setKeyword] = useState('');
@@ -64,6 +70,13 @@ export function UsersPage() {
 
   // Actions
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+
+  // Edit modal
+  const [editing, setEditing] = useState<AdminUser | null>(null);
+  const [editName, setEditName] = useState('');
+  const [editRole, setEditRole] = useState('');
+  const [editNewPassword, setEditNewPassword] = useState('');
+  const [saving, setSaving] = useState(false);
 
   const fetchUsers = useCallback(async () => {
     setLoading(true);
@@ -114,6 +127,33 @@ export function UsersPage() {
     }
   };
 
+  const openEdit = (user: AdminUser) => {
+    setEditing(user);
+    setEditName(user.name);
+    setEditRole(user.role_code);
+    setEditNewPassword('');
+  };
+
+  const handleSaveEdit = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!editing) return;
+    setSaving(true);
+    try {
+      await adminUserApi.update(editing.id, {
+        name: editName.trim() || undefined,
+        role_code: editRole || undefined,
+        new_password: editNewPassword || undefined,
+      });
+      toast({ title: `用户「${editName.trim() || editing.name}」已更新`, variant: 'success' });
+      setEditing(null);
+      fetchUsers();
+    } catch {
+      toast({ title: '保存失败，请重试', variant: 'error' });
+    } finally {
+      setSaving(false);
+    }
+  };
+
   return (
     <div className="max-w-6xl mx-auto space-y-4">
       {/* Header */}
@@ -121,7 +161,7 @@ export function UsersPage() {
         <div>
           <div className="flex items-center gap-2">
             <h1 className="text-2xl font-bold text-text">用户管理</h1>
-            <Badge variant="warning">演示模式</Badge>
+            {isDemo && <Badge variant="warning">演示模式</Badge>}
           </div>
           <p className="text-muted text-sm mt-1">
             共 {total} 位用户 · 管理系统用户账号与权限
@@ -235,7 +275,7 @@ export function UsersPage() {
                         <Button
                           variant="ghost"
                           size="sm"
-                          onClick={() => toast({ title: '演示模式下暂不支持编辑', variant: 'warning' })}
+                          onClick={() => openEdit(user)}
                         >
                           编辑
                         </Button>
@@ -286,6 +326,56 @@ export function UsersPage() {
           </Button>
         </div>
       )}
+
+      {/* Edit / Reset Password Modal */}
+      <Modal
+        open={!!editing}
+        onClose={() => !saving && setEditing(null)}
+        title={`编辑用户${editing ? ` — ${editing.name}` : ''}`}
+        description="支持修改姓名/角色，留空不改；填写新密码即重置（≥6位）"
+        size="sm"
+        footer={
+          <div className="flex items-center justify-end gap-3">
+            <Button variant="secondary" size="sm" onClick={() => setEditing(null)} disabled={saving}>
+              取消
+            </Button>
+            <Button variant="primary" size="sm" onClick={handleSaveEdit} loading={saving}>
+              保存
+            </Button>
+          </div>
+        }
+      >
+        <form onSubmit={handleSaveEdit} className="flex flex-col gap-4">
+          <Input
+            label="姓名"
+            value={editName}
+            onChange={(e) => setEditName(e.target.value)}
+            placeholder="用户姓名"
+          />
+          <div className="flex flex-col gap-1.5">
+            <label className="text-sm font-medium text-text">角色</label>
+            <select
+              value={editRole}
+              onChange={(e) => setEditRole(e.target.value)}
+              className="h-10 rounded-lg border border-border bg-white px-3 text-sm text-text focus:outline-none focus:ring-2 focus:ring-accent/30 focus:border-accent"
+            >
+              {ROLE_OPTIONS.filter((o) => o.key !== '').map((opt) => (
+                <option key={opt.key} value={opt.key}>
+                  {opt.label}
+                </option>
+              ))}
+            </select>
+          </div>
+          <Input
+            label="重置密码（可选）"
+            type="password"
+            autoComplete="new-password"
+            value={editNewPassword}
+            onChange={(e) => setEditNewPassword(e.target.value)}
+            placeholder="留空则不修改密码"
+          />
+        </form>
+      </Modal>
     </div>
   );
 }

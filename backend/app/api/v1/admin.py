@@ -14,8 +14,11 @@ from app.core.config import settings
 from app.core.deps import get_current_user, get_db, require_role
 from app.models.user import User
 from app.repositories.audit_log_repository import AuditLogRepository
-from sqlalchemy import select as sa_select
+from sqlalchemy import or_, select as sa_select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
+from app.core.security import hash_password
+from app.models.role import Role
 from app.schemas.admin import (
     AdminUserCreate,
     AdminUserUpdate,
@@ -645,6 +648,24 @@ def _paginated(items: list, page: int, page_size: int):
     return PaginatedResponse.create(items[start:end], total, page, page_size)
 
 
+def _user_to_admin_item(u: User) -> dict:
+    """生产模式：User → 管理后台用户条目（与 demo 结构一致）。"""
+    role = u.role
+    org = u.organization
+    return {
+        "id": str(u.id),
+        "phone": u.phone,
+        "name": u.name,
+        "role_code": role.code if role else "",
+        "role_name": role.name if role else "",
+        "organization_name": org.name if org else "",
+        "team_name": None,
+        "status": u.status or "active",
+        "last_login_at": u.last_login_at,
+        "created_at": u.created_at,
+    }
+
+
 # ============================================================
 # 9.1 用户管理
 # ============================================================
@@ -659,24 +680,76 @@ async def list_users(
     current_user: User = Depends(require_role([
         "SYSTEM_ADMIN", "HQ_ADMIN", "BRANCH_ADMIN", "TEAM_LEADER"
     ])),
+    db: AsyncSession = Depends(get_db),
 ):
-    """获取用户列表。"""
-    items = list(_DEMO_USERS)
+    """获取用户列表（Demo 模式用内存数据；生产模式读真实用户表）。"""
+    if settings.DEMO_MODE:
+        items = list(_DEMO_USERS)
+        if keyword:
+            items = [u for u in items if keyword in u["name"] or keyword in u["phone"]]
+        if role:
+            items = [u for u in items if u["role_code"] == role]
+        if status:
+            items = [u for u in items if u["status"] == status]
+        return _paginated(items, page, page_size)
+
+    stmt = (
+        sa_select(User)
+        .options(selectinload(User.role), selectinload(User.organization))
+        .where(User.is_deleted.is_(False))
+    )
     if keyword:
-        items = [u for u in items if keyword in u["name"] or keyword in u["phone"]]
+        like = f"%{keyword}%"
+        stmt = stmt.where(or_(User.name.ilike(like), User.phone.ilike(like)))
     if role:
-        items = [u for u in items if u["role_code"] == role]
+        stmt = stmt.join(Role, User.role_id == Role.id).where(Role.code == role)
     if status:
-        items = [u for u in items if u["status"] == status]
-    return _paginated(items, page, page_size)
+        stmt = stmt.where(User.status == status)
+    stmt = stmt.order_by(User.created_at.desc())
+
+    result = await db.execute(stmt)
+    users = result.scalars().all()
+    return _paginated([_user_to_admin_item(u) for u in users], page, page_size)
 
 
 @router.post("/users")
 async def create_user(
     body: AdminUserCreate,
     current_user: User = Depends(require_role(["SYSTEM_ADMIN", "HQ_ADMIN"])),
+    db: AsyncSession = Depends(get_db),
 ):
-    """创建用户。"""
+    """创建用户（生产：写入真实用户表，密码哈希落库；手机号唯一）。"""
+    if not settings.DEMO_MODE:
+        existing = await db.execute(sa_select(User).where(User.phone == body.phone))
+        if existing.scalar_one_or_none() is not None:
+            raise HTTPException(status_code=409, detail={"code": "PHONE_EXISTS", "message": "手机号已存在"})
+        role_row = (await db.execute(sa_select(Role).where(Role.code == body.role_code))).scalar_one_or_none()
+        if role_row is None:
+            raise HTTPException(status_code=400, detail={"code": "ROLE_NOT_FOUND", "message": f"角色 {body.role_code} 不存在"})
+        org_name = ""
+        if body.organization_id:
+            from app.models.organization import Organization as _Org
+            org_row = await db.get(_Org, body.organization_id)
+            org_name = org_row.name if org_row else ""
+        now = datetime.now(timezone.utc)
+        user = User(
+            phone=body.phone, name=body.name,
+            password_hash=hash_password(body.initial_password),
+            status="active", demo_mode=False,
+            role_id=role_row.id, organization_id=body.organization_id,
+            team_id=body.team_id, created_at=now, updated_at=now,
+        )
+        db.add(user)
+        await db.commit()
+        await db.refresh(user)
+        item = {
+            "id": str(user.id), "phone": user.phone, "name": user.name,
+            "role_code": role_row.code, "role_name": role_row.name,
+            "organization_name": org_name, "team_name": None,
+            "status": "active", "last_login_at": None, "created_at": now,
+        }
+        return SuccessResponse(data=item, message="用户创建成功")
+
     new_user = {
         "id": str(uuid.uuid4()),
         "phone": body.phone,
@@ -698,8 +771,42 @@ async def update_user(
     user_id: str,
     body: AdminUserUpdate,
     current_user: User = Depends(require_role(["SYSTEM_ADMIN", "HQ_ADMIN", "BRANCH_ADMIN"])),
+    db: AsyncSession = Depends(get_db),
 ):
-    """更新用户。"""
+    """更新用户（生产：姓名/角色/组织/团队，new_password 为管理员重置密码）。"""
+    if not settings.DEMO_MODE:
+        try:
+            uid = uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "用户不存在"})
+        user = (
+            await db.execute(
+                sa_select(User)
+                .options(selectinload(User.role), selectinload(User.organization))
+                .where(User.id == uid)
+            )
+        ).scalar_one_or_none()
+        if user is None:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "用户不存在"})
+
+        if body.name is not None:
+            user.name = body.name
+        if body.role_code is not None:
+            role_row = (await db.execute(sa_select(Role).where(Role.code == body.role_code))).scalar_one_or_none()
+            if role_row is None:
+                raise HTTPException(status_code=400, detail={"code": "ROLE_NOT_FOUND", "message": f"角色 {body.role_code} 不存在"})
+            user.role_id = role_row.id
+        if body.organization_id is not None:
+            user.organization_id = body.organization_id
+        if body.team_id is not None:
+            user.team_id = body.team_id
+        if body.new_password:
+            user.password_hash = hash_password(body.new_password)
+        user.updated_at = datetime.now(timezone.utc)
+        await db.commit()
+        await db.refresh(user)
+        return SuccessResponse(data=_user_to_admin_item(user), message="用户更新成功")
+
     for u in _DEMO_USERS:
         if u["id"] == user_id:
             if body.name is not None:
@@ -716,8 +823,24 @@ async def disable_user(
     user_id: str,
     body: AdminDisableRequest,
     current_user: User = Depends(require_role(["SYSTEM_ADMIN", "HQ_ADMIN"])),
+    db: AsyncSession = Depends(get_db),
 ):
-    """禁用用户。"""
+    """禁用用户（生产：status → disabled，登录即被拒）。"""
+    if not settings.DEMO_MODE:
+        try:
+            uid = uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "用户不存在"})
+        user = (await db.execute(sa_select(User).where(User.id == uid))).scalar_one_or_none()
+        if user is None:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "用户不存在"})
+        user.status = "disabled"
+        user.updated_at = datetime.now(timezone.utc)
+        await db.commit()
+        return SuccessResponse(
+            data={"id": user_id, "status": "disabled", "reason": body.reason},
+            message="用户已禁用",
+        )
     for u in _DEMO_USERS:
         if u["id"] == user_id:
             u["status"] = "disabled"
@@ -732,8 +855,21 @@ async def disable_user(
 async def enable_user(
     user_id: str,
     current_user: User = Depends(require_role(["SYSTEM_ADMIN", "HQ_ADMIN"])),
+    db: AsyncSession = Depends(get_db),
 ):
-    """启用用户。"""
+    """启用用户（生产：status → active）。"""
+    if not settings.DEMO_MODE:
+        try:
+            uid = uuid.UUID(user_id)
+        except ValueError:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "用户不存在"})
+        user = (await db.execute(sa_select(User).where(User.id == uid))).scalar_one_or_none()
+        if user is None:
+            raise HTTPException(status_code=404, detail={"code": "NOT_FOUND", "message": "用户不存在"})
+        user.status = "active"
+        user.updated_at = datetime.now(timezone.utc)
+        await db.commit()
+        return SuccessResponse(data={"id": user_id, "status": "active"}, message="用户已启用")
     for u in _DEMO_USERS:
         if u["id"] == user_id:
             u["status"] = "active"
