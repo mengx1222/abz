@@ -4,6 +4,7 @@ import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Card } from '../../components/ui/Card';
 import { Input } from '../../components/ui/Input';
+import { ThinkingIndicator } from '../../components/ui/ThinkingIndicator';
 import {
   CompliancePanel,
   CitationPanel,
@@ -489,9 +490,12 @@ export function SalesAgentPage() {
 
                     <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                       {msg.content}
-                      {msg.status === 'streaming' && (
-                        <span className="inline-block w-1.5 h-4 bg-accent/60 ml-0.5 animate-pulse rounded-sm" />
-                      )}
+                      {msg.status === 'streaming' &&
+                        (msg.content ? (
+                          <span className="inline-block w-1.5 h-4 bg-accent/60 ml-0.5 animate-pulse rounded-sm" />
+                        ) : (
+                          <ThinkingIndicator />
+                        ))}
                     </div>
 
                     <CitationPanel citations={msg.citations} />

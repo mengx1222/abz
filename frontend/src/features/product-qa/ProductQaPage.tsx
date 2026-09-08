@@ -4,6 +4,7 @@ import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
 import { Input } from '../../components/ui/Input';
+import { ThinkingIndicator } from '../../components/ui/ThinkingIndicator';
 import { streamProductQa, type ChatMessage } from '../../services/productQaService';
 
 const SUGGESTED_QUESTIONS = [
@@ -171,9 +172,12 @@ export function ProductQaPage() {
               >
                 <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                   {msg.content}
-                  {msg.isLoading && (
-                    <span className="inline-block w-1.5 h-4 bg-accent/60 ml-0.5 animate-pulse rounded-sm" />
-                  )}
+                  {msg.isLoading &&
+                    (msg.content ? (
+                      <span className="inline-block w-1.5 h-4 bg-accent/60 ml-0.5 animate-pulse rounded-sm" />
+                    ) : (
+                      <ThinkingIndicator />
+                    ))}
                 </div>
                 <div className="flex items-center gap-1.5 mt-1.5">
                   <span className="text-[11px] opacity-60">

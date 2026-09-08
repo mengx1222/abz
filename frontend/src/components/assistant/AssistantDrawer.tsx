@@ -3,6 +3,7 @@ import { Sparkles, X, RefreshCw, Search, UserRound } from 'lucide-react';
 import { Button } from '../ui/Button';
 import { Input } from '../ui/Input';
 import { LoadingSpinner } from '../ui/LoadingSpinner';
+import { ThinkingIndicator } from '../ui/ThinkingIndicator';
 import { EmptyState } from '../ui/EmptyState';
 import {
   AgentHttpError,
@@ -503,9 +504,12 @@ export function AssistantDrawer() {
 
                     <div className="text-sm leading-relaxed whitespace-pre-wrap break-words">
                       {msg.content}
-                      {msg.status === 'streaming' && (
-                        <span className="inline-block w-1.5 h-4 bg-accent/60 ml-0.5 animate-pulse rounded-sm" />
-                      )}
+                      {msg.status === 'streaming' &&
+                        (msg.content ? (
+                          <span className="inline-block w-1.5 h-4 bg-accent/60 ml-0.5 animate-pulse rounded-sm" />
+                        ) : (
+                          <ThinkingIndicator />
+                        ))}
                     </div>
 
                     <CitationPanel citations={msg.citations} />
