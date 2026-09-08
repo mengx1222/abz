@@ -6,17 +6,27 @@ import { getApiErrorMessage } from '../utils/apiError';
 interface AuthState {
   user: UserInfo | null;
   token: string | null;
+  refreshToken: string | null;
   isAuthenticated: boolean;
   isLoading: boolean;
   login: (credentials: LoginRequest) => Promise<void>;
   logout: () => void;
   fetchUser: () => Promise<void>;
   setUser: (user: UserInfo) => void;
+  applyRefreshedTokens: (accessToken: string, refreshToken: string) => void;
 }
 
 const getStoredToken = (): string | null => {
   try {
     return localStorage.getItem('abz_token');
+  } catch {
+    return null;
+  }
+};
+
+const getStoredRefreshToken = (): string | null => {
+  try {
+    return localStorage.getItem('abz_refresh_token');
   } catch {
     return null;
   }
@@ -35,6 +45,7 @@ const getStoredUser = (): UserInfo | null => {
 export const useAuthStore = create<AuthState>((set) => ({
   user: getStoredUser(),
   token: getStoredToken(),
+  refreshToken: getStoredRefreshToken(),
   isAuthenticated: !!getStoredToken(),
   isLoading: false,
 
@@ -44,8 +55,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       const tokenData = await loginWithCredentials(credentials);
 
       localStorage.setItem('abz_token', tokenData.access_token);
+      localStorage.setItem('abz_refresh_token', tokenData.refresh_token);
 
-      set({ token: tokenData.access_token, isLoading: false });
+      set({ token: tokenData.access_token, refreshToken: tokenData.refresh_token, isLoading: false });
 
       // Fetch user info with the new token
       try {
@@ -66,8 +78,15 @@ export const useAuthStore = create<AuthState>((set) => ({
 
   logout: () => {
     localStorage.removeItem('abz_token');
+    localStorage.removeItem('abz_refresh_token');
     localStorage.removeItem('abz_user');
-    set({ user: null, token: null, isAuthenticated: false });
+    set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
+  },
+
+  applyRefreshedTokens: (accessToken: string, refreshToken: string) => {
+    localStorage.setItem('abz_token', accessToken);
+    localStorage.setItem('abz_refresh_token', refreshToken);
+    set({ token: accessToken, refreshToken, isAuthenticated: true });
   },
 
   fetchUser: async () => {
@@ -79,8 +98,9 @@ export const useAuthStore = create<AuthState>((set) => ({
       set({ user, isAuthenticated: true });
     } catch {
       // Token might be expired
-      set({ user: null, token: null, isAuthenticated: false });
+      set({ user: null, token: null, refreshToken: null, isAuthenticated: false });
       localStorage.removeItem('abz_token');
+      localStorage.removeItem('abz_refresh_token');
       localStorage.removeItem('abz_user');
     }
   },

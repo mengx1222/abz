@@ -36,19 +36,29 @@ export function TopBar() {
     <header className="h-16 bg-card border-b border-border flex items-center justify-between px-6 flex-shrink-0">
       {/* Left: Search */}
       <div className="flex-1 max-w-md">
-        <div className="relative">
-          <Search
-            aria-hidden="true"
-            className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted"
-          />
-          <input
-            type="text"
-            value={searchValue}
-            onChange={(e) => setSearchValue(e.target.value)}
-            placeholder="搜索产品、客户、话术..."
-            className="w-full h-9 pl-9 pr-4 rounded-lg border border-border bg-bg text-sm text-text placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent focus:bg-card transition-colors"
-          />
-        </div>
+        <form
+          onSubmit={(e) => {
+            e.preventDefault();
+            const q = searchValue.trim();
+            navigate(q ? `/customers?search=${encodeURIComponent(q)}` : '/customers');
+            setSearchValue('');
+          }}
+        >
+          <div className="relative">
+            <Search
+              aria-hidden="true"
+              className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted"
+            />
+            <input
+              type="search"
+              value={searchValue}
+              onChange={(e) => setSearchValue(e.target.value)}
+              placeholder="搜索客户姓名或手机号，回车跳转"
+              aria-label="搜索客户"
+              className="w-full h-9 pl-9 pr-4 rounded-lg border border-border bg-bg text-sm text-text placeholder:text-muted/60 focus:outline-none focus:ring-2 focus:ring-accent/20 focus:border-accent focus:bg-card transition-colors"
+            />
+          </div>
+        </form>
       </div>
 
       {/* Right: Actions */}

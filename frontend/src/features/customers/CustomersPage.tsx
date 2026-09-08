@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useSearchParams } from 'react-router-dom';
 import { Card } from '../../components/ui/Card';
 import { Badge } from '../../components/ui/Badge';
 import { Button } from '../../components/ui/Button';
@@ -313,10 +313,11 @@ const TYPE_FILTERS = [
 
 export function CustomersPage() {
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const { toast } = useToast();
 
   // Filters
-  const [search, setSearch] = useState('');
+  const [search, setSearch] = useState(searchParams.get('search') ?? '');
   const [customerType, setCustomerType] = useState('');
   const [stageFilter, setStageFilter] = useState('');
   const [intentionFilter, setIntentionFilter] = useState('');
