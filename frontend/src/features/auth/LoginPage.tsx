@@ -96,9 +96,9 @@ export function LoginPage() {
   }
 
   function handleDemoLogin(demoPhone: string) {
-    // Auto-login on next frame（当前已在 demo 模式，直接走验证码登录）
+    // Auto-login on next frame（密码字段在 demo 与生产两模式后端均接受 888888）
     setTimeout(async () => {
-      await doLogin({ phone: demoPhone, verification_code: '888888' });
+      await doLogin({ phone: demoPhone, password: '888888' });
     }, 0);
   }
 
@@ -177,36 +177,34 @@ export function LoginPage() {
           )}
         </div>
 
-        {/* Demo user quick-switch（仅演示模式） */}
-        {authMode === 'demo' && (
-          <div className="mt-4">
-            <p className="text-xs text-muted mb-2 text-center">演示模式 — 快速登录</p>
-            <div className="grid grid-cols-2 gap-2">
-              {DEMO_USERS.map((u) => (
-                <button
-                  key={u.phone}
-                  type="button"
-                  onClick={() => handleDemoLogin(u.phone)}
-                  disabled={isLoading}
-                  className="flex items-center gap-2.5 bg-card border border-border rounded-lg px-3 py-2.5 hover:border-accent/40 hover:shadow-sm transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
-                >
-                  <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
-                    <span className="text-accent text-xs font-bold">
-                      {u.name.charAt(0)}
-                    </span>
-                  </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-medium text-text truncate">{u.name}</p>
-                    <p className="text-[11px] text-muted truncate">{u.role} · {u.desc}</p>
-                  </div>
-                </button>
-              ))}
-            </div>
-            <p className="text-[11px] text-muted/50 text-center mt-2">
-              统一验证码：<span className="font-mono">888888</span>
-            </p>
+        {/* Demo user quick-switch（始终显示：生产模式演示账号已入库，密码登录） */}
+        <div className="mt-4">
+          <p className="text-xs text-muted mb-2 text-center">演示账号快捷登录</p>
+          <div className="grid grid-cols-2 gap-2">
+            {DEMO_USERS.map((u) => (
+              <button
+                key={u.phone}
+                type="button"
+                onClick={() => handleDemoLogin(u.phone)}
+                disabled={isLoading}
+                className="flex items-center gap-2.5 bg-card border border-border rounded-lg px-3 py-2.5 hover:border-accent/40 hover:shadow-sm transition-all duration-150 cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed text-left"
+              >
+                <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0">
+                  <span className="text-accent text-xs font-bold">
+                    {u.name.charAt(0)}
+                  </span>
+                </div>
+                <div className="min-w-0">
+                  <p className="text-sm font-medium text-text truncate">{u.name}</p>
+                  <p className="text-[11px] text-muted truncate">{u.role} · {u.desc}</p>
+                </div>
+              </button>
+            ))}
           </div>
-        )}
+          <p className="text-[11px] text-muted/50 text-center mt-2">
+            统一密码：<span className="font-mono">888888</span>
+          </p>
+        </div>
 
         <p className="text-center text-xs text-muted/60 mt-4">
           © 2026 华安保险 · 安诊保 AI 副驾
