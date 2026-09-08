@@ -286,6 +286,7 @@ Demo 模式预置测试账号（默认密码 `888888`，DEMO ONLY / NON-PRODUCTI
 
 | 文档 | 说明 |
 |------|------|
+| [快速部署指南（新机器/新电脑）](docs/quick-deploy.md) | Clone → .env → Docker 一键启动全栈 |
 | [项目状态（唯一事实来源）](docs/project-status.md) | 当前 Phase / HEAD / 验证记录 / P0-P2 |
 | [当前状态审计](docs/current-state-audit.md) | 最近一次完整审计 |
 | [发布就绪基线](docs/release-readiness.md) | 发布能力检查表 |
